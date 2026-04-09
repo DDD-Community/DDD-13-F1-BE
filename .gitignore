@@ -35,8 +35,3 @@ out/
 
 ### VS Code ###
 .vscode/
-
-# Environment-specific config (서버 세팅 전 임시 제외)
-src/main/resources/application-local.yaml
-src/main/resources/application-dev.yaml
-src/main/resources/application-prod.yaml

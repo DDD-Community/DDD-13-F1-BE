@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  # MySQL - AWS RDS
+  datasource:
+    url: jdbc:mysql://${QUIKET_DB_HOST}:3306/quiket?useSSL=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${QUIKET_DB_USERNAME}
+    password: ${QUIKET_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # Redis
+  data:
+    redis:
+      host: ${QUIKET_DB_HOST}
+      port: 6379
+      password: ${QUIKET_REDIS_PASSWORD}
+
+  # JPA
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+# 파일 저장 경로 
+file:
+  upload:
+    path: /app/quiket/uploads
+    allowed-extensions: pdf, png, jpg, jpeg, txt, docx
+
+# 로깅
+logging:
+  level:
+    root: WARN
+    com.f1.quiket: INFO
+
+# Swagger (SpringDoc OpenAPI)
+springdoc:
+  api-docs:
+    enabled: false  # Swagger JSON 엔드포인트 비활성화
+  swagger-ui:
+    enabled: false  # Swagger UI 비활성화
