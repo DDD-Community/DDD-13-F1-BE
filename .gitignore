@@ -1,37 +1,129 @@
+# ===== COMMON =====
+
 HELP.md
+
+# ===== OS (macOS) =====
+
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+.apdisk
+*.icloud
+
+# ===== Database =====
+
+*.accdb
+*.db
+*.dbf
+*.mdb
+*.pdb
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# ===== Redis =====
+
+*.rdb
+
+# ===== Logs / Runtime =====
+
+logs/
+*.log
+*.out
+*.pid
+*.pid.lock
+
+# ===== Gradle =====
+
 .gradle
 build/
+**/build/
 !gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+!gradle-wrapper.properties
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
+# ===== Java =====
 
-### IntelliJ IDEA ###
+*.class
+hs_err_pid*
+replay_pid*
+
+# ===== IntelliJ =====
+
 .idea
 *.iws
 *.iml
 *.ipr
 out/
-!**/src/main/**/out/
-!**/src/test/**/out/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
+# ===== STS / Eclipse =====
+
+.metadata
+bin/
+.settings/
+.project
+.classpath
+.factorypath
+.springBeans
+.sts4-cache
+
+# ===== NetBeans =====
+
+**/nbproject/private/
+**/nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
+# ===== DBeaver =====
+
+.dbeaver-data-sources*.xml
+
+# ===== Environment =====
+
+.env
+.env.*
+!.env.example
+
+# ===== Spring Boot =====
+
+application-local.yml
+application-local.yaml
+
+# ===== Secrets =====
+
+secrets/
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+
+# ===== Docker =====
+
+docker-compose.override.yml
+
+
+# ===== Editor =====
+
 .vscode/
+
+# ===== AI Coding Tools =====
+.claude/settings.local.json
+.cursor/
+.codex/
