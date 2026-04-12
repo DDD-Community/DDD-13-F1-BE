@@ -1,8 +1,8 @@
 spring:
   application:
     name: quiket
-  # profiles:
-  #   active: local  # 기본 실행 프로파일 - 서버 배포 시 환경변수로 override
+  profiles:
+    active: local  # 기본 실행 프로파일 - 서버 배포 시 환경변수로 override
 
   # JPA 공통
   jpa:
