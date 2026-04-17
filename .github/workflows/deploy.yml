@@ -30,6 +30,7 @@ jobs:
         id: image
         run: |
           IMAGE_REPOSITORY=$(echo "ghcr.io/${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
+          echo "main=${IMAGE_REPOSITORY}:main" >> "$GITHUB_OUTPUT"
           echo "latest=${IMAGE_REPOSITORY}:latest" >> "$GITHUB_OUTPUT"
           echo "sha=${IMAGE_REPOSITORY}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
@@ -47,6 +48,7 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
+            ${{ steps.image.outputs.main }}
             ${{ steps.image.outputs.latest }}
             ${{ steps.image.outputs.sha }}
           cache-from: type=gha

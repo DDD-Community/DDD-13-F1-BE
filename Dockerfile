@@ -15,6 +15,8 @@ WORKDIR /app
 
 ENV TZ=Asia/Seoul
 
+LABEL org.opencontainers.image.source="https://github.com/DDD-Community/DDD-13-F1-BE"
+
 COPY --from=builder /app/build/libs/*.jar /app/app.jar
 
 EXPOSE 8080
