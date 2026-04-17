@@ -2,6 +2,7 @@ package com.f1.quiket.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -28,18 +29,22 @@ public class JpaConfig {
      * 엔티티 스캔, JPA 벤더 설정, Hibernate 속성들을 구성합니다.
      */
     @Bean
-    public LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource) {
+    public LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource, Environment environment) {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
         em.setPackagesToScan("com.f1.quiket.domain");  // 엔티티 클래스 스캔 패키지
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());  // Hibernate를 JPA 구현체로 사용
 
-        // Hibernate 속성 설정
+        // 프로파일별 YAML 값을 그대로 따라가게 해서 test/prod 설정을 분리합니다.
         Properties properties = new Properties();
-        properties.setProperty("hibernate.hbm2ddl.auto", "validate");  // 스키마 자동 생성/검증 모드
-        properties.setProperty("hibernate.show_sql", "false");  // SQL 쿼리 로깅 비활성화
-        properties.setProperty("hibernate.format_sql", "true");  // SQL 포맷팅 활성화
-        properties.setProperty("hibernate.use_sql_comments", "true");  // SQL 주석 추가
+        properties.setProperty("hibernate.hbm2ddl.auto",
+                environment.getProperty("spring.jpa.hibernate.ddl-auto", "none"));
+        properties.setProperty("hibernate.show_sql",
+                environment.getProperty("spring.jpa.show-sql", "false"));
+        properties.setProperty("hibernate.format_sql",
+                environment.getProperty("spring.jpa.properties.hibernate.format_sql", "false"));
+        properties.setProperty("hibernate.use_sql_comments",
+                environment.getProperty("spring.jpa.properties.hibernate.use_sql_comments", "false"));
 
         em.setJpaProperties(properties);
         return em;
