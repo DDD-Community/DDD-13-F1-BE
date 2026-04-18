@@ -31,6 +31,8 @@ dependencies {
 
 	// Database
 	runtimeOnly 'com.mysql:mysql-connector-j'
+	// CI 테스트 DB
+	testRuntimeOnly 'com.h2database:h2'
 
 	// Dev Tools
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
