@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 공통 API 응답 포맷
- * 상태 코드, 코드, 메시지, 데이터를 포함하여 일관된 응답 구조 제공
+ * 성공 여부, 코드, 메시지, 데이터를 포함한 일관된 응답 구조
  */
 @Getter
 @Builder
@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
-    private int status;
+    private boolean success;
     private String code;
     private String message;
     private T data;
@@ -25,9 +25,9 @@ public class ApiResponse<T> {
     /**
      * 성공 응답 생성
      */
-    public static <T> ApiResponse<T> of(SuccessCode successCode, T data) {
+    public static <T> ApiResponse<T> success(SuccessCode successCode, T data) {
         return ApiResponse.<T>builder()
-                .status(successCode.getStatus())
+                .success(true)
                 .code(successCode.getCode())
                 .message(successCode.getMessage())
                 .data(data)
@@ -37,9 +37,9 @@ public class ApiResponse<T> {
     /**
      * 성공 응답 생성 (데이터 없음)
      */
-    public static <T> ApiResponse<T> of(SuccessCode successCode) {
+    public static <T> ApiResponse<T> success(SuccessCode successCode) {
         return ApiResponse.<T>builder()
-                .status(successCode.getStatus())
+                .success(true)
                 .code(successCode.getCode())
                 .message(successCode.getMessage())
                 .build();
@@ -48,9 +48,9 @@ public class ApiResponse<T> {
     /**
      * 실패 응답 생성
      */
-    public static <T> ApiResponse<T> of(ErrorCode errorCode) {
+    public static <T> ApiResponse<T> fail(ErrorCode errorCode) {
         return ApiResponse.<T>builder()
-                .status(errorCode.getStatus())
+                .success(false)
                 .code(errorCode.getCode())
                 .message(errorCode.getMessage())
                 .build();
@@ -59,9 +59,9 @@ public class ApiResponse<T> {
     /**
      * 커스텀 메시지와 함께 실패 응답 생성
      */
-    public static <T> ApiResponse<T> of(ErrorCode errorCode, String customMessage) {
+    public static <T> ApiResponse<T> fail(ErrorCode errorCode, String customMessage) {
         return ApiResponse.<T>builder()
-                .status(errorCode.getStatus())
+                .success(false)
                 .code(errorCode.getCode())
                 .message(customMessage)
                 .build();
