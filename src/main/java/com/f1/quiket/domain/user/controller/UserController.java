@@ -22,12 +22,12 @@ public class UserController {
     private final UserService userService;
 
     /**
-     * 활성화된 사용자 목록 조회.
+     * 활성화된 사용자 목록 조회
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<UserResponse>>> getUsers() {
         List<UserResponse> users = userService.findActiveUsers();
-        return ResponseEntity.ok(ApiResponse.of(SuccessCode.OK, users));
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, users));
     }
 
 }

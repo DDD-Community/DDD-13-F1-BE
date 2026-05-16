@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
         log.warn("Custom Exception: {} - {}", e.getErrorCode().getCode(), e.getMessage());
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
-                .body(ApiResponse.of(e.getErrorCode(), e.getMessage()));
+                .body(ApiResponse.fail(e.getErrorCode(), e.getMessage()));
     }
 
     /**
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
         log.warn("Validation failed: {}", message);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.of(ErrorCode.INVALID_INPUT_VALUE, message));
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, message));
     }
 
     /**
@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
         log.warn("Method not allowed: {}", e.getMethod());
         return ResponseEntity
                 .status(HttpStatus.METHOD_NOT_ALLOWED)
-                .body(ApiResponse.of(ErrorCode.METHOD_NOT_ALLOWED));
+                .body(ApiResponse.fail(ErrorCode.METHOD_NOT_ALLOWED));
     }
 
     /**
@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
         log.warn("Resource not found: {}", e.getRequestURL());
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.of(ErrorCode.NOT_FOUND));
+                .body(ApiResponse.fail(ErrorCode.NOT_FOUND));
     }
 
     /**
@@ -77,6 +77,6 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception: ", e);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.of(ErrorCode.INTERNAL_SERVER_ERROR));
+                .body(ApiResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 }
