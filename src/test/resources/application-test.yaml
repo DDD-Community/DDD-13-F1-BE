@@ -21,3 +21,8 @@ spring:
       hibernate:
         format_sql: false
         use_sql_comments: false
+
+aws:
+  ses:
+    region: ${AWS_REGION:ap-northeast-2}
+    from-email: ${AWS_SES_FROM_EMAIL:ja2hoon97@gmail.com}

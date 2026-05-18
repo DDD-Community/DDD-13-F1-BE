@@ -37,8 +37,8 @@ file:
 # 로깅
 logging:
   level:
-    root: WARN
-    com.f1.quiket: INFO
+    root: DEBUG
+    com.f1.quiket: DEBUG
 
 # Swagger (SpringDoc OpenAPI)
 springdoc:
@@ -46,3 +46,10 @@ springdoc:
     enabled: true   # Swagger JSON 엔드포인트 활성화
   swagger-ui:
     enabled: true   # Swagger UI 활성화
+aws:
+  ses:
+    # SES 리전 설정값
+    # 기본값 사용, 필요 시 환경변수 override
+    region: ${AWS_REGION:ap-northeast-2}
+    # SES 발신자 이메일 설정값
+    from-email: ${AWS_SES_FROM_EMAIL:ja2hoon97@gmail.com}
