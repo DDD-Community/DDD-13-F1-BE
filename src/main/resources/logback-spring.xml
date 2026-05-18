@@ -34,10 +34,4 @@
             <appender-ref ref="ROLLING_FILE"/>
         </root>
     </springProfile>
-
-    <springProfile name="!local & !prod">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
 </configuration>
