@@ -37,8 +37,8 @@ file:
 # 로깅
 logging:
   level:
-    root: WARN
-    com.f1.quiket: INFO
+    root: DEBUG
+    com.f1.quiket: DEBUG
 
 # Swagger (SpringDoc OpenAPI)
 springdoc:
