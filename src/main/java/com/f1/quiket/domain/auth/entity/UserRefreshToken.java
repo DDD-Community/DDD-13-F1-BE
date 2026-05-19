@@ -76,4 +76,43 @@ public class UserRefreshToken extends BaseEntity {
 
     @Column(name = "last_used_at", nullable = false)
     LocalDateTime lastUsedAt = LocalDateTime.now();
+
+    public static UserRefreshToken create(
+            User user,
+            String tokenHash,
+            String deviceId,
+            String deviceName,
+            String userAgent,
+            String ipAddress,
+            LocalDateTime issuedAt,
+            LocalDateTime expiresAt
+    ) {
+        UserRefreshToken refreshToken = new UserRefreshToken();
+        refreshToken.user = user;
+        refreshToken.tokenHash = tokenHash;
+        refreshToken.deviceId = deviceId;
+        refreshToken.deviceName = deviceName;
+        refreshToken.userAgent = userAgent;
+        refreshToken.ipAddress = ipAddress;
+        refreshToken.issuedAt = issuedAt;
+        refreshToken.expiresAt = expiresAt;
+        refreshToken.lastUsedAt = issuedAt;
+        return refreshToken;
+    }
+
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
+    public boolean isExpired(LocalDateTime now) {
+        return !expiresAt.isAfter(now);
+    }
+
+    public void recordUsed(LocalDateTime lastUsedAt) {
+        this.lastUsedAt = lastUsedAt;
+    }
+
+    public void revoke(LocalDateTime revokedAt) {
+        this.revokedAt = revokedAt;
+    }
 }

@@ -24,6 +24,9 @@ public enum SuccessCode {
     AUTH_EMAIL_VERIFICATION_SENT(200, "AUTH_EMAIL_VERIFICATION_SENT", "이메일 인증 메일이 발송되었습니다."),
     AUTH_EMAIL_VERIFIED(200, "AUTH_EMAIL_VERIFIED", "이메일 인증이 완료되었습니다."),
     AUTH_LOGIN_SUCCESS(200, "AUTH_LOGIN_SUCCESS", "로그인이 완료되었습니다."),
+    AUTH_TOKEN_REFRESHED(200, "AUTH_TOKEN_REFRESHED", "토큰이 재발급되었습니다."),
+    AUTH_LOGOUT_SUCCESS(200, "AUTH_LOGOUT_SUCCESS", "로그아웃이 완료되었습니다."),
+    AUTH_ME_SUCCESS(200, "AUTH_ME_SUCCESS", "내 정보 조회가 완료되었습니다."),
     ;
 
     private final int status;

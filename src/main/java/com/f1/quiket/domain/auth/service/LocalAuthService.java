@@ -4,7 +4,7 @@ import com.f1.quiket.domain.auth.dto.EmailAvailabilityResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
-import com.f1.quiket.domain.auth.dto.LocalLoginResponse;
+import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
 import com.f1.quiket.domain.auth.dto.LoginRequest;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
@@ -45,6 +45,7 @@ public class LocalAuthService {
     private final EmailVerificationCodeGenerator verificationCodeGenerator;
     private final MailTemplateFactory mailTemplateFactory;
     private final SesMailSender sesMailSender;
+    private final AuthTokenService authTokenService;
 
     public SignupResponse signup(SignupRequest request) {
         validatePasswordConfirm(request.getPassword(), request.getPasswordConfirm());
@@ -89,7 +90,7 @@ public class LocalAuthService {
         return EmailVerificationConfirmResponse.verified(verification.getEmail());
     }
 
-    public LocalLoginResponse login(LoginRequest request, String loginIp) {
+    public AuthTokenResponse login(LoginRequest request, AuthTokenRequestContext context) {
         User user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS));
 
@@ -102,9 +103,9 @@ public class LocalAuthService {
         validatePassword(user, localIdentity, request.getPassword());
         validateEmailVerified(user);
 
-        user.recordLoginSuccess(loginIp);
+        user.recordLoginSuccess(context.getIpAddress());
         localIdentity.recordLoginSuccess();
-        return LocalLoginResponse.of(user, userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user));
+        return authTokenService.issueTokens(user, context);
     }
 
     private void validatePasswordConfirm(String password, String passwordConfirm) {
