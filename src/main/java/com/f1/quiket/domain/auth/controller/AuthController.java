@@ -101,9 +101,16 @@ public class AuthController {
 
     @PostMapping("/token/refresh")
     public ResponseEntity<ApiResponse<AuthTokenResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request
+            @Valid @RequestBody RefreshTokenRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
     ) {
-        AuthTokenResponse response = authTokenService.refresh(request);
+        AuthTokenResponse response = authTokenService.refresh(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_TOKEN_REFRESHED, response));
     }
 

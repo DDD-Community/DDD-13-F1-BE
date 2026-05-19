@@ -59,7 +59,7 @@ public class AuthTokenService {
         return buildTokenResponse(user, accessToken, refreshToken);
     }
 
-    public AuthTokenResponse refresh(RefreshTokenRequest request) {
+    public AuthTokenResponse refresh(RefreshTokenRequest request, AuthTokenRequestContext context) {
         UserRefreshToken refreshToken = findRefreshToken(request.getRefreshToken());
         LocalDateTime now = LocalDateTime.now();
         validateRefreshToken(refreshToken, now);
@@ -67,9 +67,9 @@ public class AuthTokenService {
         refreshToken.recordUsed(now);
         User user = refreshToken.getUser();
         validateUserCanUseToken(user);
+        refreshToken.revoke(now);
 
-        String accessToken = jwtTokenProvider.createAccessToken(user);
-        return buildTokenResponse(user, accessToken, request.getRefreshToken());
+        return issueTokens(user, context);
     }
 
     public void logout(String userPublicId, LogoutRequest request) {

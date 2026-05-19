@@ -31,6 +31,7 @@ class AuthTokenServiceTest {
 
     private JwtTokenProvider jwtTokenProvider;
     private JwtProperties jwtProperties;
+    private RefreshTokenGenerator refreshTokenGenerator;
     private TokenHashGenerator tokenHashGenerator;
     private UserRefreshTokenRepository userRefreshTokenRepository;
     private UserRepository userRepository;
@@ -42,6 +43,7 @@ class AuthTokenServiceTest {
         jwtTokenProvider = mock(JwtTokenProvider.class);
         jwtProperties = new JwtProperties();
         jwtProperties.setRefreshTokenExpiresInSeconds(1209600L);
+        refreshTokenGenerator = mock(RefreshTokenGenerator.class);
         tokenHashGenerator = new TokenHashGenerator();
         userRefreshTokenRepository = mock(UserRefreshTokenRepository.class);
         userRepository = mock(UserRepository.class);
@@ -50,7 +52,7 @@ class AuthTokenServiceTest {
         authTokenService = new AuthTokenService(
                 jwtTokenProvider,
                 jwtProperties,
-                mock(RefreshTokenGenerator.class),
+                refreshTokenGenerator,
                 tokenHashGenerator,
                 userRefreshTokenRepository,
                 userRepository,
@@ -70,14 +72,16 @@ class AuthTokenServiceTest {
                 .thenReturn(Optional.of(refreshToken));
         when(jwtTokenProvider.createAccessToken(user)).thenReturn("new-access-token");
         when(jwtTokenProvider.getAccessTokenExpiresInSeconds()).thenReturn(3600L);
+        when(refreshTokenGenerator.generate()).thenReturn("new-refresh-token");
         when(userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user)).thenReturn(List.of(identity));
 
-        AuthTokenResponse response = authTokenService.refresh(request);
+        AuthTokenResponse response = authTokenService.refresh(request, tokenRequestContext());
 
         assertThat(response.getAccessToken()).isEqualTo("new-access-token");
-        assertThat(response.getRefreshToken()).isEqualTo(refreshTokenValue);
+        assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
         assertThat(response.getUser().getEmail()).isEqualTo("user@example.com");
         assertThat(refreshToken.getLastUsedAt()).isNotNull();
+        assertThat(refreshToken.isRevoked()).isTrue();
     }
 
     @Test
@@ -90,7 +94,7 @@ class AuthTokenServiceTest {
         when(userRefreshTokenRepository.findByTokenHashAndDeletedAtIsNull(tokenHashGenerator.hash(refreshTokenValue)))
                 .thenReturn(Optional.of(refreshToken));
 
-        assertThatThrownBy(() -> authTokenService.refresh(refreshTokenRequest(refreshTokenValue)))
+        assertThatThrownBy(() -> authTokenService.refresh(refreshTokenRequest(refreshTokenValue), tokenRequestContext()))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.AUTH_REVOKED_REFRESH_TOKEN);
@@ -153,6 +157,15 @@ class AuthTokenServiceTest {
         RefreshTokenRequest request = new RefreshTokenRequest();
         ReflectionTestUtils.setField(request, "refreshToken", refreshToken);
         return request;
+    }
+
+    private AuthTokenRequestContext tokenRequestContext() {
+        return AuthTokenRequestContext.builder()
+                .deviceId("device-id")
+                .deviceName("Galaxy S24")
+                .userAgent("Android")
+                .ipAddress("127.0.0.1")
+                .build();
     }
 
     private LogoutRequest logoutRequest(String refreshToken) {
