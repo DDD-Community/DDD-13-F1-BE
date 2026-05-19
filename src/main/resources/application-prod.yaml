@@ -53,3 +53,7 @@ aws:
     region: ${AWS_REGION:ap-northeast-2}
     # SES 발신자 이메일 설정값
     from-email: ${AWS_SES_FROM_EMAIL:ja2hoon97@gmail.com}
+
+quiket:
+  jwt:
+    secret: ${QUIKET_JWT_SECRET}
