@@ -2,11 +2,13 @@ package com.f1.quiket.domain.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
+import com.f1.quiket.domain.auth.dto.AuthUserResponse;
 import com.f1.quiket.domain.auth.dto.LoginRequest;
-import com.f1.quiket.domain.auth.dto.LocalLoginResponse;
 import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
 import com.f1.quiket.domain.auth.repository.UserAuthIdentityRepository;
 import com.f1.quiket.domain.auth.repository.UserEmailVerificationRepository;
@@ -27,12 +29,14 @@ class LocalAuthServiceTest {
 
     private UserRepository userRepository;
     private UserAuthIdentityRepository userAuthIdentityRepository;
+    private AuthTokenService authTokenService;
     private LocalAuthService localAuthService;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         userAuthIdentityRepository = mock(UserAuthIdentityRepository.class);
+        authTokenService = mock(AuthTokenService.class);
 
         localAuthService = new LocalAuthService(
                 userRepository,
@@ -41,7 +45,8 @@ class LocalAuthServiceTest {
                 new BCryptPasswordEncoder(),
                 mock(EmailVerificationCodeGenerator.class),
                 mock(MailTemplateFactory.class),
-                mock(SesMailSender.class)
+                mock(SesMailSender.class),
+                authTokenService
         );
     }
 
@@ -59,11 +64,14 @@ class LocalAuthServiceTest {
         when(userRepository.findByEmailAndDeletedAtIsNull("user@example.com")).thenReturn(Optional.of(user));
         when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
                 .thenReturn(Optional.of(identity));
-        when(userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user)).thenReturn(List.of(identity));
+        when(authTokenService.issueTokens(any(User.class), any(AuthTokenRequestContext.class)))
+                .thenReturn(tokenResponse(user, List.of(identity)));
 
-        LocalLoginResponse response = localAuthService.login(request, "127.0.0.1");
+        AuthTokenResponse response = localAuthService.login(request, tokenRequestContext("127.0.0.1"));
 
         assertThat(response.getUser().getEmail()).isEqualTo("user@example.com");
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
         assertThat(user.getFailedLoginCount()).isZero();
         assertThat(user.getLastLoginIp()).isEqualTo("127.0.0.1");
         assertThat(user.getLastLoginAt()).isNotNull();
@@ -86,13 +94,13 @@ class LocalAuthServiceTest {
                 .thenReturn(Optional.of(identity));
 
         for (int i = 0; i < 4; i++) {
-            assertThatThrownBy(() -> localAuthService.login(request, "127.0.0.1"))
+            assertThatThrownBy(() -> localAuthService.login(request, tokenRequestContext("127.0.0.1")))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
         }
 
-        assertThatThrownBy(() -> localAuthService.login(request, "127.0.0.1"))
+        assertThatThrownBy(() -> localAuthService.login(request, tokenRequestContext("127.0.0.1")))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.AUTH_ACCOUNT_LOCKED);
@@ -114,7 +122,7 @@ class LocalAuthServiceTest {
         when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
                 .thenReturn(Optional.of(identity));
 
-        assertThatThrownBy(() -> localAuthService.login(request, "127.0.0.1"))
+        assertThatThrownBy(() -> localAuthService.login(request, tokenRequestContext("127.0.0.1")))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.AUTH_EMAIL_NOT_VERIFIED);
@@ -125,5 +133,21 @@ class LocalAuthServiceTest {
         ReflectionTestUtils.setField(request, "email", email);
         ReflectionTestUtils.setField(request, "password", password);
         return request;
+    }
+
+    private AuthTokenRequestContext tokenRequestContext(String ipAddress) {
+        return AuthTokenRequestContext.builder()
+                .ipAddress(ipAddress)
+                .build();
+    }
+
+    private AuthTokenResponse tokenResponse(User user, List<UserAuthIdentity> identities) {
+        return AuthTokenResponse.of(
+                "access-token",
+                "refresh-token",
+                3600L,
+                1209600L,
+                AuthUserResponse.of(user, identities)
+        );
     }
 }
