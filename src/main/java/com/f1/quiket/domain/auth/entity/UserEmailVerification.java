@@ -70,4 +70,33 @@ public class UserEmailVerification extends BaseEntity {
 
     @Column(name = "expires_at", nullable = false)
     LocalDateTime expiresAt;
+
+    public static UserEmailVerification create(
+            User user,
+            String email,
+            String verificationToken,
+            String verificationCode,
+            LocalDateTime expiresAt
+    ) {
+        UserEmailVerification verification = new UserEmailVerification();
+        verification.user = user;
+        verification.email = email;
+        verification.verificationToken = verificationToken;
+        verification.verificationCode = verificationCode;
+        verification.expiresAt = expiresAt;
+        return verification;
+    }
+
+    public boolean isExpired(LocalDateTime now) {
+        return expiresAt.isBefore(now);
+    }
+
+    public void verify(LocalDateTime now) {
+        this.status = "verified";
+        this.verifiedAt = now;
+    }
+
+    public void expire() {
+        this.status = "expired";
+    }
 }

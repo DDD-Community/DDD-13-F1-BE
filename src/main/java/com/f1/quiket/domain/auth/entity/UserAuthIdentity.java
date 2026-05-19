@@ -67,4 +67,18 @@ public class UserAuthIdentity extends BaseEntity {
 
     @Column(name = "last_login_at")
     LocalDateTime lastLoginAt;
+
+    public static UserAuthIdentity createLocal(User user, String passwordHash, boolean primary) {
+        UserAuthIdentity identity = new UserAuthIdentity();
+        identity.user = user;
+        identity.provider = "local";
+        identity.providerSubject = "";
+        identity.passwordHash = passwordHash;
+        identity.primary = primary;
+        return identity;
+    }
+
+    public void recordLoginSuccess() {
+        this.lastLoginAt = LocalDateTime.now();
+    }
 }

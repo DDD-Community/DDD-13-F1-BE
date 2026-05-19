@@ -72,4 +72,36 @@ public class User extends BaseEntity {
 
     @Column(name = "current_level", nullable = false)
     Integer currentLevel = 1;
+
+    public static User create(String publicId, String email, String nickname) {
+        User user = new User();
+        user.publicId = publicId;
+        user.email = email;
+        user.nickname = nickname;
+        return user;
+    }
+
+    public void verifyEmail() {
+        this.emailVerified = true;
+    }
+
+    public void recordLoginFailure(int maxFailedCount) {
+        this.failedLoginCount++;
+        this.lastFailedLoginAt = LocalDateTime.now();
+        if (this.failedLoginCount >= maxFailedCount) {
+            this.status = "locked";
+            this.lockedAt = LocalDateTime.now();
+        }
+    }
+
+    public void recordLoginSuccess(String loginIp) {
+        this.failedLoginCount = 0;
+        this.lastFailedLoginAt = null;
+        this.lastLoginAt = LocalDateTime.now();
+        this.lastLoginIp = loginIp;
+    }
+
+    public boolean isLocked() {
+        return "locked".equals(this.status);
+    }
 }
