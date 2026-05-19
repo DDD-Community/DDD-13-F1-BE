@@ -16,6 +16,14 @@ public enum SuccessCode {
     CREATED(201, "S002", "리소스가 생성되었습니다."),
     ACCEPTED(202, "S003", "요청이 수락되었습니다."),
     NO_CONTENT(204, "S004", "요청이 성공했습니다. 반환 콘텐츠가 없습니다."),
+
+    // Auth Success
+    AUTH_SIGNUP_SUCCESS(201, "AUTH_SIGNUP_SUCCESS", "회원가입이 완료되었습니다. 이메일 인증을 진행해주세요."),
+    AUTH_EMAIL_AVAILABLE(200, "AUTH_EMAIL_AVAILABLE", "사용 가능한 이메일입니다."),
+    AUTH_EMAIL_UNAVAILABLE(200, "AUTH_EMAIL_UNAVAILABLE", "이미 사용 중인 이메일입니다."),
+    AUTH_EMAIL_VERIFICATION_SENT(200, "AUTH_EMAIL_VERIFICATION_SENT", "이메일 인증 메일이 발송되었습니다."),
+    AUTH_EMAIL_VERIFIED(200, "AUTH_EMAIL_VERIFIED", "이메일 인증이 완료되었습니다."),
+    AUTH_LOGIN_SUCCESS(200, "AUTH_LOGIN_SUCCESS", "로그인이 완료되었습니다."),
     ;
 
     private final int status;

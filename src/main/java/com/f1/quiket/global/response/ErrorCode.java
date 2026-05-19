@@ -20,6 +20,17 @@ public enum ErrorCode {
     CONFLICT(409, "C007", "이미 존재하는 리소스입니다."),
     UNPROCESSABLE_ENTITY(422, "C008", "처리할 수 없는 엔티티입니다."),
 
+    // Auth Errors
+    AUTH_EMAIL_ALREADY_EXISTS(409, "AUTH_EMAIL_ALREADY_EXISTS", "이미 사용 중인 이메일입니다."),
+    AUTH_PASSWORD_CONFIRM_MISMATCH(400, "AUTH_PASSWORD_CONFIRM_MISMATCH", "비밀번호 확인이 일치하지 않습니다."),
+    AUTH_USER_NOT_FOUND(404, "AUTH_USER_NOT_FOUND", "가입되지 않은 이메일입니다."),
+    AUTH_INVALID_EMAIL_VERIFICATION(400, "AUTH_INVALID_EMAIL_VERIFICATION", "인증 코드 또는 토큰이 올바르지 않습니다."),
+    AUTH_EMAIL_VERIFICATION_EXPIRED(400, "AUTH_EMAIL_VERIFICATION_EXPIRED", "이메일 인증 요청이 만료되었습니다."),
+    AUTH_INVALID_CREDENTIALS(401, "AUTH_INVALID_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    AUTH_EMAIL_NOT_VERIFIED(403, "AUTH_EMAIL_NOT_VERIFIED", "이메일 인증이 필요합니다."),
+    AUTH_ACCOUNT_LOCKED(403, "AUTH_ACCOUNT_LOCKED", "계정이 잠금 처리되었습니다."),
+    AUTH_LOCAL_IDENTITY_NOT_FOUND(409, "AUTH_LOCAL_IDENTITY_NOT_FOUND", "자체 로그인 인증 수단이 없는 계정입니다."),
+
     // 5xx Server Errors
     INTERNAL_SERVER_ERROR(500, "C002", "서버 내부 오류가 발생했습니다."),
     SERVICE_UNAVAILABLE(503, "C009", "일시적으로 서비스를 이용할 수 없습니다."),
