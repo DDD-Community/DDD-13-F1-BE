@@ -1755,13 +1755,13 @@ components:
         password:
           type: string
           minLength: 8
-          maxLength: 64
-          pattern: '^(?=.*[A-Za-z])(?=.*\d).{8,64}$'
+          maxLength: 32
+          pattern: '^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9~!@#$%^&*()_+=\[\]{}.,?-]{8,32}$'
           example: Password123!
         passwordConfirm:
           type: string
           minLength: 8
-          maxLength: 64
+          maxLength: 32
           example: Password123!
         nickname:
           type: string
@@ -1784,7 +1784,7 @@ components:
         password:
           type: string
           minLength: 8
-          maxLength: 64
+          maxLength: 32
           example: Password123!
 
     RefreshTokenRequest:
@@ -1869,13 +1869,13 @@ components:
         newPassword:
           type: string
           minLength: 8
-          maxLength: 64
-          pattern: '^(?=.*[A-Za-z])(?=.*\d).{8,64}$'
+          maxLength: 32
+          pattern: '^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9~!@#$%^&*()_+=\[\]{}.,?-]{8,32}$'
           example: NewPassword123!
         newPasswordConfirm:
           type: string
           minLength: 8
-          maxLength: 64
+          maxLength: 32
           example: NewPassword123!
       oneOf:
         - required:
@@ -4052,13 +4052,13 @@ components:
         newPassword:
           type: string
           minLength: 8
-          maxLength: 64
-          pattern: '^(?=.*[A-Za-z])(?=.*\d).{8,64}$'
+          maxLength: 32
+          pattern: '^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9~!@#$%^&*()_+=\[\]{}.,?-]{8,32}$'
           example: NewPassword123!
         newPasswordConfirm:
           type: string
           minLength: 8
-          maxLength: 64
+          maxLength: 32
           example: NewPassword123!
 
     AccountDeleteRequest:
