@@ -26,7 +26,7 @@ public class JwtTokenProvider {
     };
 
     private final JwtProperties jwtProperties;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String createAccessToken(User user) {
         Instant issuedAt = Instant.now();
