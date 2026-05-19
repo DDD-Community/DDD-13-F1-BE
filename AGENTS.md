@@ -173,6 +173,12 @@ return ResponseEntity.status(errorCode.getStatus())
 - 문장형보다 명사형 표현 사용
 - 문장 끝 온점 금지
 
+### 커밋 단위
+
+- 하나의 커밋은 하나의 목적만 가진다 (Atomic Commit)
+- 서로 다른 목적의 변경은 논리 단위별로 커밋 분리
+- 리뷰와 롤백이 쉬운 단위로 커밋 작성
+
 ### 이슈 및 PR 제목
 
 - 형식: `[Type] 제목`
