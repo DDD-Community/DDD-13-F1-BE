@@ -5,11 +5,14 @@ import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
+import com.f1.quiket.domain.auth.dto.LocalLoginResponse;
+import com.f1.quiket.domain.auth.dto.LoginRequest;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
 import com.f1.quiket.domain.auth.service.LocalAuthService;
 import com.f1.quiket.global.response.ApiResponse;
 import com.f1.quiket.global.response.SuccessCode;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -28,6 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth")
 public class AuthController {
+
+    private static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     private final LocalAuthService localAuthService;
 
@@ -65,5 +70,22 @@ public class AuthController {
     ) {
         EmailVerificationConfirmResponse response = localAuthService.confirmEmailVerification(request);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_EMAIL_VERIFIED, response));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LocalLoginResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        LocalLoginResponse response = localAuthService.login(request, resolveClientIp(httpServletRequest));
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_LOGIN_SUCCESS, response));
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader(X_FORWARDED_FOR);
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

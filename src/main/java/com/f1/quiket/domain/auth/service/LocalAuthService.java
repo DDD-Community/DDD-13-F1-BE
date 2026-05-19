@@ -4,6 +4,8 @@ import com.f1.quiket.domain.auth.dto.EmailAvailabilityResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
+import com.f1.quiket.domain.auth.dto.LocalLoginResponse;
+import com.f1.quiket.domain.auth.dto.LoginRequest;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
 import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
@@ -34,6 +36,7 @@ public class LocalAuthService {
     private static final String PROVIDER_LOCAL = "local";
     private static final String VERIFICATION_STATUS_PENDING = "pending";
     private static final long EMAIL_VERIFICATION_TTL_SECONDS = 1800L;
+    private static final int MAX_FAILED_LOGIN_COUNT = 5;
 
     private final UserRepository userRepository;
     private final UserAuthIdentityRepository userAuthIdentityRepository;
@@ -86,6 +89,24 @@ public class LocalAuthService {
         return EmailVerificationConfirmResponse.verified(verification.getEmail());
     }
 
+    public LocalLoginResponse login(LoginRequest request, String loginIp) {
+        User user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS));
+
+        validateAccountIsNotLocked(user);
+
+        UserAuthIdentity localIdentity = userAuthIdentityRepository
+                .findByUserAndProviderAndDeletedAtIsNull(user, PROVIDER_LOCAL)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_LOCAL_IDENTITY_NOT_FOUND));
+
+        validatePassword(user, localIdentity, request.getPassword());
+        validateEmailVerified(user);
+
+        user.recordLoginSuccess(loginIp);
+        localIdentity.recordLoginSuccess();
+        return LocalLoginResponse.of(user, userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user));
+    }
+
     private void validatePasswordConfirm(String password, String passwordConfirm) {
         if (!password.equals(passwordConfirm)) {
             throw new CustomException(ErrorCode.AUTH_PASSWORD_CONFIRM_MISMATCH);
@@ -101,6 +122,29 @@ public class LocalAuthService {
     private User findUserByEmail(String email) {
         return userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_USER_NOT_FOUND));
+    }
+
+    private void validateAccountIsNotLocked(User user) {
+        if (user.isLocked()) {
+            throw new CustomException(ErrorCode.AUTH_ACCOUNT_LOCKED);
+        }
+    }
+
+    private void validatePassword(User user, UserAuthIdentity localIdentity, String password) {
+        if (!StringUtils.hasText(localIdentity.getPasswordHash())
+                || !passwordEncoder.matches(password, localIdentity.getPasswordHash())) {
+            user.recordLoginFailure(MAX_FAILED_LOGIN_COUNT);
+            if (user.isLocked()) {
+                throw new CustomException(ErrorCode.AUTH_ACCOUNT_LOCKED);
+            }
+            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        }
+    }
+
+    private void validateEmailVerified(User user) {
+        if (!user.isEmailVerified()) {
+            throw new CustomException(ErrorCode.AUTH_EMAIL_NOT_VERIFIED);
+        }
     }
 
     private void sendEmailVerification(User user) {
