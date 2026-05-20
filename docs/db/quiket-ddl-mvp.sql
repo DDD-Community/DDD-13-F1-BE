@@ -41,7 +41,7 @@ CREATE TABLE user_auth_identities (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '로그인 수단 레코드 식별 PK',
     user_id BIGINT NOT NULL COMMENT '사용자 ID',
     provider VARCHAR(20) NOT NULL COMMENT '로그인 수단 구분값',
-    provider_subject VARCHAR(255) NOT NULL DEFAULT '' COMMENT '소셜 로그인 고유 식별값, local은 빈 문자열',
+    provider_subject VARCHAR(255) NOT NULL DEFAULT '' COMMENT '로그인 수단별 사용자 고유 식별값, local은 users.public_id',
     password_hash VARCHAR(255) NULL COMMENT '자체 로그인 비밀번호 해시값',
     is_primary TINYINT(1) NOT NULL DEFAULT 0 COMMENT '대표 로그인 수단 여부',
     last_login_at DATETIME(3) NULL COMMENT '해당 인증 수단 마지막 로그인 시각',
