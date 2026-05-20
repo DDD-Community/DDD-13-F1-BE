@@ -18,7 +18,7 @@ class JwtTokenProviderTest {
         JwtProperties jwtProperties = new JwtProperties();
         jwtProperties.setIssuer("quiket-test");
         jwtProperties.setSecret("test-jwt-secret-for-quiket-f1-authentication");
-        jwtProperties.setAccessTokenExpiresInSeconds(3600L);
+        jwtProperties.setAccessTokenExpiresInSeconds(1800L);
         jwtTokenProvider = new JwtTokenProvider(jwtProperties);
     }
 

@@ -261,8 +261,8 @@ class KakaoOAuthServiceTest {
         return AuthTokenResponse.of(
                 "access-token",
                 "refresh-token",
-                3600L,
-                1209600L,
+                1800L,
+                2592000L,
                 AuthUserResponse.of(user, identities)
         );
     }
