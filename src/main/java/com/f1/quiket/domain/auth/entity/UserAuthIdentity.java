@@ -72,7 +72,7 @@ public class UserAuthIdentity extends BaseEntity {
         UserAuthIdentity identity = new UserAuthIdentity();
         identity.user = user;
         identity.provider = "local";
-        identity.providerSubject = "";
+        identity.providerSubject = user.getPublicId();
         identity.passwordHash = passwordHash;
         identity.primary = primary;
         return identity;
