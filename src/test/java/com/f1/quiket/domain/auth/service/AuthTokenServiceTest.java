@@ -42,7 +42,7 @@ class AuthTokenServiceTest {
     void setUp() {
         jwtTokenProvider = mock(JwtTokenProvider.class);
         jwtProperties = new JwtProperties();
-        jwtProperties.setRefreshTokenExpiresInSeconds(1209600L);
+        jwtProperties.setRefreshTokenExpiresInSeconds(2592000L);
         refreshTokenGenerator = mock(RefreshTokenGenerator.class);
         tokenHashGenerator = new TokenHashGenerator();
         userRefreshTokenRepository = mock(UserRefreshTokenRepository.class);
@@ -71,7 +71,7 @@ class AuthTokenServiceTest {
         when(userRefreshTokenRepository.findByTokenHashAndDeletedAtIsNull(tokenHashGenerator.hash(refreshTokenValue)))
                 .thenReturn(Optional.of(refreshToken));
         when(jwtTokenProvider.createAccessToken(user)).thenReturn("new-access-token");
-        when(jwtTokenProvider.getAccessTokenExpiresInSeconds()).thenReturn(3600L);
+        when(jwtTokenProvider.getAccessTokenExpiresInSeconds()).thenReturn(1800L);
         when(refreshTokenGenerator.generate()).thenReturn("new-refresh-token");
         when(userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user)).thenReturn(List.of(identity));
 

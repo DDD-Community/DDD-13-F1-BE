@@ -1995,11 +1995,13 @@ components:
         accessTokenExpiresIn:
           type: integer
           format: int64
-          example: 3600
+          description: Access Token 만료 시간(초). MVP 기준 30분
+          example: 1800
         refreshTokenExpiresIn:
           type: integer
           format: int64
-          example: 1209600
+          description: Refresh Token 만료 시간(초). MVP 기준 30일
+          example: 2592000
 
     AuthTokenData:
       allOf:

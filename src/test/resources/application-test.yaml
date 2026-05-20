@@ -34,5 +34,5 @@ quiket:
   jwt:
     issuer: quiket-test
     secret: test-jwt-secret-for-quiket-f1-authentication
-    access-token-expires-in-seconds: 3600
-    refresh-token-expires-in-seconds: 1209600
+    access-token-expires-in-seconds: 1800
+    refresh-token-expires-in-seconds: 2592000
