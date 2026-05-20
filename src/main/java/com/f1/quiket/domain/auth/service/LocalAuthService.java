@@ -1,15 +1,16 @@
 package com.f1.quiket.domain.auth.service;
 
+import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
 import com.f1.quiket.domain.auth.dto.EmailAvailabilityResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
-import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
 import com.f1.quiket.domain.auth.dto.LoginRequest;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
 import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
 import com.f1.quiket.domain.auth.entity.UserEmailVerification;
+import com.f1.quiket.domain.auth.event.EmailVerificationMailRequestedEvent;
 import com.f1.quiket.domain.auth.repository.UserAuthIdentityRepository;
 import com.f1.quiket.domain.auth.repository.UserEmailVerificationRepository;
 import com.f1.quiket.domain.user.entity.User;
@@ -17,12 +18,10 @@ import com.f1.quiket.domain.user.repository.UserRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import com.f1.quiket.global.util.UuidV7Generator;
-import com.f1.quiket.infra.mail.dto.MailSendRequest;
-import com.f1.quiket.infra.mail.service.SesMailSender;
-import com.f1.quiket.infra.mail.template.MailTemplateFactory;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +34,8 @@ public class LocalAuthService {
 
     private static final String PROVIDER_LOCAL = "local";
     private static final String VERIFICATION_STATUS_PENDING = "pending";
-    private static final long EMAIL_VERIFICATION_TTL_SECONDS = 1800L;
+    private static final String VERIFICATION_STATUS_EXPIRED = "expired";
+    private static final long EMAIL_VERIFICATION_TTL_SECONDS = 600L;
     private static final int MAX_FAILED_LOGIN_COUNT = 5;
 
     private final UserRepository userRepository;
@@ -43,9 +43,8 @@ public class LocalAuthService {
     private final UserEmailVerificationRepository userEmailVerificationRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationCodeGenerator verificationCodeGenerator;
-    private final MailTemplateFactory mailTemplateFactory;
-    private final SesMailSender sesMailSender;
     private final AuthTokenService authTokenService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SignupResponse signup(SignupRequest request) {
         validatePasswordConfirm(request.getPassword(), request.getPasswordConfirm());
@@ -108,6 +107,14 @@ public class LocalAuthService {
         return authTokenService.issueTokens(user, context);
     }
 
+    public int expirePendingEmailVerifications() {
+        return userEmailVerificationRepository.expirePendingVerifications(
+                VERIFICATION_STATUS_PENDING,
+                VERIFICATION_STATUS_EXPIRED,
+                LocalDateTime.now()
+        );
+    }
+
     private void validatePasswordConfirm(String password, String passwordConfirm) {
         if (!password.equals(passwordConfirm)) {
             throw new CustomException(ErrorCode.AUTH_PASSWORD_CONFIRM_MISMATCH);
@@ -162,8 +169,7 @@ public class LocalAuthService {
         );
         userEmailVerificationRepository.save(verification);
 
-        MailSendRequest mailRequest = mailTemplateFactory.createSignUpVerificationMail(user.getEmail(), verificationCode);
-        sesMailSender.sendMail(mailRequest);
+        eventPublisher.publishEvent(new EmailVerificationMailRequestedEvent(user.getEmail(), verificationCode));
     }
 
     private UserEmailVerification findPendingVerification(EmailVerificationConfirmRequest request) {
