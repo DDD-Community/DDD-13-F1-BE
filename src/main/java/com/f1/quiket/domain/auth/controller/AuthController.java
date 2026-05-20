@@ -7,6 +7,11 @@ import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
+import com.f1.quiket.domain.auth.dto.KakaoAccountLinkRequest;
+import com.f1.quiket.domain.auth.dto.KakaoAccountLinkRequiredResponse;
+import com.f1.quiket.domain.auth.dto.KakaoLoginRequest;
+import com.f1.quiket.domain.auth.dto.KakaoNicknameRequest;
+import com.f1.quiket.domain.auth.dto.KakaoNicknameRequiredResponse;
 import com.f1.quiket.domain.auth.dto.LoginRequest;
 import com.f1.quiket.domain.auth.dto.LogoutRequest;
 import com.f1.quiket.domain.auth.dto.RefreshTokenRequest;
@@ -14,9 +19,12 @@ import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
 import com.f1.quiket.domain.auth.service.AuthTokenRequestContext;
 import com.f1.quiket.domain.auth.service.AuthTokenService;
+import com.f1.quiket.domain.auth.service.KakaoOAuthLoginResult;
+import com.f1.quiket.domain.auth.service.KakaoOAuthService;
 import com.f1.quiket.domain.auth.service.LocalAuthService;
 import com.f1.quiket.global.auth.UserPrincipal;
 import com.f1.quiket.global.response.ApiResponse;
+import com.f1.quiket.global.response.ErrorCode;
 import com.f1.quiket.global.response.SuccessCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -47,6 +55,7 @@ public class AuthController {
 
     private final LocalAuthService localAuthService;
     private final AuthTokenService authTokenService;
+    private final KakaoOAuthService kakaoOAuthService;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
@@ -99,6 +108,60 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_LOGIN_SUCCESS, response));
     }
 
+    @PostMapping("/oauth/kakao/login")
+    public ResponseEntity<ApiResponse<?>> kakaoLogin(
+            @Valid @RequestBody KakaoLoginRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
+    ) {
+        KakaoOAuthLoginResult result = kakaoOAuthService.login(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return switch (result.getStatus()) {
+            case EXISTING_LOGIN -> ResponseEntity.ok(
+                    ApiResponse.success(SuccessCode.AUTH_OAUTH_LOGIN_SUCCESS, result.getTokenResponse())
+            );
+            case SIGNUP_LOGIN -> ResponseEntity.status(SuccessCode.AUTH_OAUTH_SIGNUP_SUCCESS.getStatus())
+                    .body(ApiResponse.success(SuccessCode.AUTH_OAUTH_SIGNUP_SUCCESS, result.getTokenResponse()));
+            case ACCOUNT_LINK_REQUIRED -> accountLinkRequiredResponse(result.getAccountLinkRequiredResponse());
+            case NICKNAME_REQUIRED -> ResponseEntity.status(SuccessCode.AUTH_NICKNAME_REQUIRED.getStatus())
+                    .body(ApiResponse.success(SuccessCode.AUTH_NICKNAME_REQUIRED, result.getNicknameRequiredResponse()));
+        };
+    }
+
+    @PostMapping("/oauth/kakao/link")
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> linkKakaoAccount(
+            @Valid @RequestBody KakaoAccountLinkRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
+    ) {
+        AuthTokenResponse response = kakaoOAuthService.link(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_OAUTH_LINK_SUCCESS, response));
+    }
+
+    @PostMapping("/oauth/kakao/nickname")
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> completeKakaoNickname(
+            @Valid @RequestBody KakaoNicknameRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
+    ) {
+        AuthTokenResponse response = kakaoOAuthService.completeNickname(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_OAUTH_SIGNUP_SUCCESS, response));
+    }
+
     @PostMapping("/token/refresh")
     public ResponseEntity<ApiResponse<AuthTokenResponse>> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request,
@@ -149,5 +212,15 @@ public class AuthController {
             return forwardedFor.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private ResponseEntity<ApiResponse<?>> accountLinkRequiredResponse(KakaoAccountLinkRequiredResponse response) {
+        return ResponseEntity.status(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getStatus())
+                .body(ApiResponse.<KakaoAccountLinkRequiredResponse>builder()
+                        .success(false)
+                        .code(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getCode())
+                        .message(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getMessage())
+                        .data(response)
+                        .build());
     }
 }

@@ -78,6 +78,15 @@ public class UserAuthIdentity extends BaseEntity {
         return identity;
     }
 
+    public static UserAuthIdentity createOAuth(User user, String provider, String providerSubject, boolean primary) {
+        UserAuthIdentity identity = new UserAuthIdentity();
+        identity.user = user;
+        identity.provider = provider;
+        identity.providerSubject = providerSubject;
+        identity.primary = primary;
+        return identity;
+    }
+
     public void recordLoginSuccess() {
         this.lastLoginAt = LocalDateTime.now();
     }
