@@ -79,7 +79,7 @@ class KakaoOAuthServiceTest {
 
     @Test
     void login_creates_user_and_kakao_identity_when_new_user_has_valid_nickname() {
-        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token");
+        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token", true);
         when(kakaoApiClient.getUserInfo("kakao-access-token"))
                 .thenReturn(kakaoUserInfo("123456789", "new@example.com", "카카오"));
         when(userAuthIdentityRepository.findByProviderAndProviderSubjectAndDeletedAtIsNull("kakao", "123456789"))
@@ -126,7 +126,7 @@ class KakaoOAuthServiceTest {
 
     @Test
     void login_returns_nickname_required_when_kakao_nickname_is_invalid() {
-        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token");
+        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token", true);
         when(kakaoApiClient.getUserInfo("kakao-access-token"))
                 .thenReturn(kakaoUserInfo("123456789", "new@example.com", "카카오123"));
         when(userAuthIdentityRepository.findByProviderAndProviderSubjectAndDeletedAtIsNull("kakao", "123456789"))
@@ -154,6 +154,35 @@ class KakaoOAuthServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.AUTH_OAUTH_EMAIL_REQUIRED);
+    }
+
+    @Test
+    void login_fails_when_kakao_email_flags_are_missing() {
+        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token", true);
+        when(kakaoApiClient.getUserInfo("kakao-access-token"))
+                .thenReturn(new KakaoUserInfo("123456789", "user@example.com", null, null, "카카오"));
+        when(userAuthIdentityRepository.findByProviderAndProviderSubjectAndDeletedAtIsNull("kakao", "123456789"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> kakaoOAuthService.login(request, tokenRequestContext()))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_OAUTH_EMAIL_REQUIRED);
+    }
+
+    @Test
+    void login_fails_when_new_kakao_user_does_not_agree_to_terms() {
+        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token");
+        when(kakaoApiClient.getUserInfo("kakao-access-token"))
+                .thenReturn(kakaoUserInfo("123456789", "new@example.com", "카카오"));
+        when(userAuthIdentityRepository.findByProviderAndProviderSubjectAndDeletedAtIsNull("kakao", "123456789"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailAndDeletedAtIsNull("new@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> kakaoOAuthService.login(request, tokenRequestContext()))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
     }
 
     @Test
@@ -218,6 +247,12 @@ class KakaoOAuthServiceTest {
     private KakaoLoginRequest kakaoLoginRequest(String kakaoAccessToken) {
         KakaoLoginRequest request = new KakaoLoginRequest();
         ReflectionTestUtils.setField(request, "kakaoAccessToken", kakaoAccessToken);
+        return request;
+    }
+
+    private KakaoLoginRequest kakaoLoginRequest(String kakaoAccessToken, boolean agreedToTerms) {
+        KakaoLoginRequest request = kakaoLoginRequest(kakaoAccessToken);
+        ReflectionTestUtils.setField(request, "agreedToTerms", agreedToTerms);
         return request;
     }
 

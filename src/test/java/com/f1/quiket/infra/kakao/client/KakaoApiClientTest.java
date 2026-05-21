@@ -75,4 +75,28 @@ class KakaoApiClientTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.AUTH_OAUTH_INVALID_TOKEN);
     }
+
+    @Test
+    void getUserInfo_fails_when_response_body_blank() {
+        mockServer.expect(requestTo(USER_INFO_URI))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer kakao-access-token"))
+                .andRespond(withSuccess(" ", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> kakaoApiClient.getUserInfo("kakao-access-token"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_OAUTH_USER_INFO_FAILED);
+    }
+
+    @Test
+    void getUserInfo_maps_non_auth_4xx_to_user_info_failed() {
+        mockServer.expect(requestTo(USER_INFO_URI))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer kakao-access-token"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        assertThatThrownBy(() -> kakaoApiClient.getUserInfo("kakao-access-token"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_OAUTH_USER_INFO_FAILED);
+    }
 }
