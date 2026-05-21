@@ -38,12 +38,17 @@ public class KakaoApiClient {
                     .retrieve()
                     .body(String.class);
 
+            if (!StringUtils.hasText(responseBody)) {
+                throw new CustomException(ErrorCode.AUTH_OAUTH_USER_INFO_FAILED);
+            }
             return parseUserInfo(responseBody);
         } catch (RestClientResponseException e) {
-            if (e.getStatusCode().is4xxClientError()) {
+            if (e.getStatusCode().value() == 401 || e.getStatusCode().value() == 403) {
                 throw new CustomException(ErrorCode.AUTH_OAUTH_INVALID_TOKEN);
             }
             throw new CustomException(ErrorCode.AUTH_OAUTH_USER_INFO_FAILED);
+        } catch (CustomException e) {
+            throw e;
         } catch (RestClientException | IOException e) {
             throw new CustomException(ErrorCode.AUTH_OAUTH_USER_INFO_FAILED);
         }
