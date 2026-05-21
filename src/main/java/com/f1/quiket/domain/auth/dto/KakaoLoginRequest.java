@@ -11,5 +11,5 @@ public class KakaoLoginRequest {
     @NotBlank(message = "Kakao Access Token은 필수입니다")
     private String kakaoAccessToken;
 
-    private boolean agreedToTerms = true;
+    private Boolean agreedToTerms;
 }

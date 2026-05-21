@@ -53,7 +53,7 @@ public class KakaoOAuthService {
         }
 
         validateUsableKakaoEmail(kakaoUserInfo);
-        return loginWithNewKakaoIdentity(kakaoUserInfo, request.isAgreedToTerms(), context);
+        return loginWithNewKakaoIdentity(kakaoUserInfo, request.getAgreedToTerms(), context);
     }
 
     public AuthTokenResponse link(KakaoAccountLinkRequest request, AuthTokenRequestContext context) {
@@ -145,7 +145,7 @@ public class KakaoOAuthService {
 
     private KakaoOAuthLoginResult loginWithNewKakaoIdentity(
             KakaoUserInfo kakaoUserInfo,
-            boolean agreedToTerms,
+            Boolean agreedToTerms,
             AuthTokenRequestContext context
     ) {
         User existingUser = userRepository.findByEmailAndDeletedAtIsNull(kakaoUserInfo.email())
@@ -212,8 +212,8 @@ public class KakaoOAuthService {
         }
     }
 
-    private void validateTermsAgreed(boolean agreedToTerms) {
-        if (!agreedToTerms) {
+    private void validateTermsAgreed(Boolean agreedToTerms) {
+        if (!Boolean.TRUE.equals(agreedToTerms)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
