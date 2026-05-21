@@ -33,6 +33,15 @@ public enum ErrorCode {
     AUTH_INVALID_TOKEN(401, "AUTH_INVALID_TOKEN", "토큰이 올바르지 않습니다."),
     AUTH_EXPIRED_TOKEN(401, "AUTH_EXPIRED_TOKEN", "토큰이 만료되었습니다."),
     AUTH_REVOKED_REFRESH_TOKEN(401, "AUTH_REVOKED_REFRESH_TOKEN", "폐기된 Refresh Token입니다."),
+    AUTH_OAUTH_INVALID_TOKEN(401, "AUTH_OAUTH_INVALID_TOKEN", "Kakao Access Token이 올바르지 않습니다."),
+    AUTH_OAUTH_EMAIL_REQUIRED(400, "AUTH_OAUTH_EMAIL_REQUIRED", "Kakao 계정의 유효한 이메일 제공 동의가 필요합니다."),
+    AUTH_OAUTH_ACCOUNT_LINK_REQUIRED(409, "AUTH_OAUTH_ACCOUNT_LINK_REQUIRED", "동일 이메일로 가입된 계정이 있습니다. 계정 연동이 필요합니다."),
+    AUTH_OAUTH_LINK_TOKEN_INVALID(401, "AUTH_OAUTH_LINK_TOKEN_INVALID", "Kakao 계정 연동 토큰이 올바르지 않거나 만료되었습니다."),
+    AUTH_OAUTH_SIGNUP_TOKEN_INVALID(401, "AUTH_OAUTH_SIGNUP_TOKEN_INVALID", "Kakao 회원가입 토큰이 올바르지 않거나 만료되었습니다."),
+    AUTH_OAUTH_ACCOUNT_ALREADY_LINKED(409, "AUTH_OAUTH_ACCOUNT_ALREADY_LINKED", "이미 Kakao 계정이 연동된 사용자입니다."),
+    AUTH_OAUTH_PROVIDER_ALREADY_LINKED(409, "AUTH_OAUTH_PROVIDER_ALREADY_LINKED", "이미 다른 사용자에게 연동된 Kakao 계정입니다."),
+    AUTH_OAUTH_TEMP_TOKEN_STORE_FAILED(503, "AUTH_OAUTH_TEMP_TOKEN_STORE_FAILED", "Kakao OAuth 임시 토큰 처리에 실패했습니다."),
+    AUTH_OAUTH_USER_INFO_FAILED(503, "AUTH_OAUTH_USER_INFO_FAILED", "Kakao 사용자 정보 조회에 실패했습니다."),
 
     // 5xx Server Errors
     INTERNAL_SERVER_ERROR(500, "C002", "서버 내부 오류가 발생했습니다."),

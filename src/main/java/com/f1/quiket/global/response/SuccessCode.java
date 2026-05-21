@@ -27,6 +27,11 @@ public enum SuccessCode {
     AUTH_TOKEN_REFRESHED(200, "AUTH_TOKEN_REFRESHED", "토큰이 재발급되었습니다."),
     AUTH_LOGOUT_SUCCESS(200, "AUTH_LOGOUT_SUCCESS", "로그아웃이 완료되었습니다."),
     AUTH_ME_SUCCESS(200, "AUTH_ME_SUCCESS", "내 정보 조회가 완료되었습니다."),
+    AUTH_OAUTH_LOGIN_SUCCESS(200, "AUTH_OAUTH_LOGIN_SUCCESS", "Kakao 로그인이 완료되었습니다."),
+    AUTH_OAUTH_SIGNUP_SUCCESS(201, "AUTH_OAUTH_SIGNUP_SUCCESS", "Kakao 회원가입 및 로그인이 완료되었습니다."),
+    AUTH_OAUTH_LINK_SUCCESS(200, "AUTH_OAUTH_LINK_SUCCESS", "Kakao 계정 연동 및 로그인이 완료되었습니다."),
+    AUTH_OAUTH_NICKNAME_COMPLETED(200, "AUTH_OAUTH_NICKNAME_COMPLETED", "닉네임 설정 및 로그인이 완료되었습니다."),
+    AUTH_NICKNAME_REQUIRED(202, "AUTH_NICKNAME_REQUIRED", "닉네임 설정이 필요합니다."),
     ;
 
     private final int status;

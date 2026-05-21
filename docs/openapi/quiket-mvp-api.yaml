@@ -1894,7 +1894,7 @@ components:
           example: kakao_access_token_from_android_sdk
         agreedToTerms:
           type: boolean
-          default: true
+          description: 신규 Kakao 가입 생성 시 true 명시 필요
           example: true
 
     KakaoAccountLinkRequest:

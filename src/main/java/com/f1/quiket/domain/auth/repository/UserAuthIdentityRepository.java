@@ -10,5 +10,7 @@ public interface UserAuthIdentityRepository extends JpaRepository<UserAuthIdenti
 
     Optional<UserAuthIdentity> findByUserAndProviderAndDeletedAtIsNull(User user, String provider);
 
+    Optional<UserAuthIdentity> findByProviderAndProviderSubjectAndDeletedAtIsNull(String provider, String providerSubject);
+
     List<UserAuthIdentity> findAllByUserAndDeletedAtIsNull(User user);
 }
