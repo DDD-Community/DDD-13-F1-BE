@@ -159,7 +159,7 @@ public class AuthController {
                 request,
                 createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
         );
-        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_OAUTH_SIGNUP_SUCCESS, response));
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_OAUTH_NICKNAME_COMPLETED, response));
     }
 
     @PostMapping("/token/refresh")

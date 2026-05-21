@@ -30,6 +30,7 @@ public enum SuccessCode {
     AUTH_OAUTH_LOGIN_SUCCESS(200, "AUTH_OAUTH_LOGIN_SUCCESS", "Kakao 로그인이 완료되었습니다."),
     AUTH_OAUTH_SIGNUP_SUCCESS(201, "AUTH_OAUTH_SIGNUP_SUCCESS", "Kakao 회원가입 및 로그인이 완료되었습니다."),
     AUTH_OAUTH_LINK_SUCCESS(200, "AUTH_OAUTH_LINK_SUCCESS", "Kakao 계정 연동 및 로그인이 완료되었습니다."),
+    AUTH_OAUTH_NICKNAME_COMPLETED(200, "AUTH_OAUTH_NICKNAME_COMPLETED", "닉네임 설정 및 로그인이 완료되었습니다."),
     AUTH_NICKNAME_REQUIRED(202, "AUTH_NICKNAME_REQUIRED", "닉네임 설정이 필요합니다."),
     ;
 
