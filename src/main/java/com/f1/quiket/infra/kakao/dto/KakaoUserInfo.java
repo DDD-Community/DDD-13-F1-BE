@@ -12,7 +12,7 @@ public record KakaoUserInfo(
 
     public boolean hasUsableEmail() {
         return StringUtils.hasText(email)
-                && !Boolean.FALSE.equals(emailValid)
-                && !Boolean.FALSE.equals(emailVerified);
+                && Boolean.TRUE.equals(emailValid)
+                && Boolean.TRUE.equals(emailVerified);
     }
 }
