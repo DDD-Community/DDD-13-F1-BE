@@ -42,7 +42,8 @@ info:
     - 외부 노출 식별자는 UUID v7 문자열(public_id)을 사용합니다.
 
     [Redis 사용 정책]
-    - 이메일 인증 코드, 비밀번호 재설정 코드, Kakao signupToken, Kakao linkToken은 Redis TTL 기반 임시 데이터로 관리합니다.
+    - 이메일 인증 코드, 비밀번호 재설정 코드, Kakao signupToken, Kakao linkToken은 Redis TTL 10분 기반 임시 데이터로 관리합니다.
+    - 이메일 인증 코드와 비밀번호 재설정 코드는 재발송 시 이전 pending 코드를 즉시 무효화합니다.
     - Refresh Token은 DB에 해시값으로 영속 저장합니다.
     - Redis 임시 데이터는 만료 후 재사용하지 않습니다.
 servers:
@@ -97,6 +98,7 @@ paths:
         이메일, 비밀번호, 닉네임으로 자체 계정을 생성합니다.
         회원가입 성공 시 이메일 인증 요청이 함께 생성됩니다.
         이메일 인증 완료 전까지 로그인할 수 없습니다.
+        기능명세 상세 기준 자동 로그인은 이메일 인증 확인 API에서 Access Token / Refresh Token을 발급하는 방식으로 처리합니다.
       operationId: signup
       requestBody:
         required: true
@@ -198,6 +200,7 @@ paths:
         회원가입 후 이메일 인증 메일을 재발송합니다.
         인증 방식은 코드 입력 방식을 기본으로 하되, 링크 방식 확장을 고려합니다.
         인증 코드는 Redis에 TTL 10분으로 저장합니다.
+        재발송 시 이전 pending 인증 코드는 즉시 무효화되며, 최신 코드만 검증할 수 있습니다.
       operationId: resendEmailVerification
       requestBody:
         required: true
@@ -239,8 +242,14 @@ paths:
       tags:
         - Email Verification
       summary: 이메일 인증 확인
-      description: 이메일로 발송된 인증 코드를 검증하고 계정을 활성화합니다. verificationCode 검증은 Redis에 저장된 인증 코드를 기준으로 수행합니다.
+      description: |
+        이메일로 발송된 인증 코드를 검증하고 계정을 활성화합니다.
+        기능명세 상세의 "가입 성공 시 자동 로그인 → 홈 이동" 정책에 맞춰 인증 성공 시 Quiket Access Token / Refresh Token을 함께 발급합니다.
+        verificationCode 또는 verificationToken은 Redis TTL 10분 기반 임시 값으로 검증하며, 성공/만료 후 재사용할 수 없습니다.
       operationId: confirmEmailVerification
+      parameters:
+        - $ref: '#/components/parameters/XDeviceId'
+        - $ref: '#/components/parameters/XDeviceName'
       requestBody:
         required: true
         content:
@@ -258,11 +267,32 @@ paths:
                   verificationToken: eyJraWQiOiJlbWFpbC12ZXJpZmljYXRpb24ifQ
       responses:
         '200':
-          description: 이메일 인증 성공
+          description: 이메일 인증 성공 및 자동 로그인 성공
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EmailVerificationConfirmResponse'
+                $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_EMAIL_VERIFIED_AND_LOGIN
+                    message: 이메일 인증이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - local
         '400':
           description: 인증 코드/토큰 오류 또는 만료
           content:
@@ -278,7 +308,7 @@ paths:
       description: |
         이메일과 비밀번호로 로그인합니다.
         이메일 인증이 완료되지 않은 계정은 로그인할 수 없습니다.
-        로그인 5회 실패 시 계정이 잠금 처리됩니다.
+        비밀번호 입력 실패 횟수를 누적하고, 5회 실패 시 계정이 잠금 처리되며 비밀번호 재설정/잠금 해제 플로우로 전환해야 합니다.
       operationId: login
       parameters:
         - $ref: '#/components/parameters/XDeviceId'
@@ -309,12 +339,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCredentials:
+                  value:
+                    success: false
+                    code: AUTH_INVALID_CREDENTIALS
+                    message: 이메일 또는 비밀번호가 올바르지 않습니다.
+                    data:
+                      failedLoginCount: 2
+                      remainingAttempts: 3
+                      passwordResetRequired: false
         '403':
           description: 이메일 미인증 또는 계정 잠금
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emailNotVerified:
+                  value:
+                    success: false
+                    code: AUTH_EMAIL_NOT_VERIFIED
+                    message: 이메일 인증이 필요합니다.
+                    data: null
+                accountLocked:
+                  value:
+                    success: false
+                    code: AUTH_ACCOUNT_LOCKED
+                    message: 계정이 잠금 처리되었습니다. 비밀번호 재설정을 진행해주세요.
+                    data:
+                      failedLoginCount: 5
+                      remainingAttempts: 0
+                      passwordResetRequired: true
+                      nextAction: password_reset
 
   /auth/token/refresh:
     post:
@@ -378,8 +435,10 @@ paths:
       summary: 비밀번호 재설정 요청
       description: |
         등록된 이메일로 비밀번호 재설정 링크 또는 인증 코드를 발송합니다.
-        재설정 링크 유효시간은 10분입니다.
+        재설정 링크/코드 유효시간은 10분입니다.
         재설정 코드 또는 재설정 토큰은 Redis에 TTL 10분으로 저장합니다.
+        재요청 시 이전 pending 재설정 코드/토큰은 즉시 무효화됩니다.
+        5회 이상 로그인 실패로 잠긴 계정의 잠금 해제도 동일 플로우를 사용합니다.
       operationId: requestPasswordReset
       requestBody:
         required: true
@@ -394,25 +453,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PasswordResetRequestedResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_PASSWORD_RESET_REQUESTED
+                    message: 비밀번호 재설정 안내가 발송되었습니다.
+                    data:
+                      email: user@example.com
+                      expiresInSeconds: 600
         '404':
           description: 가입되지 않은 이메일
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                userNotFound:
+                  value:
+                    success: false
+                    code: AUTH_USER_NOT_FOUND
+                    message: 가입되지 않은 이메일입니다.
+                    data: null
         '409':
           description: 소셜 전용 계정
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                socialOnlyAccount:
+                  value:
+                    success: false
+                    code: AUTH_LOCAL_IDENTITY_NOT_FOUND
+                    message: 자체 로그인 인증 수단이 없는 계정입니다.
+                    data: null
 
   /auth/password-reset/confirm:
     post:
       tags:
         - Password Reset
       summary: 비밀번호 재설정 완료
-      description: 재설정 토큰 또는 인증 코드를 검증하고 새 비밀번호로 변경합니다. verificationCode 또는 resetToken은 Redis TTL 기반 임시 값으로 검증합니다.
+      description: |
+        재설정 토큰 또는 인증 코드를 검증하고 새 비밀번호로 변경합니다.
+        verificationCode 또는 resetToken은 Redis TTL 10분 기반 임시 값으로 검증합니다.
+        새 비밀번호는 가입 시 비밀번호 정책과 동일하며, 직전 비밀번호와 동일한 값으로 변경할 수 없습니다.
+        비밀번호 재설정 완료 시 잠긴 계정은 active 상태로 복구하고, 기존 Refresh Token을 모두 폐기하여 다른 기기를 로그아웃합니다.
       operationId: confirmPasswordReset
       requestBody:
         required: true
@@ -427,12 +513,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EmptySuccessResponse'
+              examples:
+                passwordReset:
+                  value:
+                    success: true
+                    code: AUTH_PASSWORD_RESET_COMPLETED
+                    message: 비밀번호 재설정이 완료되었습니다.
+                    data: null
+                lockedAccountUnlocked:
+                  value:
+                    success: true
+                    code: AUTH_PASSWORD_RESET_COMPLETED
+                    message: 비밀번호 재설정이 완료되었습니다. 계정 잠금이 해제되었습니다.
+                    data: null
         '400':
           description: 토큰/코드 오류 또는 비밀번호 정책 위반
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCode:
+                  value:
+                    success: false
+                    code: AUTH_PASSWORD_RESET_INVALID
+                    message: 인증 코드 또는 토큰이 올바르지 않습니다.
+                    data: null
+                expiredCode:
+                  value:
+                    success: false
+                    code: AUTH_PASSWORD_RESET_EXPIRED
+                    message: 비밀번호 재설정 요청이 만료되었습니다.
+                    data: null
+                sameAsPreviousPassword:
+                  value:
+                    success: false
+                    code: AUTH_PASSWORD_SAME_AS_PREVIOUS
+                    message: 이전 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.
+                    data: null
 
   /auth/oauth/kakao/login:
     post:
@@ -442,6 +560,8 @@ paths:
       description: |
         Android 앱에서 Kakao Android SDK 로그인으로 획득한 kakaoAccessToken을 서버로 전달합니다.
         계정 연동 또는 닉네임 설정이 필요한 경우 linkToken/signupToken을 Redis에 TTL 10분으로 저장합니다.
+        기존 Kakao 사용자 로그인과 기존 계정 연동 필요 응답에는 agreedToTerms가 필요하지 않습니다.
+        Kakao 정보만으로 신규 사용자를 즉시 생성하는 경우에는 agreedToTerms=true가 필요합니다.
 
         서버 처리 흐름:
         1. kakaoAccessToken으로 Kakao 사용자 정보 조회
@@ -489,6 +609,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KakaoNicknameRequiredResponse'
+        '400':
+          description: Kakao 이메일 제공 동의 누락 또는 신규 가입 약관 동의 누락
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emailRequired:
+                  value:
+                    success: false
+                    code: AUTH_OAUTH_EMAIL_REQUIRED
+                    message: Kakao 계정의 유효한 이메일 제공 동의가 필요합니다.
+                    data: null
+                termsRequired:
+                  value:
+                    success: false
+                    code: COMMON_VALIDATION_ERROR
+                    message: 신규 가입을 위해 약관 동의가 필요합니다.
+                    data: null
         '409':
           description: 기존 이메일 계정과 연동 필요
           content:
@@ -560,6 +699,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_OAUTH_NICKNAME_COMPLETED
+                    message: 닉네임 설정 및 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: kakao.user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - kakao
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
