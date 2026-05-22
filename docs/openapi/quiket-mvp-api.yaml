@@ -24,7 +24,7 @@ info:
     - 퀴즈 생성, 생성 상태 조회, 퀴즈 세트 조회
     - 퀴즈 결과 제출, 결과/해설 조회, 다시 풀기
     - 도토리/XP/캐릭터 성장 조회
-    - 마이페이지 계정/알림/피드백
+    - 마이페이지 계정(닉네임/이메일 변경, 비밀번호 변경, 회원 탈퇴), 알림, 피드백
 
     MVP 제외:
     - 퀴즈기록 별도 메뉴
@@ -1472,11 +1472,12 @@ paths:
         - name: filter
           in: query
           required: false
-          description: 전체 또는 틀린 문제만 필터링
+          description: 전체 / 맞춘 문제만 / 틀린 문제만 필터링 (기능명세 RESULT-002 출력 필터 토글)
           schema:
             type: string
             enum:
               - all
+              - correct
               - wrong
             default: all
       responses:
@@ -1622,6 +1623,82 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /my/email/change-requests:
+    post:
+      tags:
+        - My Page
+      summary: 이메일 변경 인증 메일 발송
+      description: |
+        새 이메일로 6자리 인증 코드를 발송합니다. 인증 완료 전까지 기존 이메일이 유지됩니다.
+        인증 코드는 Redis에 TTL 10분으로 저장되며, 재요청 시 이전 pending 코드는 즉시 무효화됩니다.
+        기능명세 MY-001 정책 기준입니다.
+      operationId: requestMyEmailChange
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MyEmailChangeRequest'
+      responses:
+        '200':
+          description: 이메일 변경 인증 메일 발송 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailVerificationSentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: 이미 사용 중인 이메일 또는 소셜 전용 계정
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /my/email/change-confirm:
+    post:
+      tags:
+        - My Page
+      summary: 이메일 변경 인증 확인 및 반영
+      description: |
+        새 이메일로 발송된 6자리 인증 코드를 검증하고 사용자의 이메일을 실제로 변경합니다.
+        인증 완료 시점에만 이메일이 반영되며, 인증 실패/만료 시 기존 이메일이 유지됩니다.
+        기능명세 MY-001 정책 기준입니다.
+      operationId: confirmMyEmailChange
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MyEmailChangeConfirmRequest'
+      responses:
+        '200':
+          description: 이메일 변경 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyProfileResponse'
+        '400':
+          description: 인증 코드 오류 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: 이미 사용 중인 이메일
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /my/password:
     patch:
@@ -1988,8 +2065,10 @@ components:
           example: user@example.com
         verificationCode:
           type: string
-          minLength: 4
-          maxLength: 20
+          minLength: 6
+          maxLength: 6
+          pattern: '^\d{6}$'
+          description: 이메일로 발송된 6자리 숫자 인증 코드 (기능명세 AUTH-001)
           example: '123456'
         verificationToken:
           type: string
@@ -2028,7 +2107,10 @@ components:
           example: eyJraWQiOiJwYXNzd29yZC1yZXNldCJ9
         verificationCode:
           type: string
-          maxLength: 20
+          minLength: 6
+          maxLength: 6
+          pattern: '^\d{6}$'
+          description: 비밀번호 재설정용 6자리 숫자 인증 코드 (기능명세 AUTH-004)
           example: '123456'
         newPassword:
           type: string
@@ -2947,9 +3029,11 @@ components:
           maxLength: 30
           example: 수학
         certificateId:
-          type: string
+          type: integer
+          format: int64
           nullable: true
-          example: '42'
+          description: 사전 정의 자격증 ID (Certificate.id 참조). 직접 입력 시 null + certificateName 사용
+          example: 42
         certificateName:
           type: string
           nullable: true
@@ -3263,7 +3347,8 @@ components:
         partName:
           type: string
           minLength: 1
-          maxLength: 100
+          maxLength: 30
+          description: 파트명 1~30자 (기능명세 PART-002, PART-006)
           example: 데이터 모델링 특징
         uploadType:
           type: string
@@ -3286,7 +3371,8 @@ components:
         partName:
           type: string
           minLength: 1
-          maxLength: 100
+          maxLength: 30
+          description: 파트명 1~30자 (기능명세 PART-002, PART-006)
           example: 데이터 모델링 특징
         uploadType:
           type: string
@@ -3390,7 +3476,8 @@ components:
         intendedName:
           type: string
           nullable: true
-          maxLength: 100
+          maxLength: 30
+          description: 사용자가 입력한 파트명 1~30자. 미입력 시 AI가 자동 생성 (기능명세 PART-001)
           example: 데이터 모델링 개념
 
     PartResponse:
@@ -3419,6 +3506,9 @@ components:
           example: 018f8c2e-6a10-7ca2-8a4b-52f3b4b7a100
         name:
           type: string
+          minLength: 1
+          maxLength: 30
+          description: 파트명 1~30자 (기능명세 PART-002)
           example: 데이터 모델링 개념
         partNumber:
           type: integer
@@ -3460,11 +3550,13 @@ components:
         name:
           type: string
           minLength: 1
-          maxLength: 100
+          maxLength: 30
+          description: 파트명 1~30자 (기능명세 PART-002 한줄설명)
           example: 데이터 모델링 개념
         content:
           type: string
           maxLength: 30000
+          description: 파트 본문, 최대 30,000자 (기능명세 PART-002 정책)
           example: 데이터 모델링은 현실 세계의 데이터를 추상화하여 구조화하는 과정입니다.
 
     QuizScopeResponse:
@@ -3672,6 +3764,9 @@ components:
       type: object
       required:
         - id
+        - subjectId
+        - chapterId
+        - partId
         - questionType
         - difficulty
         - body
@@ -3685,12 +3780,15 @@ components:
         subjectId:
           type: string
           format: uuid
+          description: 기능명세 QUIZ-GEN-001 정책 - 비정규화 저장, NOT NULL 강제
         chapterId:
           type: string
           format: uuid
+          description: 기능명세 QUIZ-GEN-001 정책 - 비정규화 저장, NOT NULL 강제
         partId:
           type: string
           format: uuid
+          description: 기능명세 QUIZ-GEN-001 정책 - 1문제=1 part_id 종속, NOT NULL 강제
         partName:
           type: string
           example: 데이터 모델링 개념
@@ -4201,9 +4299,41 @@ components:
         nickname:
           type: string
           minLength: 2
-          maxLength: 16
-          pattern: '^[가-힣A-Za-z0-9]{2,16}$'
+          maxLength: 12
+          pattern: '^[가-힣A-Za-z]{2,12}$'
+          description: 닉네임 2~12자, 한글 또는 영문 (기능명세 MY-001 - 자체 회원가입 정책과 일치)
           example: 도토리장인
+
+    MyEmailChangeRequest:
+      type: object
+      required:
+        - newEmail
+      properties:
+        newEmail:
+          type: string
+          format: email
+          maxLength: 255
+          description: 변경할 새 이메일. 형식 검증 및 중복 검사 후 인증 메일을 발송합니다.
+          example: new.user@example.com
+
+    MyEmailChangeConfirmRequest:
+      type: object
+      required:
+        - newEmail
+        - verificationCode
+      properties:
+        newEmail:
+          type: string
+          format: email
+          maxLength: 255
+          example: new.user@example.com
+        verificationCode:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: '^\d{6}$'
+          description: 새 이메일로 발송된 6자리 숫자 인증 코드
+          example: '123456'
 
     PasswordChangeRequest:
       type: object
