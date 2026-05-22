@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.auth.repository;
 
 import com.f1.quiket.domain.auth.entity.UserEmailVerification;
+import com.f1.quiket.domain.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,7 +23,7 @@ public interface UserEmailVerificationRepository extends JpaRepository<UserEmail
             String status
     );
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("""
             update UserEmailVerification verification
             set verification.status = :expiredStatus
@@ -34,5 +35,19 @@ public interface UserEmailVerificationRepository extends JpaRepository<UserEmail
             @Param("pendingStatus") String pendingStatus,
             @Param("expiredStatus") String expiredStatus,
             @Param("now") LocalDateTime now
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update UserEmailVerification verification
+            set verification.status = :cancelledStatus
+            where verification.user = :user
+              and verification.status = :pendingStatus
+              and verification.deletedAt is null
+            """)
+    int cancelPendingVerifications(
+            @Param("user") User user,
+            @Param("pendingStatus") String pendingStatus,
+            @Param("cancelledStatus") String cancelledStatus
     );
 }

@@ -90,4 +90,8 @@ public class UserAuthIdentity extends BaseEntity {
     public void recordLoginSuccess() {
         this.lastLoginAt = LocalDateTime.now();
     }
+
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 }

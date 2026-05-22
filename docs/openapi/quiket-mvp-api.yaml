@@ -309,6 +309,7 @@ paths:
         이메일과 비밀번호로 로그인합니다.
         이메일 인증이 완료되지 않은 계정은 로그인할 수 없습니다.
         비밀번호 입력 실패 횟수를 누적하고, 5회 실패 시 계정이 잠금 처리되며 비밀번호 재설정/잠금 해제 플로우로 전환해야 합니다.
+        5회 실패로 계정이 잠기면 비밀번호 재설정 인증코드를 함께 발송합니다.
       operationId: login
       parameters:
         - $ref: '#/components/parameters/XDeviceId'
@@ -346,6 +347,7 @@ paths:
                     code: AUTH_INVALID_CREDENTIALS
                     message: 이메일 또는 비밀번호가 올바르지 않습니다.
                     data:
+                      email: user@example.com
                       failedLoginCount: 2
                       remainingAttempts: 3
                       passwordResetRequired: false
@@ -368,10 +370,12 @@ paths:
                     code: AUTH_ACCOUNT_LOCKED
                     message: 계정이 잠금 처리되었습니다. 비밀번호 재설정을 진행해주세요.
                     data:
+                      email: user@example.com
                       failedLoginCount: 5
                       remainingAttempts: 0
                       passwordResetRequired: true
                       nextAction: password_reset
+                      resetCodeSent: true
 
   /auth/token/refresh:
     post:
