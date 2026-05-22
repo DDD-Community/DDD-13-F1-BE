@@ -86,11 +86,12 @@ public class User extends BaseEntity {
     }
 
     public void recordLoginFailure(int maxFailedCount) {
+        LocalDateTime now = LocalDateTime.now();
         this.failedLoginCount++;
-        this.lastFailedLoginAt = LocalDateTime.now();
+        this.lastFailedLoginAt = now;
         if (this.failedLoginCount >= maxFailedCount) {
             this.status = "locked";
-            this.lockedAt = LocalDateTime.now();
+            this.lockedAt = now;
         }
     }
 
@@ -103,5 +104,12 @@ public class User extends BaseEntity {
 
     public boolean isLocked() {
         return "locked".equals(this.status);
+    }
+
+    public void unlock() {
+        this.status = "active";
+        this.failedLoginCount = 0;
+        this.lastFailedLoginAt = null;
+        this.lockedAt = null;
     }
 }

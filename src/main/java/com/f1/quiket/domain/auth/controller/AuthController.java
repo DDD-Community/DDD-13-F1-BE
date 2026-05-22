@@ -4,7 +4,6 @@ import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
 import com.f1.quiket.domain.auth.dto.AuthUserResponse;
 import com.f1.quiket.domain.auth.dto.EmailAvailabilityResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
-import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
 import com.f1.quiket.domain.auth.dto.KakaoAccountLinkRequest;
@@ -14,6 +13,9 @@ import com.f1.quiket.domain.auth.dto.KakaoNicknameRequest;
 import com.f1.quiket.domain.auth.dto.KakaoNicknameRequiredResponse;
 import com.f1.quiket.domain.auth.dto.LoginRequest;
 import com.f1.quiket.domain.auth.dto.LogoutRequest;
+import com.f1.quiket.domain.auth.dto.PasswordResetConfirmRequest;
+import com.f1.quiket.domain.auth.dto.PasswordResetRequest;
+import com.f1.quiket.domain.auth.dto.PasswordResetRequestedResponse;
 import com.f1.quiket.domain.auth.dto.RefreshTokenRequest;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
@@ -22,6 +24,7 @@ import com.f1.quiket.domain.auth.service.AuthTokenService;
 import com.f1.quiket.domain.auth.service.KakaoOAuthLoginResult;
 import com.f1.quiket.domain.auth.service.KakaoOAuthService;
 import com.f1.quiket.domain.auth.service.LocalAuthService;
+import com.f1.quiket.domain.auth.service.PasswordResetService;
 import com.f1.quiket.global.auth.UserPrincipal;
 import com.f1.quiket.global.response.ApiResponse;
 import com.f1.quiket.global.response.ErrorCode;
@@ -56,6 +59,7 @@ public class AuthController {
     private final LocalAuthService localAuthService;
     private final AuthTokenService authTokenService;
     private final KakaoOAuthService kakaoOAuthService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
@@ -86,11 +90,18 @@ public class AuthController {
     }
 
     @PostMapping("/email-verifications/confirm")
-    public ResponseEntity<ApiResponse<EmailVerificationConfirmResponse>> confirmEmailVerification(
-            @Valid @RequestBody EmailVerificationConfirmRequest request
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> confirmEmailVerification(
+            @Valid @RequestBody EmailVerificationConfirmRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
     ) {
-        EmailVerificationConfirmResponse response = localAuthService.confirmEmailVerification(request);
-        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_EMAIL_VERIFIED, response));
+        AuthTokenResponse response = localAuthService.confirmEmailVerification(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_EMAIL_VERIFIED_AND_LOGIN, response));
     }
 
     @PostMapping("/login")
@@ -130,6 +141,29 @@ public class AuthController {
             case NICKNAME_REQUIRED -> ResponseEntity.status(SuccessCode.AUTH_NICKNAME_REQUIRED.getStatus())
                     .body(ApiResponse.success(SuccessCode.AUTH_NICKNAME_REQUIRED, result.getNicknameRequiredResponse()));
         };
+    }
+
+    @PostMapping("/password-reset/requests")
+    public ResponseEntity<ApiResponse<PasswordResetRequestedResponse>> requestPasswordReset(
+            @Valid @RequestBody PasswordResetRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
+    ) {
+        PasswordResetRequestedResponse response = passwordResetService.requestPasswordReset(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_PASSWORD_RESET_REQUESTED, response));
+    }
+
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmPasswordReset(
+            @Valid @RequestBody PasswordResetConfirmRequest request
+    ) {
+        passwordResetService.confirmPasswordReset(request);
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_PASSWORD_RESET_COMPLETED));
     }
 
     @PostMapping("/oauth/kakao/link")

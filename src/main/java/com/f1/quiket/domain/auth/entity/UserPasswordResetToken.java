@@ -52,6 +52,9 @@ public class UserPasswordResetToken extends BaseEntity {
     @Column(name = "reset_token", length = 255, nullable = false)
     String resetToken;
 
+    @Column(name = "verification_code", length = 20)
+    String verificationCode;
+
     @Column(name = "status", length = 20, nullable = false)
     String status = "pending";
 
@@ -66,4 +69,37 @@ public class UserPasswordResetToken extends BaseEntity {
 
     @Column(name = "expires_at", nullable = false)
     LocalDateTime expiresAt;
+
+    public static UserPasswordResetToken create(
+            User user,
+            String resetToken,
+            String verificationCode,
+            String requestedIp,
+            LocalDateTime expiresAt
+    ) {
+        UserPasswordResetToken passwordResetToken = new UserPasswordResetToken();
+        passwordResetToken.user = user;
+        passwordResetToken.resetToken = resetToken;
+        passwordResetToken.verificationCode = verificationCode;
+        passwordResetToken.requestedIp = requestedIp;
+        passwordResetToken.expiresAt = expiresAt;
+        return passwordResetToken;
+    }
+
+    public boolean isExpired(LocalDateTime now) {
+        return !expiresAt.isAfter(now);
+    }
+
+    public void use(LocalDateTime now) {
+        this.status = "used";
+        this.usedAt = now;
+    }
+
+    public void expire() {
+        this.status = "expired";
+    }
+
+    public void cancel() {
+        this.status = "cancelled";
+    }
 }

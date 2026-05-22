@@ -38,6 +38,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/emails/availability",
                                 "/api/v1/auth/email-verifications/**",
                                 "/api/v1/auth/login",
+                                "/api/v1/auth/password-reset/**",
                                 "/api/v1/auth/token/refresh",
                                 "/api/v1/auth/oauth/kakao/**",
                                 "/api-docs/**",

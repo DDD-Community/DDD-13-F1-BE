@@ -3,8 +3,8 @@ package com.f1.quiket.domain.auth.service;
 import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
 import com.f1.quiket.domain.auth.dto.EmailAvailabilityResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
-import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmResponse;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
+import com.f1.quiket.domain.auth.dto.LoginFailureResponse;
 import com.f1.quiket.domain.auth.dto.LoginRequest;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
@@ -35,6 +35,7 @@ public class LocalAuthService {
     private static final String PROVIDER_LOCAL = "local";
     private static final String VERIFICATION_STATUS_PENDING = "pending";
     private static final String VERIFICATION_STATUS_EXPIRED = "expired";
+    private static final String VERIFICATION_STATUS_CANCELLED = "cancelled";
     private static final long EMAIL_VERIFICATION_TTL_SECONDS = 600L;
     private static final int MAX_FAILED_LOGIN_COUNT = 5;
 
@@ -44,6 +45,7 @@ public class LocalAuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationCodeGenerator verificationCodeGenerator;
     private final AuthTokenService authTokenService;
+    private final PasswordResetService passwordResetService;
     private final ApplicationEventPublisher eventPublisher;
 
     public SignupResponse signup(SignupRequest request) {
@@ -76,7 +78,11 @@ public class LocalAuthService {
         return EmailVerificationSentResponse.of(email, EMAIL_VERIFICATION_TTL_SECONDS);
     }
 
-    public EmailVerificationConfirmResponse confirmEmailVerification(EmailVerificationConfirmRequest request) {
+    @Transactional(noRollbackFor = CustomException.class)
+    public AuthTokenResponse confirmEmailVerification(
+            EmailVerificationConfirmRequest request,
+            AuthTokenRequestContext context
+    ) {
         UserEmailVerification verification = findPendingVerification(request);
         LocalDateTime now = LocalDateTime.now();
         if (verification.isExpired(now)) {
@@ -84,11 +90,19 @@ public class LocalAuthService {
             throw new CustomException(ErrorCode.AUTH_EMAIL_VERIFICATION_EXPIRED);
         }
 
+        User user = verification.getUser();
+        UserAuthIdentity localIdentity = userAuthIdentityRepository
+                .findByUserAndProviderAndDeletedAtIsNull(user, PROVIDER_LOCAL)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_LOCAL_IDENTITY_NOT_FOUND));
+
         verification.verify(now);
-        verification.getUser().verifyEmail();
-        return EmailVerificationConfirmResponse.verified(verification.getEmail());
+        user.verifyEmail();
+        user.recordLoginSuccess(context.getIpAddress());
+        localIdentity.recordLoginSuccess();
+        return authTokenService.issueTokens(user, context);
     }
 
+    @Transactional(noRollbackFor = CustomException.class)
     public AuthTokenResponse login(LoginRequest request, AuthTokenRequestContext context) {
         User user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS));
@@ -99,7 +113,7 @@ public class LocalAuthService {
                 .findByUserAndProviderAndDeletedAtIsNull(user, PROVIDER_LOCAL)
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_LOCAL_IDENTITY_NOT_FOUND));
 
-        validatePassword(user, localIdentity, request.getPassword());
+        validatePassword(user, localIdentity, request.getPassword(), context);
         validateEmailVerified(user);
 
         user.recordLoginSuccess(context.getIpAddress());
@@ -134,18 +148,24 @@ public class LocalAuthService {
 
     private void validateAccountIsNotLocked(User user) {
         if (user.isLocked()) {
-            throw new CustomException(ErrorCode.AUTH_ACCOUNT_LOCKED);
+            throw loginFailureException(ErrorCode.AUTH_ACCOUNT_LOCKED, user, false);
         }
     }
 
-    private void validatePassword(User user, UserAuthIdentity localIdentity, String password) {
+    private void validatePassword(
+            User user,
+            UserAuthIdentity localIdentity,
+            String password,
+            AuthTokenRequestContext context
+    ) {
         if (!StringUtils.hasText(localIdentity.getPasswordHash())
                 || !passwordEncoder.matches(password, localIdentity.getPasswordHash())) {
             user.recordLoginFailure(MAX_FAILED_LOGIN_COUNT);
             if (user.isLocked()) {
-                throw new CustomException(ErrorCode.AUTH_ACCOUNT_LOCKED);
+                passwordResetService.requestPasswordResetForLockedUser(user, context.getIpAddress());
+                throw loginFailureException(ErrorCode.AUTH_ACCOUNT_LOCKED, user, true);
             }
-            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+            throw loginFailureException(ErrorCode.AUTH_INVALID_CREDENTIALS, user, false);
         }
     }
 
@@ -156,6 +176,12 @@ public class LocalAuthService {
     }
 
     private void sendEmailVerification(User user) {
+        userEmailVerificationRepository.cancelPendingVerifications(
+                user,
+                VERIFICATION_STATUS_PENDING,
+                VERIFICATION_STATUS_CANCELLED
+        );
+
         String verificationCode = verificationCodeGenerator.generate();
         String verificationToken = UUID.randomUUID().toString();
         LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(EMAIL_VERIFICATION_TTL_SECONDS);
@@ -194,5 +220,10 @@ public class LocalAuthService {
         }
 
         throw new CustomException(ErrorCode.AUTH_INVALID_EMAIL_VERIFICATION);
+    }
+
+    private CustomException loginFailureException(ErrorCode errorCode, User user, boolean resetCodeSent) {
+        LoginFailureResponse response = LoginFailureResponse.of(user, MAX_FAILED_LOGIN_COUNT, resetCodeSent);
+        return new CustomException(errorCode, errorCode.getMessage(), response);
     }
 }

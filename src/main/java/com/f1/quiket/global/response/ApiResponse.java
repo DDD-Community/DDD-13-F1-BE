@@ -66,4 +66,16 @@ public class ApiResponse<T> {
                 .message(customMessage)
                 .build();
     }
+
+    /**
+     * 커스텀 메시지와 데이터가 포함된 실패 응답 생성
+     */
+    public static <T> ApiResponse<T> fail(ErrorCode errorCode, String customMessage, T data) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .code(errorCode.getCode())
+                .message(customMessage)
+                .data(data)
+                .build();
+    }
 }

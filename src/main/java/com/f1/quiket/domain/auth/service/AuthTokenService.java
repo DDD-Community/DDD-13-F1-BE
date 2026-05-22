@@ -79,6 +79,10 @@ public class AuthTokenService {
             return;
         }
 
+        revokeAllActiveRefreshTokens(user);
+    }
+
+    public void revokeAllActiveRefreshTokens(User user) {
         LocalDateTime now = LocalDateTime.now();
         userRefreshTokenRepository.findAllByUserAndRevokedAtIsNullAndDeletedAtIsNull(user)
                 .forEach(refreshToken -> refreshToken.revoke(now));
