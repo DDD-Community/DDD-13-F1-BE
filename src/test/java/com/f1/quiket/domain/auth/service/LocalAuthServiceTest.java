@@ -2,6 +2,7 @@ package com.f1.quiket.domain.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -10,8 +11,11 @@ import static org.mockito.Mockito.when;
 
 import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
 import com.f1.quiket.domain.auth.dto.AuthUserResponse;
+import com.f1.quiket.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
+import com.f1.quiket.domain.auth.dto.LoginFailureResponse;
 import com.f1.quiket.domain.auth.dto.LoginRequest;
+import com.f1.quiket.domain.auth.dto.PasswordResetRequestedResponse;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
 import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
@@ -40,6 +44,7 @@ class LocalAuthServiceTest {
     private UserEmailVerificationRepository userEmailVerificationRepository;
     private EmailVerificationCodeGenerator verificationCodeGenerator;
     private AuthTokenService authTokenService;
+    private PasswordResetService passwordResetService;
     private ApplicationEventPublisher eventPublisher;
     private LocalAuthService localAuthService;
 
@@ -50,6 +55,7 @@ class LocalAuthServiceTest {
         userEmailVerificationRepository = mock(UserEmailVerificationRepository.class);
         verificationCodeGenerator = mock(EmailVerificationCodeGenerator.class);
         authTokenService = mock(AuthTokenService.class);
+        passwordResetService = mock(PasswordResetService.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
 
         localAuthService = new LocalAuthService(
@@ -59,6 +65,7 @@ class LocalAuthServiceTest {
                 new BCryptPasswordEncoder(),
                 verificationCodeGenerator,
                 authTokenService,
+                passwordResetService,
                 eventPublisher
         );
     }
@@ -98,7 +105,47 @@ class LocalAuthServiceTest {
         EmailVerificationSentResponse response = localAuthService.resendEmailVerification("user@example.com");
 
         assertThat(response.getExpiresInSeconds()).isEqualTo(600L);
+        verify(userEmailVerificationRepository).cancelPendingVerifications(user, "pending", "cancelled");
         verify(eventPublisher).publishEvent(any(EmailVerificationMailRequestedEvent.class));
+    }
+
+    @Test
+    void confirmEmailVerification_issues_tokens_after_verification() {
+        User user = User.create("018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901", "user@example.com", "도토리");
+        UserAuthIdentity identity = UserAuthIdentity.createLocal(
+                user,
+                new BCryptPasswordEncoder().encode("Password123!"),
+                true
+        );
+        UserEmailVerification verification = UserEmailVerification.create(
+                user,
+                "user@example.com",
+                "verification-token",
+                "123456",
+                LocalDateTime.now().plusMinutes(10)
+        );
+        EmailVerificationConfirmRequest request = emailVerificationConfirmRequest("user@example.com", "123456");
+
+        when(userEmailVerificationRepository
+                .findTopByEmailAndVerificationCodeAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
+                        "user@example.com",
+                        "123456",
+                        "pending"
+                )).thenReturn(Optional.of(verification));
+        when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
+                .thenReturn(Optional.of(identity));
+        when(authTokenService.issueTokens(eq(user), any(AuthTokenRequestContext.class)))
+                .thenReturn(tokenResponse(user, List.of(identity)));
+
+        AuthTokenResponse response = localAuthService.confirmEmailVerification(
+                request,
+                tokenRequestContext("127.0.0.1")
+        );
+
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(user.isEmailVerified()).isTrue();
+        assertThat(user.getLastLoginIp()).isEqualTo("127.0.0.1");
+        assertThat(identity.getLastLoginAt()).isNotNull();
     }
 
     @Test
@@ -156,6 +203,8 @@ class LocalAuthServiceTest {
         when(userRepository.findByEmailAndDeletedAtIsNull("user@example.com")).thenReturn(Optional.of(user));
         when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
                 .thenReturn(Optional.of(identity));
+        when(passwordResetService.requestPasswordResetForLockedUser(user, "127.0.0.1"))
+                .thenReturn(PasswordResetRequestedResponse.of("user@example.com", 600L));
 
         for (int i = 0; i < 4; i++) {
             assertThatThrownBy(() -> localAuthService.login(request, tokenRequestContext("127.0.0.1")))
@@ -164,12 +213,52 @@ class LocalAuthServiceTest {
                     .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
         }
 
-        assertThatThrownBy(() -> localAuthService.login(request, tokenRequestContext("127.0.0.1")))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.AUTH_ACCOUNT_LOCKED);
+        CustomException exception = catchThrowableOfType(
+                () -> localAuthService.login(request, tokenRequestContext("127.0.0.1")),
+                CustomException.class
+        );
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_ACCOUNT_LOCKED);
+        assertThat(exception.getData()).isInstanceOf(LoginFailureResponse.class);
+        LoginFailureResponse data = (LoginFailureResponse) exception.getData();
+        assertThat(data.getFailedLoginCount()).isEqualTo(5);
+        assertThat(data.getRemainingAttempts()).isZero();
+        assertThat(data.isPasswordResetRequired()).isTrue();
+        assertThat(data.getNextAction()).isEqualTo("password_reset");
+        assertThat(data.getResetCodeSent()).isTrue();
         assertThat(user.isLocked()).isTrue();
         assertThat(user.getLockedAt()).isNotNull();
+        verify(passwordResetService).requestPasswordResetForLockedUser(user, "127.0.0.1");
+    }
+
+    @Test
+    void login_failure_response_contains_remaining_attempts() {
+        User user = User.create("018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901", "user@example.com", "도토리");
+        user.verifyEmail();
+        UserAuthIdentity identity = UserAuthIdentity.createLocal(
+                user,
+                new BCryptPasswordEncoder().encode("Password123!"),
+                true
+        );
+        LoginRequest request = loginRequest("user@example.com", "WrongPassword123!");
+
+        when(userRepository.findByEmailAndDeletedAtIsNull("user@example.com")).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
+                .thenReturn(Optional.of(identity));
+
+        CustomException exception = catchThrowableOfType(
+                () -> localAuthService.login(request, tokenRequestContext("127.0.0.1")),
+                CustomException.class
+        );
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        assertThat(exception.getData()).isInstanceOf(LoginFailureResponse.class);
+        LoginFailureResponse data = (LoginFailureResponse) exception.getData();
+        assertThat(data.getFailedLoginCount()).isEqualTo(1);
+        assertThat(data.getRemainingAttempts()).isEqualTo(4);
+        assertThat(data.isPasswordResetRequired()).isFalse();
+        assertThat(data.getNextAction()).isNull();
+        assertThat(data.getResetCodeSent()).isNull();
     }
 
     @Test
@@ -196,6 +285,13 @@ class LocalAuthServiceTest {
         LoginRequest request = new LoginRequest();
         ReflectionTestUtils.setField(request, "email", email);
         ReflectionTestUtils.setField(request, "password", password);
+        return request;
+    }
+
+    private EmailVerificationConfirmRequest emailVerificationConfirmRequest(String email, String verificationCode) {
+        EmailVerificationConfirmRequest request = new EmailVerificationConfirmRequest();
+        ReflectionTestUtils.setField(request, "email", email);
+        ReflectionTestUtils.setField(request, "verificationCode", verificationCode);
         return request;
     }
 
