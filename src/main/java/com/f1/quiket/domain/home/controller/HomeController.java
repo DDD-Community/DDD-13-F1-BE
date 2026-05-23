@@ -39,8 +39,8 @@ public class HomeController {
     @GetMapping("/recent-activities")
     public ResponseEntity<ApiResponse<RecentActivityPageResponse>> getRecentActivities(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(name="page", defaultValue = "0") int page,
+            @RequestParam(name="size", defaultValue = "10") int size
     ) {
         RecentActivityPageResponse response = homeService.getRecentActivities(principal.getPublicId(), page, size);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
