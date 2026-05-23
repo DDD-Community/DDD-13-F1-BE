@@ -247,6 +247,7 @@ CREATE TABLE subject_other_details (
 -- 시험 일정 (D-Day) - MVP: 과목당 1개
 CREATE TABLE subject_exam_schedules (
     id                  BIGINT          NOT NULL AUTO_INCREMENT          COMMENT 'PK',
+    public_id           CHAR(36)        NOT NULL                         COMMENT '외부 노출용 UUID v7',
     subject_id          BIGINT          NOT NULL                         COMMENT '과목 ID',
     user_id             BIGINT          NOT NULL                         COMMENT '사용자 ID (조회 성능용 역정규화)',
     exam_name           VARCHAR(100)    NULL                             COMMENT '시험명 (미입력 시 과목명 사용)',
@@ -256,6 +257,7 @@ CREATE TABLE subject_exam_schedules (
     deleted_at          DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
+    UNIQUE KEY uq_subject_exam_schedules_public_id (public_id),
     UNIQUE KEY uq_subject_exam_schedules_subject_id (subject_id),  -- MVP: 과목당 1개
     KEY idx_subject_exam_schedules_user_id_exam_date (user_id, exam_date),
     KEY idx_subject_exam_schedules_exam_date (exam_date)
@@ -727,6 +729,7 @@ CREATE TABLE quiz_play_answers (
 -- 결과 요약: 풀이 세션당 1개, 결과 제출 API와 동일 트랜잭션으로 저장
 CREATE TABLE quiz_results (
     id                      BIGINT          NOT NULL AUTO_INCREMENT          COMMENT 'PK',
+    public_id               CHAR(36)        NOT NULL                         COMMENT '외부 노출용 UUID v7',
     play_session_id         BIGINT          NOT NULL                         COMMENT '풀이 세션 ID',
     quiz_session_id         BIGINT          NOT NULL                         COMMENT '퀴즈 세션 ID (역정규화)',
     user_id                 BIGINT          NOT NULL                         COMMENT '사용자 ID (역정규화)',
@@ -756,6 +759,7 @@ CREATE TABLE quiz_results (
     updated_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
 
     PRIMARY KEY (id),
+    UNIQUE KEY uq_quiz_results_public_id (public_id),
     UNIQUE KEY uq_quiz_results_play_session_id (play_session_id),
     KEY idx_quiz_results_user_id_created_at (user_id, created_at),
     KEY idx_quiz_results_quiz_session_id (quiz_session_id),
