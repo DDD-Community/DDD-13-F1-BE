@@ -224,6 +224,14 @@ public class LocalAuthService {
 
     private CustomException loginFailureException(ErrorCode errorCode, User user, boolean resetCodeSent) {
         LoginFailureResponse response = LoginFailureResponse.of(user, MAX_FAILED_LOGIN_COUNT, resetCodeSent);
-        return new CustomException(errorCode, errorCode.getMessage(), response);
+        return new CustomException(errorCode, resolveLoginFailureMessage(errorCode), response);
+    }
+
+    private String resolveLoginFailureMessage(ErrorCode errorCode) {
+        // 잠금 케이스만 OpenAPI 계약에 맞춰 재설정 안내 문구를 덧붙여 응답
+        if (errorCode == ErrorCode.AUTH_ACCOUNT_LOCKED) {
+            return errorCode.getMessage() + " 비밀번호 재설정을 진행해주세요.";
+        }
+        return errorCode.getMessage();
     }
 }

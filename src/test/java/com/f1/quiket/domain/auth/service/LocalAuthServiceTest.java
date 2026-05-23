@@ -219,6 +219,7 @@ class LocalAuthServiceTest {
         );
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_ACCOUNT_LOCKED);
+        assertThat(exception.getMessage()).isEqualTo("계정이 잠금 처리되었습니다. 비밀번호 재설정을 진행해주세요.");
         assertThat(exception.getData()).isInstanceOf(LoginFailureResponse.class);
         LoginFailureResponse data = (LoginFailureResponse) exception.getData();
         assertThat(data.getFailedLoginCount()).isEqualTo(5);
