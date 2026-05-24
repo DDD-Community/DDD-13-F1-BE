@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.part.repository;
 
 import com.f1.quiket.domain.part.entity.Part;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -20,6 +21,15 @@ public interface PartRepository extends JpaRepository<Part, Long> {
      * 과목 파트 목록 조회
      */
     List<Part> findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByChapterIdAscPartNumberAscCreatedAtAsc(
+            Long subjectId,
+            Long userId
+    );
+
+    /**
+     * 과목 파트 목록 조회
+     */
+    List<Part> findAllByPublicIdInAndSubjectIdAndUserIdAndDeletedAtIsNull(
+            Collection<String> publicIds,
             Long subjectId,
             Long userId
     );

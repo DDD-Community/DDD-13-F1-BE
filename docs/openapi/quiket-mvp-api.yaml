@@ -3604,7 +3604,6 @@ components:
         - quizType
         - questionCount
         - playMode
-        - difficulty
       properties:
         subjectId:
           type: string
@@ -3624,6 +3623,7 @@ components:
         choiceCount:
           type: integer
           nullable: true
+          description: 객관식 보기 수. quizType이 multiple_choice이고 미입력 시 4로 처리
           enum:
             - 4
             - 5
@@ -3652,7 +3652,9 @@ components:
           minimum: 1
           example: 60
         difficulty:
-          $ref: '#/components/schemas/QuizDifficulty'
+          description: 미입력 시 medium으로 처리
+          allOf:
+            - $ref: '#/components/schemas/QuizDifficulty'
 
     QuizGenerationAcceptedResponse:
       allOf:
