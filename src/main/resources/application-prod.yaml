@@ -37,7 +37,7 @@ file:
 # 로깅
 logging:
   level:
-    root: INFO
+    root: WARN
     com.f1.quiket: INFO
 
 # Swagger (SpringDoc OpenAPI)
@@ -57,3 +57,4 @@ aws:
 quiket:
   jwt:
     secret: ${QUIKET_JWT_SECRET}
+    enabled: false  # Swagger UI 비활성화
