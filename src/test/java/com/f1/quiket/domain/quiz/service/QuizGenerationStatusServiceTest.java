@@ -48,6 +48,24 @@ class QuizGenerationStatusServiceTest {
     }
 
     @Test
+    void getGenerationStatus_returns_in_progress_status() {
+        Long userId = 1L;
+        QuizSession quizSession = quizSession("quiz-session-public-id", userId, "in_progress", "quiz-job-1", null, null);
+        when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
+                .thenReturn(Optional.of(quizSession));
+
+        QuizGenerationStatusResponse response = quizGenerationStatusService.getGenerationStatus(
+                userId,
+                quizSession.getPublicId()
+        );
+
+        assertThat(response.getStatus()).isEqualTo("in_progress");
+        assertThat(response.getProgressPct()).isEqualTo(50);
+        assertThat(response.getGeneratedCount()).isNull();
+        assertThat(response.getFailReason()).isNull();
+    }
+
+    @Test
     void getGenerationStatus_returns_completed_status() {
         Long userId = 1L;
         QuizSession quizSession = quizSession("quiz-session-public-id", userId, "completed", "quiz-job-1", 8, null);

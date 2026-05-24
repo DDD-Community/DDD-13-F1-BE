@@ -22,8 +22,9 @@ public class QuizGenerationStatusService {
     /**
      * 퀴즈 생성 상태 조회
      */
-    public QuizGenerationStatusResponse getGenerationStatus(Long userId, String quizSessionId) {
-        QuizSession quizSession = quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSessionId, userId)
+    public QuizGenerationStatusResponse getGenerationStatus(Long userId, String quizSessionPublicId) {
+        QuizSession quizSession = quizSessionRepository
+                .findByPublicIdAndUserIdAndDeletedAtIsNull(quizSessionPublicId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.QUIZ_SESSION_NOT_FOUND));
 
         return QuizGenerationStatusResponse.from(quizSession);

@@ -55,11 +55,11 @@ public class QuizSessionController {
     @GetMapping("/{quizSessionId}/generation-status")
     public ResponseEntity<ApiResponse<QuizGenerationStatusResponse>> getGenerationStatus(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String quizSessionId
+            @PathVariable("quizSessionId") String quizSessionPublicId
     ) {
         QuizGenerationStatusResponse response = quizGenerationStatusService.getGenerationStatus(
                 principal.getUserId(),
-                quizSessionId
+                quizSessionPublicId
         );
 
         return ResponseEntity

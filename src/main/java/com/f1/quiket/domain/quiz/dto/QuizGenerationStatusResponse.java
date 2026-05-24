@@ -37,6 +37,7 @@ public class QuizGenerationStatusResponse {
                 .build();
     }
 
+    // TODO: progressPct — AI 생성 도입 후 quiz_generation_jobs.progress_pct 실제 진행률 사용. 현재는 상태별 placeholder
     private static Integer resolveProgressPct(String status) {
         return switch (status) {
             case STATUS_PENDING -> 0;
