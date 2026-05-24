@@ -15,4 +15,12 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
      * 사용자 챕터 목록 조회
      */
     List<Chapter> findAllByUserIdAndDeletedAtIsNull(Long userId);
+
+    /**
+     * 과목 챕터 목록 조회
+     */
+    List<Chapter> findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByDisplayOrderAscCreatedAtAsc(
+            Long subjectId,
+            Long userId
+    );
 }
