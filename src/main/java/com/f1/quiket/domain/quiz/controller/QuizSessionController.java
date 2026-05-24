@@ -3,8 +3,10 @@ package com.f1.quiket.domain.quiz.controller;
 import com.f1.quiket.domain.quiz.dto.QuizCreateRequest;
 import com.f1.quiket.domain.quiz.dto.QuizGenerationAcceptedResponse;
 import com.f1.quiket.domain.quiz.dto.QuizGenerationStatusResponse;
+import com.f1.quiket.domain.quiz.dto.QuizSessionResponse;
 import com.f1.quiket.domain.quiz.service.QuizGenerationStatusService;
 import com.f1.quiket.domain.quiz.service.QuizSessionCreateService;
+import com.f1.quiket.domain.quiz.service.QuizSessionQueryService;
 import com.f1.quiket.global.auth.UserPrincipal;
 import com.f1.quiket.global.response.ApiResponse;
 import com.f1.quiket.global.response.SuccessCode;
@@ -30,6 +32,7 @@ public class QuizSessionController {
 
     private final QuizSessionCreateService quizSessionCreateService;
     private final QuizGenerationStatusService quizGenerationStatusService;
+    private final QuizSessionQueryService quizSessionQueryService;
 
     /**
      * 퀴즈 생성 요청
@@ -58,6 +61,24 @@ public class QuizSessionController {
             @PathVariable("quizSessionId") String quizSessionPublicId
     ) {
         QuizGenerationStatusResponse response = quizGenerationStatusService.getGenerationStatus(
+                principal.getUserId(),
+                quizSessionPublicId
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(SuccessCode.OK, response));
+    }
+
+    /**
+     * 퀴즈 세트 조회
+     */
+    @GetMapping("/{quizSessionId}")
+    public ResponseEntity<ApiResponse<QuizSessionResponse>> getQuizSession(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("quizSessionId") String quizSessionPublicId
+    ) {
+        QuizSessionResponse response = quizSessionQueryService.getQuizSession(
                 principal.getUserId(),
                 quizSessionPublicId
         );

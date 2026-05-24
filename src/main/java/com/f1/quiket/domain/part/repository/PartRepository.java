@@ -52,4 +52,9 @@ public interface PartRepository extends JpaRepository<Part, Long> {
             @Param("subjectId") Long subjectId,
             @Param("userId") Long userId
     );
+
+    /**
+     * 사용자 파트 목록 조회 (PK 컬렉션 기반)
+     */
+    List<Part> findAllByIdInAndUserIdAndDeletedAtIsNull(Collection<Long> ids, Long userId);
 }
