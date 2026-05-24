@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.home.dto;
 
 import com.f1.quiket.domain.user.entity.User;
+import com.f1.quiket.domain.user.entity.type.UserLevel;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -31,30 +32,7 @@ public class HomeUserSummaryResponse {
                 .dotoriBalance(user.getDotoriBalance())
                 .xpTotal(user.getXpTotal())
                 .currentLevel(user.getCurrentLevel())
-                .levelName(resolveLevelName(user.getCurrentLevel()))
+                .levelName(UserLevel.titleOf(user.getCurrentLevel()))
                 .build();
-    }
-
-    /**
-     * 레벨명 산출
-     */
-    private static String resolveLevelName(Integer currentLevel) {
-        // 기본 레벨 구간
-        if (currentLevel == null || currentLevel <= 1) {
-            return "새싹 다람쥐";
-        }
-        // 초급 레벨 구간
-        if (currentLevel <= 3) {
-            return "펜굴리는 다람쥐";
-        }
-        // 중급 레벨 구간
-        if (currentLevel <= 6) {
-            return "문제푸는 다람쥐";
-        }
-        // 고급 레벨 구간
-        if (currentLevel <= 9) {
-            return "퀴즈장인 다람쥐";
-        }
-        return "마스터 다람쥐";
     }
 }
