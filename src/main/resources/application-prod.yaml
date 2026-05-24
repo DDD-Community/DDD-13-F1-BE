@@ -46,3 +46,15 @@ springdoc:
     enabled: false  # Swagger JSON 엔드포인트 비활성화
   swagger-ui:
     enabled: false  # Swagger UI 비활성화
+aws:
+  ses:
+    # SES 리전 설정값
+    # 기본값 사용, 필요 시 환경변수로 override
+    region: ${AWS_REGION:ap-northeast-2}
+    # SES 발신자 이메일 설정값
+    from-email: ${AWS_SES_FROM_EMAIL:ja2hoon97@gmail.com}
+
+quiket:
+  jwt:
+    secret: ${QUIKET_JWT_SECRET}
+    enabled: false  # Swagger UI 비활성화

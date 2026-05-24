@@ -22,21 +22,30 @@ dependencies {
 	// Spring Boot Starter
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.security:spring-security-crypto'
 	
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
 	// Database
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-mysql'
 	runtimeOnly 'com.mysql:mysql-connector-j'
+	// CI 테스트 DB
+	testRuntimeOnly 'com.h2database:h2'
 
 	// Dev Tools
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
 	// Swagger (SpringDoc OpenAPI)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
+
+	// AWS SES
+	implementation 'software.amazon.awssdk:sesv2:2.32.19'
 
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
@@ -50,4 +59,7 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	testLogging {
+		events 'started', 'passed', 'skipped', 'failed', 'standard_out', 'standard_error'
+	}
 }

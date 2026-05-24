@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    # MySQL 호환 모드
+    url: jdbc:h2:mem:quiket-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  data:
+    redis:
+      # 컨텍스트 테스트용 Redis 비활성화
+      repositories:
+        enabled: false
+
+  jpa:
+    hibernate:
+      # 테스트용 스키마 자동 생성/정리
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
+
+  flyway:
+    enabled: false
+
+aws:
+  ses:
+    region: ${AWS_REGION:ap-northeast-2}
+    from-email: ${AWS_SES_FROM_EMAIL:ja2hoon97@gmail.com}
+
+quiket:
+  jwt:
+    issuer: quiket-test
+    secret: test-jwt-secret-for-quiket-f1-authentication
+    access-token-expires-in-seconds: 1800
+    refresh-token-expires-in-seconds: 2592000
+
+kakao:
+  oauth:
+    user-info-uri: https://kapi.kakao.com/v2/user/me
