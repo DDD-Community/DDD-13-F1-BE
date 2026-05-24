@@ -29,9 +29,9 @@ public class QuizScopeController {
     @GetMapping("/{subjectId}/quiz-scope")
     public ResponseEntity<ApiResponse<QuizScopeResponse>> getQuizScope(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId
+            @PathVariable("subjectId") String subjectPublicId
     ) {
-        QuizScopeResponse response = quizScopeService.getQuizScope(principal.getUserId(), subjectId);
+        QuizScopeResponse response = quizScopeService.getQuizScope(principal.getUserId(), subjectPublicId);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
     }
 }

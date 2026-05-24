@@ -45,9 +45,10 @@ public class QuizScopeService {
 
     private Subject findSubject(Long userId, String subjectPublicId) {
         return subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subjectPublicId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.SUBJECT_NOT_FOUND));
     }
 
+    // TODO: Part.content(@Lob, 최대 30,000자) 전량 로드 회피 — JPQL projection으로 미리보기 컬럼만 조회 필요
     private Map<Long, List<Part>> findPartsByChapterId(Long userId, Long subjectId) {
         return partRepository
                 .findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByChapterIdAscPartNumberAscCreatedAtAsc(

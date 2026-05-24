@@ -76,9 +76,28 @@ class QuizScopeServiceTest {
         assertThatThrownBy(() -> quizScopeService.getQuizScope(userId, subjectPublicId))
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
-                .isEqualTo(ErrorCode.NOT_FOUND);
+                .isEqualTo(ErrorCode.SUBJECT_NOT_FOUND);
 
         verifyNoInteractions(chapterRepository, partRepository);
+    }
+
+    @Test
+    void getQuizScope_returns_empty_chapters_when_subject_has_none() {
+        Long userId = 1L;
+        Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
+
+        when(subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subject.getPublicId(), userId))
+                .thenReturn(Optional.of(subject));
+        when(chapterRepository.findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByDisplayOrderAscCreatedAtAsc(subject.getId(), userId))
+                .thenReturn(List.of());
+        when(partRepository.findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByChapterIdAscPartNumberAscCreatedAtAsc(subject.getId(), userId))
+                .thenReturn(List.of());
+
+        QuizScopeResponse response = quizScopeService.getQuizScope(userId, subject.getPublicId());
+
+        assertThat(response.getSubjectId()).isEqualTo(subject.getPublicId());
+        assertThat(response.getSubjectName()).isEqualTo("데이터베이스");
+        assertThat(response.getChapters()).isEmpty();
     }
 
     private Subject subject(Long id, String publicId, Long userId, String name) {

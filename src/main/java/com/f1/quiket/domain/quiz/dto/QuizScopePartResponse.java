@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.quiz.dto;
 
 import com.f1.quiket.domain.part.entity.Part;
+import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,6 +13,7 @@ import lombok.Getter;
 public class QuizScopePartResponse {
 
     private static final int CONTENT_PREVIEW_LENGTH = 30;
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
     private final String id;
     private final String chapterId;
@@ -34,7 +36,7 @@ public class QuizScopePartResponse {
             return null;
         }
 
-        String normalizedContent = content.replaceAll("\\s+", " ").trim();
+        String normalizedContent = WHITESPACE_PATTERN.matcher(content).replaceAll(" ").trim();
         if (normalizedContent.length() <= CONTENT_PREVIEW_LENGTH) {
             return normalizedContent;
         }
