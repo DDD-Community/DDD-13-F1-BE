@@ -34,6 +34,7 @@ class QuizSessionCreateServiceTest {
     private PartRepository partRepository;
     private QuizSessionRepository quizSessionRepository;
     private QuizSessionScopeRepository quizSessionScopeRepository;
+    private QuizGenerationLockStore quizGenerationLockStore;
     private QuizSessionCreateService quizSessionCreateService;
 
     @BeforeEach
@@ -42,11 +43,13 @@ class QuizSessionCreateServiceTest {
         partRepository = mock(PartRepository.class);
         quizSessionRepository = mock(QuizSessionRepository.class);
         quizSessionScopeRepository = mock(QuizSessionScopeRepository.class);
+        quizGenerationLockStore = mock(QuizGenerationLockStore.class);
         quizSessionCreateService = new QuizSessionCreateService(
                 subjectRepository,
                 partRepository,
                 quizSessionRepository,
-                quizSessionScopeRepository
+                quizSessionScopeRepository,
+                quizGenerationLockStore
         );
     }
 
@@ -79,6 +82,8 @@ class QuizSessionCreateServiceTest {
                 subject.getId(),
                 userId
         )).thenReturn(List.of(part1, part2));
+        when(partRepository.sumContentLengthByPublicIds(request.getPartIds(), subject.getId(), userId))
+                .thenReturn(1000L);
         when(quizSessionRepository.save(any(QuizSession.class)))
                 .thenAnswer(invocation -> {
                     QuizSession quizSession = invocation.getArgument(0);
@@ -87,6 +92,9 @@ class QuizSessionCreateServiceTest {
                 });
 
         QuizGenerationAcceptedResponse response = quizSessionCreateService.createQuizSession(userId, request);
+
+        verify(quizGenerationLockStore).acquire(userId);
+        verify(quizGenerationLockStore).release(userId);
 
         ArgumentCaptor<QuizSession> sessionCaptor = ArgumentCaptor.forClass(QuizSession.class);
         verify(quizSessionRepository).save(sessionCaptor.capture());
@@ -251,6 +259,136 @@ class QuizSessionCreateServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.QUIZ_SCOPE_INVALID);
+    }
+
+    @Test
+    void createQuizSession_throws_invalid_option_when_timer_disabled_but_scope_provided() {
+        Long userId = 1L;
+        Subject subject = subject(10L, "subject-public-id", userId);
+        QuizCreateRequest request = request(
+                subject.getPublicId(),
+                List.of("part-public-id"),
+                "multiple_choice",
+                4,
+                10,
+                "one_by_one",
+                false,
+                "per_question",
+                60,
+                "medium"
+        );
+        when(subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subject.getPublicId(), userId))
+                .thenReturn(Optional.of(subject));
+
+        assertThatThrownBy(() -> quizSessionCreateService.createQuizSession(userId, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.QUIZ_OPTION_INVALID);
+
+        verify(quizGenerationLockStore).release(userId);
+    }
+
+    @Test
+    void createQuizSession_throws_subject_not_found_when_subject_missing() {
+        Long userId = 1L;
+        String subjectPublicId = "subject-public-id";
+        QuizCreateRequest request = request(
+                subjectPublicId,
+                List.of("part-public-id"),
+                "multiple_choice",
+                4,
+                10,
+                "one_by_one",
+                false,
+                null,
+                null,
+                "medium"
+        );
+        when(subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subjectPublicId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> quizSessionCreateService.createQuizSession(userId, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SUBJECT_NOT_FOUND);
+
+        verify(quizGenerationLockStore).release(userId);
+    }
+
+    @Test
+    void createQuizSession_throws_text_insufficient_when_content_length_below_quota() {
+        Long userId = 1L;
+        Subject subject = subject(10L, "subject-public-id", userId);
+        Part part1 = part(100L, "part-public-1", 1000L, subject.getId(), userId);
+        QuizCreateRequest request = request(
+                subject.getPublicId(),
+                List.of(part1.getPublicId()),
+                "multiple_choice",
+                4,
+                10,
+                "one_by_one",
+                false,
+                null,
+                null,
+                "medium"
+        );
+        when(subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subject.getPublicId(), userId))
+                .thenReturn(Optional.of(subject));
+        when(partRepository.findAllByPublicIdInAndSubjectIdAndUserIdAndDeletedAtIsNull(
+                request.getPartIds(),
+                subject.getId(),
+                userId
+        )).thenReturn(List.of(part1));
+        // 50자당 1문제 정책 — 본문 100자라면 최대 2문제만 가능. 요청 10문제는 거절돼야 함
+        when(partRepository.sumContentLengthByPublicIds(request.getPartIds(), subject.getId(), userId))
+                .thenReturn(100L);
+
+        assertThatThrownBy(() -> quizSessionCreateService.createQuizSession(userId, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.QUIZ_SCOPE_TEXT_INSUFFICIENT);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void createQuizSession_defaults_difficulty_to_medium_when_missing() {
+        Long userId = 1L;
+        Subject subject = subject(10L, "subject-public-id", userId);
+        Part part1 = part(100L, "part-public-1", 1000L, subject.getId(), userId);
+        QuizCreateRequest request = request(
+                subject.getPublicId(),
+                List.of(part1.getPublicId()),
+                "ox",
+                null,
+                5,
+                "all_at_once",
+                false,
+                null,
+                null,
+                null
+        );
+        when(subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subject.getPublicId(), userId))
+                .thenReturn(Optional.of(subject));
+        when(partRepository.findAllByPublicIdInAndSubjectIdAndUserIdAndDeletedAtIsNull(
+                request.getPartIds(),
+                subject.getId(),
+                userId
+        )).thenReturn(List.of(part1));
+        when(partRepository.sumContentLengthByPublicIds(request.getPartIds(), subject.getId(), userId))
+                .thenReturn(1000L);
+        when(quizSessionRepository.save(any(QuizSession.class)))
+                .thenAnswer(invocation -> {
+                    QuizSession quizSession = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(quizSession, "id", 501L);
+                    return quizSession;
+                });
+
+        quizSessionCreateService.createQuizSession(userId, request);
+
+        ArgumentCaptor<QuizSession> sessionCaptor = ArgumentCaptor.forClass(QuizSession.class);
+        verify(quizSessionRepository).save(sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getDifficulty()).isEqualTo("medium");
+        assertThat(sessionCaptor.getValue().getChoiceCount()).isNull();
     }
 
     private QuizCreateRequest request(

@@ -38,21 +38,34 @@ public class QuizSessionCreateService {
     private static final String DIFFICULTY_MEDIUM = "medium";
     private static final String STATUS_PENDING = "pending";
     private static final List<String> ACTIVE_GENERATION_STATUSES = List.of("pending", "in_progress");
+    private static final int CHARS_PER_QUESTION = 50;
 
     private final SubjectRepository subjectRepository;
     private final PartRepository partRepository;
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionScopeRepository quizSessionScopeRepository;
+    private final QuizGenerationLockStore quizGenerationLockStore;
 
     /**
      * 퀴즈 세션 생성
      */
     public QuizGenerationAcceptedResponse createQuizSession(Long userId, QuizCreateRequest request) {
+        // 동시 요청(연타·재시도) 차단용 사용자 단위 분산락
+        quizGenerationLockStore.acquire(userId);
+        try {
+            return createQuizSessionInternal(userId, request);
+        } finally {
+            quizGenerationLockStore.release(userId);
+        }
+    }
+
+    private QuizGenerationAcceptedResponse createQuizSessionInternal(Long userId, QuizCreateRequest request) {
         validateActiveGeneration(userId);
 
         Subject subject = findSubject(userId, request.getSubjectId());
         QuizOptionValues optionValues = resolveOptions(request);
         List<Part> parts = findScopeParts(userId, subject.getId(), request.getPartIds());
+        validateQuestionCountAgainstTextLength(userId, subject.getId(), request);
 
         QuizSession quizSession = QuizSession.create(
                 UuidV7Generator.generate(),
@@ -74,6 +87,21 @@ public class QuizSessionCreateService {
         quizSessionScopeRepository.saveAll(createScopes(savedQuizSession.getId(), parts));
 
         return QuizGenerationAcceptedResponse.from(savedQuizSession);
+    }
+
+    /**
+     * 50자당 1문제 정책 검증 (기능명세 QUIZ-GEN-001)
+     */
+    private void validateQuestionCountAgainstTextLength(Long userId, Long subjectId, QuizCreateRequest request) {
+        long totalLength = partRepository.sumContentLengthByPublicIds(
+                request.getPartIds(),
+                subjectId,
+                userId
+        );
+        long maxQuestionCount = totalLength / CHARS_PER_QUESTION;
+        if (request.getQuestionCount() > maxQuestionCount) {
+            throw new CustomException(ErrorCode.QUIZ_SCOPE_TEXT_INSUFFICIENT);
+        }
     }
 
     private void validateActiveGeneration(Long userId) {
@@ -188,6 +216,7 @@ public class QuizSessionCreateService {
                 .toList();
     }
 
+    // TODO: jobId — AI 생성 작업 도입 후 MQ message-id 등 실제 작업 식별자로 대체
     private String createJobId() {
         return "quiz-job-" + UuidV7Generator.generate();
     }
