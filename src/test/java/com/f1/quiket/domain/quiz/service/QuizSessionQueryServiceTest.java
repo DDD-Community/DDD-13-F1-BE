@@ -83,7 +83,7 @@ class QuizSessionQueryServiceTest {
 
         when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
                 .thenReturn(Optional.of(quizSession));
-        when(subjectRepository.findById(subject.getId()))
+        when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(subject.getId(), userId))
                 .thenReturn(Optional.of(subject));
         when(questionRepository.findAllByQuizSessionIdAndUserIdOrderByDisplayOrderAscIdAsc(quizSession.getId(), userId))
                 .thenReturn(List.of(question));
@@ -91,9 +91,9 @@ class QuizSessionQueryServiceTest {
                 .thenReturn(List.of(option1, option2));
         when(questionAnswerRepository.findAllByQuestionIdIn(List.of(question.getId())))
                 .thenReturn(List.of(answer));
-        when(chapterRepository.findAllById(List.of(chapter.getId())))
+        when(chapterRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(List.of(chapter.getId()), userId))
                 .thenReturn(List.of(chapter));
-        when(partRepository.findAllById(List.of(part.getId())))
+        when(partRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(List.of(part.getId()), userId))
                 .thenReturn(List.of(part));
 
         QuizSessionResponse response = quizSessionQueryService.getQuizSession(userId, quizSession.getPublicId());
@@ -152,6 +152,27 @@ class QuizSessionQueryServiceTest {
     }
 
     @Test
+    void getQuizSession_throws_internal_error_when_completed_session_has_no_questions() {
+        Long userId = 1L;
+        Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
+        QuizSession quizSession = quizSession(500L, "quiz-session-public-id", userId, subject.getId(), "completed");
+
+        when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
+                .thenReturn(Optional.of(quizSession));
+        when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(subject.getId(), userId))
+                .thenReturn(Optional.of(subject));
+        when(questionRepository.findAllByQuizSessionIdAndUserIdOrderByDisplayOrderAscIdAsc(quizSession.getId(), userId))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> quizSessionQueryService.getQuizSession(userId, quizSession.getPublicId()))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR);
+
+        verifyNoInteractions(questionOptionRepository, questionAnswerRepository, chapterRepository, partRepository);
+    }
+
+    @Test
     void getQuizSession_throws_internal_error_when_answer_missing() {
         Long userId = 1L;
         Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
@@ -171,7 +192,7 @@ class QuizSessionQueryServiceTest {
 
         when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
                 .thenReturn(Optional.of(quizSession));
-        when(subjectRepository.findById(subject.getId()))
+        when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(subject.getId(), userId))
                 .thenReturn(Optional.of(subject));
         when(questionRepository.findAllByQuizSessionIdAndUserIdOrderByDisplayOrderAscIdAsc(quizSession.getId(), userId))
                 .thenReturn(List.of(question));
@@ -179,9 +200,9 @@ class QuizSessionQueryServiceTest {
                 .thenReturn(List.of());
         when(questionAnswerRepository.findAllByQuestionIdIn(List.of(question.getId())))
                 .thenReturn(List.of());
-        when(chapterRepository.findAllById(List.of(chapter.getId())))
+        when(chapterRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(List.of(chapter.getId()), userId))
                 .thenReturn(List.of(chapter));
-        when(partRepository.findAllById(List.of(part.getId())))
+        when(partRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(List.of(part.getId()), userId))
                 .thenReturn(List.of(part));
 
         assertThatThrownBy(() -> quizSessionQueryService.getQuizSession(userId, quizSession.getPublicId()))
@@ -230,7 +251,7 @@ class QuizSessionQueryServiceTest {
         ReflectionTestUtils.setField(question, "partId", partId);
         ReflectionTestUtils.setField(question, "questionType", "multiple_choice");
         ReflectionTestUtils.setField(question, "difficulty", "medium");
-        ReflectionTestUtils.setField(question, "summary", "모델링의 특징");
+        ReflectionTestUtils.setField(question, "summary", "모델링의 핵심 특징");
         ReflectionTestUtils.setField(question, "body", "다음 중 데이터 모델링의 특징으로 올바른 것은?");
         ReflectionTestUtils.setField(question, "correctExplanation", "데이터 모델링은 현실 데이터를 추상화합니다.");
         ReflectionTestUtils.setField(question, "incorrectExplanation", "선택지는 데이터 모델링의 핵심 특징과 맞지 않습니다.");

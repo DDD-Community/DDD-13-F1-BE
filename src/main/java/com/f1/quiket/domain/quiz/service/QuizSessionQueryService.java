@@ -52,19 +52,21 @@ public class QuizSessionQueryService {
                 .orElseThrow(() -> new CustomException(ErrorCode.QUIZ_SESSION_NOT_FOUND));
         validateCompleted(quizSession);
 
-        Subject subject = subjectRepository.findById(quizSession.getSubjectId())
+        Subject subject = subjectRepository
+                .findByIdAndUserIdAndDeletedAtIsNull(quizSession.getSubjectId(), userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SUBJECT_NOT_FOUND));
         List<Question> questions = questionRepository.findAllByQuizSessionIdAndUserIdOrderByDisplayOrderAscIdAsc(
                 quizSession.getId(),
                 userId
         );
+        validateQuestionsNotEmpty(questions);
         List<Long> questionIds = questions.stream()
                 .map(Question::getId)
                 .toList();
         Map<Long, List<QuestionOption>> optionsByQuestionId = getOptionsByQuestionId(questionIds);
         Map<Long, QuestionAnswer> answersByQuestionId = getAnswersByQuestionId(questionIds);
-        Map<Long, Chapter> chaptersById = getChaptersById(questions);
-        Map<Long, Part> partsById = getPartsById(questions);
+        Map<Long, Chapter> chaptersById = getChaptersById(userId, questions);
+        Map<Long, Part> partsById = getPartsById(userId, questions);
         validateQuestionDetails(questions, answersByQuestionId, chaptersById, partsById);
 
         return QuizSessionResponse.of(
@@ -81,6 +83,12 @@ public class QuizSessionQueryService {
     private void validateCompleted(QuizSession quizSession) {
         if (!STATUS_COMPLETED.equals(quizSession.getStatus())) {
             throw new CustomException(ErrorCode.QUIZ_SESSION_NOT_COMPLETED);
+        }
+    }
+
+    private void validateQuestionsNotEmpty(List<Question> questions) {
+        if (questions.isEmpty()) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "완료된 퀴즈 세션에 문항이 존재하지 않습니다.");
         }
     }
 
@@ -104,7 +112,7 @@ public class QuizSessionQueryService {
                 .collect(Collectors.toMap(QuestionAnswer::getQuestionId, Function.identity()));
     }
 
-    private Map<Long, Chapter> getChaptersById(List<Question> questions) {
+    private Map<Long, Chapter> getChaptersById(Long userId, List<Question> questions) {
         List<Long> chapterIds = questions.stream()
                 .map(Question::getChapterId)
                 .distinct()
@@ -113,12 +121,12 @@ public class QuizSessionQueryService {
             return Map.of();
         }
 
-        return chapterRepository.findAllById(chapterIds)
+        return chapterRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(chapterIds, userId)
                 .stream()
                 .collect(Collectors.toMap(Chapter::getId, Function.identity()));
     }
 
-    private Map<Long, Part> getPartsById(List<Question> questions) {
+    private Map<Long, Part> getPartsById(Long userId, List<Question> questions) {
         List<Long> partIds = questions.stream()
                 .map(Question::getPartId)
                 .distinct()
@@ -127,7 +135,7 @@ public class QuizSessionQueryService {
             return Map.of();
         }
 
-        return partRepository.findAllById(partIds)
+        return partRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(partIds, userId)
                 .stream()
                 .collect(Collectors.toMap(Part::getId, Function.identity()));
     }

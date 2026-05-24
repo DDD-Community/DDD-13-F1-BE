@@ -21,4 +21,9 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
      * 사용자 과목 단건 조회
      */
     Optional<Subject> findByPublicIdAndUserIdAndDeletedAtIsNull(String publicId, Long userId);
+
+    /**
+     * 사용자 과목 단건 조회 (PK 기반)
+     */
+    Optional<Subject> findByIdAndUserIdAndDeletedAtIsNull(Long id, Long userId);
 }
