@@ -85,6 +85,10 @@ public class User extends BaseEntity {
         this.emailVerified = true;
     }
 
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
     public void recordLoginFailure(int maxFailedCount) {
         LocalDateTime now = LocalDateTime.now();
         this.failedLoginCount++;
