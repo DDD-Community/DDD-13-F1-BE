@@ -181,7 +181,7 @@ return ResponseEntity.status(errorCode.getStatus())
 
 ### 머지 전략
 
-- 작업 브랜치(`feat/*`, `fix/*`, `refactor/*`, `docs/*`, `chore/*`, `test/*`) → `develop`: Squash merge 사용
+- 작업 브랜치(`type/#issue-number-description`, 예: `feat/#123-login-api`) → `develop`: Squash merge 사용
 - `develop` → `main`: Merge commit 사용
 - 작업 브랜치 내부 커밋은 리뷰 편의를 위해 원자적으로 작성
 - Squash merge 커밋 메시지는 PR 제목 기준으로 작성
