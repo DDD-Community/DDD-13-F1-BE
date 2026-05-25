@@ -184,8 +184,14 @@ return ResponseEntity.status(errorCode.getStatus())
 - 작업 브랜치(`type/#issue-number-description`, 예: `feat/#123-login-api`) → `develop`: Squash merge 사용
 - `develop` → `main`: Merge commit 사용
 - 작업 브랜치 내부 커밋은 리뷰 편의를 위해 원자적으로 작성
-- Squash merge 커밋 메시지는 PR 제목 기준으로 작성
 - `main` 병합 커밋은 릴리즈 단위 추적 목적
+
+### Git 메시지 컨벤션
+
+- 커밋 메시지: `type: 한국어 핵심`
+- PR 제목: `[Type] 한국어 핵심`
+- Squash merge 커밋 메시지: `type: 한국어 핵심 (#PR번호)`
+- `develop` → `main` Merge commit 메시지: `[Release] 버전/날짜 배포`
 
 ### 이슈 및 PR 제목
 
