@@ -2,6 +2,9 @@ package com.f1.quiket.domain.mypage.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -146,11 +149,8 @@ class MyPageServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.MY_EMAIL_CHANGE_TOO_FREQUENT);
-        verify(emailChangeVerificationStore, never()).save(
-                user.getPublicId(),
-                new MyEmailChangeVerificationPayload("new.user@example.com", "123456"),
-                600L
-        );
+        verify(emailChangeVerificationStore, never())
+                .save(anyString(), any(MyEmailChangeVerificationPayload.class), anyLong());
     }
 
     @Test
@@ -168,11 +168,8 @@ class MyPageServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.AUTH_EMAIL_ALREADY_EXISTS);
-        verify(emailChangeVerificationStore, never()).save(
-                user.getPublicId(),
-                new MyEmailChangeVerificationPayload("new.user@example.com", "123456"),
-                600L
-        );
+        verify(emailChangeVerificationStore, never())
+                .save(anyString(), any(MyEmailChangeVerificationPayload.class), anyLong());
     }
 
     @Test
