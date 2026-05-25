@@ -20,20 +20,25 @@ import com.f1.quiket.global.response.ErrorCode;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class MyNotificationServiceTest {
 
     private UserRepository userRepository;
     private UserNotificationSettingRepository userNotificationSettingRepository;
+    private UserNotificationSettingCreator userNotificationSettingCreator;
     private MyNotificationService myNotificationService;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         userNotificationSettingRepository = mock(UserNotificationSettingRepository.class);
-        myNotificationService = new MyNotificationService(userRepository, userNotificationSettingRepository);
+        userNotificationSettingCreator = mock(UserNotificationSettingCreator.class);
+        myNotificationService = new MyNotificationService(
+                userRepository,
+                userNotificationSettingRepository,
+                userNotificationSettingCreator
+        );
     }
 
     @Test
@@ -109,19 +114,33 @@ class MyNotificationServiceTest {
     @Test
     void updateFcmToken_creates_default_when_setting_missing() {
         User user = user();
+        UserNotificationSetting createdSetting = UserNotificationSetting.createDefault(user.getId());
         FcmTokenUpdateRequest request = fcmTokenUpdateRequest("new-fcm-token");
+
         when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
         when(userNotificationSettingRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
-        when(userNotificationSettingRepository.save(any(UserNotificationSetting.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userNotificationSettingCreator.createIfAbsent(user.getId())).thenReturn(createdSetting);
 
         myNotificationService.updateFcmToken(user.getPublicId(), request);
 
-        ArgumentCaptor<UserNotificationSetting> settingCaptor =
-                ArgumentCaptor.forClass(UserNotificationSetting.class);
-        verify(userNotificationSettingRepository).save(settingCaptor.capture());
-        assertThat(settingCaptor.getValue().getUserId()).isEqualTo(user.getId());
-        assertThat(settingCaptor.getValue().getFcmToken()).isEqualTo("new-fcm-token");
+        assertThat(createdSetting.getFcmToken()).isEqualTo("new-fcm-token");
+    }
+
+    @Test
+    void updateFcmToken_recovers_when_concurrent_create_conflicts() {
+        // 다른 트랜잭션이 먼저 INSERT한 setting을 creator가 catch & re-fetch로 반환하는 시나리오
+        User user = user();
+        UserNotificationSetting concurrentlyCreatedSetting = UserNotificationSetting.createDefault(user.getId());
+        FcmTokenUpdateRequest request = fcmTokenUpdateRequest("new-fcm-token");
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userNotificationSettingRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+        when(userNotificationSettingCreator.createIfAbsent(user.getId())).thenReturn(concurrentlyCreatedSetting);
+
+        myNotificationService.updateFcmToken(user.getPublicId(), request);
+
+        assertThat(concurrentlyCreatedSetting.getFcmToken()).isEqualTo("new-fcm-token");
+        verify(userNotificationSettingCreator).createIfAbsent(user.getId());
     }
 
     @Test

@@ -20,6 +20,7 @@ public class MyNotificationService {
 
     private final UserRepository userRepository;
     private final UserNotificationSettingRepository userNotificationSettingRepository;
+    private final UserNotificationSettingCreator userNotificationSettingCreator;
 
     @Transactional(readOnly = true)
     public NotificationSettingsResponse getNotificationSettings(String userPublicId) {
@@ -56,6 +57,6 @@ public class MyNotificationService {
 
     private UserNotificationSetting findOrCreateSetting(Long userId) {
         return userNotificationSettingRepository.findByUserId(userId)
-                .orElseGet(() -> userNotificationSettingRepository.save(UserNotificationSetting.createDefault(userId)));
+                .orElseGet(() -> userNotificationSettingCreator.createIfAbsent(userId));
     }
 }
