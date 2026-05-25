@@ -7,6 +7,7 @@ import com.f1.quiket.domain.quiz.dto.QuizGenerationAcceptedResponse;
 import com.f1.quiket.domain.quiz.entity.QuizGenerationJob;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
 import com.f1.quiket.domain.quiz.entity.QuizSessionScope;
+import com.f1.quiket.domain.quiz.event.QuizGenerationEnqueueRequestedEvent;
 import com.f1.quiket.domain.quiz.repository.QuizGenerationJobRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionScopeRepository;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -47,8 +49,8 @@ public class QuizSessionCreateService {
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionScopeRepository quizSessionScopeRepository;
     private final QuizGenerationJobRepository quizGenerationJobRepository;
-    private final QuizGenerationQueue quizGenerationQueue;
     private final QuizGenerationLockStore quizGenerationLockStore;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 퀴즈 세션 생성
@@ -92,8 +94,8 @@ public class QuizSessionCreateService {
         QuizGenerationJob generationJob = quizGenerationJobRepository.save(
                 QuizGenerationJob.create(savedQuizSession.getId(), userId, null)
         );
-        String messageId = quizGenerationQueue.enqueue(QuizGenerationQueueMessage.of(generationJob, savedQuizSession));
-        generationJob.assignMqMessageId(messageId);
+        // 실제 Redis 큐 발행은 AFTER_COMMIT 리스너에서 처리 (DB rollback 시 orphan 메시지 방지)
+        eventPublisher.publishEvent(QuizGenerationEnqueueRequestedEvent.of(generationJob, savedQuizSession));
 
         return QuizGenerationAcceptedResponse.from(savedQuizSession, generationJob);
     }
