@@ -36,7 +36,7 @@ public class UserFeedback {
     @Column(name = "id")
     Long id;
 
-    @Column(name = "user_id")
+    @Column(name = "user_id", nullable = false)
     Long userId;
 
     @Column(name = "category", length = 20, nullable = false)

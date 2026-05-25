@@ -1,6 +1,6 @@
 CREATE TABLE user_feedbacks (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'PK',
-    user_id BIGINT NULL COMMENT '사용자 ID',
+    user_id BIGINT NOT NULL COMMENT '사용자 ID (인증 엔드포인트 — 항상 존재)',
     category VARCHAR(20) NOT NULL COMMENT '카테고리: feature / bug / inquiry / other',
     body VARCHAR(1000) NOT NULL COMMENT '본문',
     reply_email VARCHAR(255) NULL COMMENT '회신 이메일',
