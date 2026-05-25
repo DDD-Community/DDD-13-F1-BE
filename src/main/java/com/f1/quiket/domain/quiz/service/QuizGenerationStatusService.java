@@ -2,6 +2,7 @@ package com.f1.quiket.domain.quiz.service;
 
 import com.f1.quiket.domain.quiz.dto.QuizGenerationStatusResponse;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
+import com.f1.quiket.domain.quiz.repository.QuizGenerationJobRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class QuizGenerationStatusService {
 
     private final QuizSessionRepository quizSessionRepository;
+    private final QuizGenerationJobRepository quizGenerationJobRepository;
 
     /**
      * 퀴즈 생성 상태 조회
@@ -27,6 +29,8 @@ public class QuizGenerationStatusService {
                 .findByPublicIdAndUserIdAndDeletedAtIsNull(quizSessionPublicId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.QUIZ_SESSION_NOT_FOUND));
 
-        return QuizGenerationStatusResponse.from(quizSession);
+        return quizGenerationJobRepository.findByQuizSessionId(quizSession.getId())
+                .map(generationJob -> QuizGenerationStatusResponse.from(quizSession, generationJob))
+                .orElseGet(() -> QuizGenerationStatusResponse.from(quizSession));
     }
 }

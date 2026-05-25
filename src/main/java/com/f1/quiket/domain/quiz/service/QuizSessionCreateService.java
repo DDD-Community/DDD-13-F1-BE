@@ -4,8 +4,10 @@ import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.part.repository.PartRepository;
 import com.f1.quiket.domain.quiz.dto.QuizCreateRequest;
 import com.f1.quiket.domain.quiz.dto.QuizGenerationAcceptedResponse;
+import com.f1.quiket.domain.quiz.entity.QuizGenerationJob;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
 import com.f1.quiket.domain.quiz.entity.QuizSessionScope;
+import com.f1.quiket.domain.quiz.repository.QuizGenerationJobRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionScopeRepository;
 import com.f1.quiket.domain.subject.entity.Subject;
@@ -44,6 +46,8 @@ public class QuizSessionCreateService {
     private final PartRepository partRepository;
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionScopeRepository quizSessionScopeRepository;
+    private final QuizGenerationJobRepository quizGenerationJobRepository;
+    private final QuizGenerationQueue quizGenerationQueue;
     private final QuizGenerationLockStore quizGenerationLockStore;
 
     /**
@@ -85,8 +89,13 @@ public class QuizSessionCreateService {
 
         QuizSession savedQuizSession = quizSessionRepository.save(quizSession);
         quizSessionScopeRepository.saveAll(createScopes(savedQuizSession.getId(), parts));
+        QuizGenerationJob generationJob = quizGenerationJobRepository.save(
+                QuizGenerationJob.create(savedQuizSession.getId(), userId, null)
+        );
+        String messageId = quizGenerationQueue.enqueue(QuizGenerationQueueMessage.of(generationJob, savedQuizSession));
+        generationJob.assignMqMessageId(messageId);
 
-        return QuizGenerationAcceptedResponse.from(savedQuizSession);
+        return QuizGenerationAcceptedResponse.from(savedQuizSession, generationJob);
     }
 
     /**

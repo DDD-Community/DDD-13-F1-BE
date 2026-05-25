@@ -13,8 +13,10 @@ import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.part.repository.PartRepository;
 import com.f1.quiket.domain.quiz.dto.QuizCreateRequest;
 import com.f1.quiket.domain.quiz.dto.QuizGenerationAcceptedResponse;
+import com.f1.quiket.domain.quiz.entity.QuizGenerationJob;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
 import com.f1.quiket.domain.quiz.entity.QuizSessionScope;
+import com.f1.quiket.domain.quiz.repository.QuizGenerationJobRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionScopeRepository;
 import com.f1.quiket.domain.subject.entity.Subject;
@@ -34,6 +36,8 @@ class QuizSessionCreateServiceTest {
     private PartRepository partRepository;
     private QuizSessionRepository quizSessionRepository;
     private QuizSessionScopeRepository quizSessionScopeRepository;
+    private QuizGenerationJobRepository quizGenerationJobRepository;
+    private QuizGenerationQueue quizGenerationQueue;
     private QuizGenerationLockStore quizGenerationLockStore;
     private QuizSessionCreateService quizSessionCreateService;
 
@@ -43,12 +47,16 @@ class QuizSessionCreateServiceTest {
         partRepository = mock(PartRepository.class);
         quizSessionRepository = mock(QuizSessionRepository.class);
         quizSessionScopeRepository = mock(QuizSessionScopeRepository.class);
+        quizGenerationJobRepository = mock(QuizGenerationJobRepository.class);
+        quizGenerationQueue = mock(QuizGenerationQueue.class);
         quizGenerationLockStore = mock(QuizGenerationLockStore.class);
         quizSessionCreateService = new QuizSessionCreateService(
                 subjectRepository,
                 partRepository,
                 quizSessionRepository,
                 quizSessionScopeRepository,
+                quizGenerationJobRepository,
+                quizGenerationQueue,
                 quizGenerationLockStore
         );
     }
@@ -90,6 +98,7 @@ class QuizSessionCreateServiceTest {
                     ReflectionTestUtils.setField(quizSession, "id", 500L);
                     return quizSession;
                 });
+        stubGenerationJobSaveAndQueue(900L, "1748130000000-0");
 
         QuizGenerationAcceptedResponse response = quizSessionCreateService.createQuizSession(userId, request);
 
@@ -124,6 +133,26 @@ class QuizSessionCreateServiceTest {
                 .extracting(QuizSessionScope::getPartId)
                 .containsExactly(part1.getId(), part2.getId());
 
+        ArgumentCaptor<QuizGenerationJob> jobCaptor = ArgumentCaptor.forClass(QuizGenerationJob.class);
+        verify(quizGenerationJobRepository).save(jobCaptor.capture());
+        QuizGenerationJob savedJob = jobCaptor.getValue();
+        assertThat(savedJob.getId()).isEqualTo(900L);
+        assertThat(savedJob.getQuizSessionId()).isEqualTo(500L);
+        assertThat(savedJob.getUserId()).isEqualTo(userId);
+        assertThat(savedJob.getStatus()).isEqualTo("pending");
+        assertThat(savedJob.getProgressPct()).isZero();
+        assertThat(savedJob.getMqMessageId()).isEqualTo("1748130000000-0");
+
+        ArgumentCaptor<QuizGenerationQueueMessage> messageCaptor =
+                ArgumentCaptor.forClass(QuizGenerationQueueMessage.class);
+        verify(quizGenerationQueue).enqueue(messageCaptor.capture());
+        QuizGenerationQueueMessage queueMessage = messageCaptor.getValue();
+        assertThat(queueMessage.generationJobId()).isEqualTo(900L);
+        assertThat(queueMessage.quizSessionId()).isEqualTo(500L);
+        assertThat(queueMessage.quizSessionPublicId()).isEqualTo(savedSession.getPublicId());
+        assertThat(queueMessage.jobId()).isEqualTo(savedSession.getJobId());
+        assertThat(queueMessage.userId()).isEqualTo(userId);
+
         assertThat(response.getQuizSessionId()).isEqualTo(savedSession.getPublicId());
         assertThat(response.getJobId()).isEqualTo(savedSession.getJobId());
         assertThat(response.getStatus()).isEqualTo("pending");
@@ -153,7 +182,8 @@ class QuizSessionCreateServiceTest {
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.QUIZ_GENERATION_IN_PROGRESS);
 
-        verifyNoInteractions(subjectRepository, partRepository, quizSessionScopeRepository);
+        verifyNoInteractions(subjectRepository, partRepository, quizSessionScopeRepository,
+                quizGenerationJobRepository, quizGenerationQueue);
     }
 
     @Test
@@ -382,6 +412,7 @@ class QuizSessionCreateServiceTest {
                     ReflectionTestUtils.setField(quizSession, "id", 501L);
                     return quizSession;
                 });
+        stubGenerationJobSaveAndQueue(901L, "1748130000000-1");
 
         quizSessionCreateService.createQuizSession(userId, request);
 
@@ -442,6 +473,16 @@ class QuizSessionCreateServiceTest {
     private List<QuizSessionScope> toList(Iterable<QuizSessionScope> scopes) {
         return java.util.stream.StreamSupport.stream(scopes.spliterator(), false)
                 .toList();
+    }
+
+    private void stubGenerationJobSaveAndQueue(Long generationJobId, String messageId) {
+        when(quizGenerationJobRepository.save(any(QuizGenerationJob.class)))
+                .thenAnswer(invocation -> {
+                    QuizGenerationJob generationJob = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(generationJob, "id", generationJobId);
+                    return generationJob;
+                });
+        when(quizGenerationQueue.enqueue(any(QuizGenerationQueueMessage.class))).thenReturn(messageId);
     }
 
     private <T> T newEntity(Class<T> type) {

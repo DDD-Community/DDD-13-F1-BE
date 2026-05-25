@@ -6,7 +6,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.f1.quiket.domain.quiz.dto.QuizGenerationStatusResponse;
+import com.f1.quiket.domain.quiz.entity.QuizGenerationJob;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
+import com.f1.quiket.domain.quiz.repository.QuizGenerationJobRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
@@ -18,20 +20,28 @@ import org.springframework.test.util.ReflectionTestUtils;
 class QuizGenerationStatusServiceTest {
 
     private QuizSessionRepository quizSessionRepository;
+    private QuizGenerationJobRepository quizGenerationJobRepository;
     private QuizGenerationStatusService quizGenerationStatusService;
 
     @BeforeEach
     void setUp() {
         quizSessionRepository = mock(QuizSessionRepository.class);
-        quizGenerationStatusService = new QuizGenerationStatusService(quizSessionRepository);
+        quizGenerationJobRepository = mock(QuizGenerationJobRepository.class);
+        quizGenerationStatusService = new QuizGenerationStatusService(
+                quizSessionRepository,
+                quizGenerationJobRepository
+        );
     }
 
     @Test
     void getGenerationStatus_returns_pending_status() {
         Long userId = 1L;
-        QuizSession quizSession = quizSession("quiz-session-public-id", userId, "pending", "quiz-job-1", null, null);
+        QuizSession quizSession = quizSession(100L, "quiz-session-public-id", userId, "pending", "quiz-job-1", null, null);
+        QuizGenerationJob generationJob = generationJob(900L, quizSession.getId(), userId, "pending", 0, null, null);
         when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
                 .thenReturn(Optional.of(quizSession));
+        when(quizGenerationJobRepository.findByQuizSessionId(quizSession.getId()))
+                .thenReturn(Optional.of(generationJob));
 
         QuizGenerationStatusResponse response = quizGenerationStatusService.getGenerationStatus(
                 userId,
@@ -50,9 +60,12 @@ class QuizGenerationStatusServiceTest {
     @Test
     void getGenerationStatus_returns_in_progress_status() {
         Long userId = 1L;
-        QuizSession quizSession = quizSession("quiz-session-public-id", userId, "in_progress", "quiz-job-1", null, null);
+        QuizSession quizSession = quizSession(100L, "quiz-session-public-id", userId, "pending", "quiz-job-1", null, null);
+        QuizGenerationJob generationJob = generationJob(900L, quizSession.getId(), userId, "in_progress", 10, null, null);
         when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
                 .thenReturn(Optional.of(quizSession));
+        when(quizGenerationJobRepository.findByQuizSessionId(quizSession.getId()))
+                .thenReturn(Optional.of(generationJob));
 
         QuizGenerationStatusResponse response = quizGenerationStatusService.getGenerationStatus(
                 userId,
@@ -60,7 +73,7 @@ class QuizGenerationStatusServiceTest {
         );
 
         assertThat(response.getStatus()).isEqualTo("in_progress");
-        assertThat(response.getProgressPct()).isEqualTo(50);
+        assertThat(response.getProgressPct()).isEqualTo(10);
         assertThat(response.getGeneratedCount()).isNull();
         assertThat(response.getFailReason()).isNull();
     }
@@ -68,9 +81,12 @@ class QuizGenerationStatusServiceTest {
     @Test
     void getGenerationStatus_returns_completed_status() {
         Long userId = 1L;
-        QuizSession quizSession = quizSession("quiz-session-public-id", userId, "completed", "quiz-job-1", 8, null);
+        QuizSession quizSession = quizSession(100L, "quiz-session-public-id", userId, "completed", "quiz-job-1", 8, null);
+        QuizGenerationJob generationJob = generationJob(900L, quizSession.getId(), userId, "completed", 100, null, null);
         when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
                 .thenReturn(Optional.of(quizSession));
+        when(quizGenerationJobRepository.findByQuizSessionId(quizSession.getId()))
+                .thenReturn(Optional.of(generationJob));
 
         QuizGenerationStatusResponse response = quizGenerationStatusService.getGenerationStatus(
                 userId,
@@ -86,9 +102,20 @@ class QuizGenerationStatusServiceTest {
     @Test
     void getGenerationStatus_returns_failed_status() {
         Long userId = 1L;
-        QuizSession quizSession = quizSession("quiz-session-public-id", userId, "failed", "quiz-job-1", null, "텍스트 길이 부족");
+        QuizSession quizSession = quizSession(100L, "quiz-session-public-id", userId, "failed", "quiz-job-1", null, null);
+        QuizGenerationJob generationJob = generationJob(
+                900L,
+                quizSession.getId(),
+                userId,
+                "failed",
+                100,
+                null,
+                "AI 응답 검증 실패"
+        );
         when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
                 .thenReturn(Optional.of(quizSession));
+        when(quizGenerationJobRepository.findByQuizSessionId(quizSession.getId()))
+                .thenReturn(Optional.of(generationJob));
 
         QuizGenerationStatusResponse response = quizGenerationStatusService.getGenerationStatus(
                 userId,
@@ -98,7 +125,7 @@ class QuizGenerationStatusServiceTest {
         assertThat(response.getStatus()).isEqualTo("failed");
         assertThat(response.getProgressPct()).isEqualTo(100);
         assertThat(response.getGeneratedCount()).isNull();
-        assertThat(response.getFailReason()).isEqualTo("텍스트 길이 부족");
+        assertThat(response.getFailReason()).isEqualTo("AI 응답 검증 실패");
     }
 
     @Test
@@ -115,6 +142,7 @@ class QuizGenerationStatusServiceTest {
     }
 
     private QuizSession quizSession(
+            Long id,
             String publicId,
             Long userId,
             String status,
@@ -123,6 +151,7 @@ class QuizGenerationStatusServiceTest {
             String failReason
     ) {
         QuizSession quizSession = org.springframework.beans.BeanUtils.instantiateClass(QuizSession.class);
+        ReflectionTestUtils.setField(quizSession, "id", id);
         ReflectionTestUtils.setField(quizSession, "publicId", publicId);
         ReflectionTestUtils.setField(quizSession, "userId", userId);
         ReflectionTestUtils.setField(quizSession, "status", status);
@@ -130,5 +159,25 @@ class QuizGenerationStatusServiceTest {
         ReflectionTestUtils.setField(quizSession, "generatedCount", generatedCount);
         ReflectionTestUtils.setField(quizSession, "failReason", failReason);
         return quizSession;
+    }
+
+    private QuizGenerationJob generationJob(
+            Long id,
+            Long quizSessionId,
+            Long userId,
+            String status,
+            Integer progressPct,
+            Integer estimatedSeconds,
+            String failReason
+    ) {
+        QuizGenerationJob generationJob = org.springframework.beans.BeanUtils.instantiateClass(QuizGenerationJob.class);
+        ReflectionTestUtils.setField(generationJob, "id", id);
+        ReflectionTestUtils.setField(generationJob, "quizSessionId", quizSessionId);
+        ReflectionTestUtils.setField(generationJob, "userId", userId);
+        ReflectionTestUtils.setField(generationJob, "status", status);
+        ReflectionTestUtils.setField(generationJob, "progressPct", progressPct);
+        ReflectionTestUtils.setField(generationJob, "estimatedSeconds", estimatedSeconds);
+        ReflectionTestUtils.setField(generationJob, "failReason", failReason);
+        return generationJob;
     }
 }
