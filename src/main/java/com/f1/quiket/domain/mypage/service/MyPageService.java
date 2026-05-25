@@ -3,9 +3,11 @@ package com.f1.quiket.domain.mypage.service;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
 import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
 import com.f1.quiket.domain.auth.repository.UserAuthIdentityRepository;
+import com.f1.quiket.domain.auth.service.AuthTokenService;
 import com.f1.quiket.domain.auth.service.EmailVerificationCodeGenerator;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeConfirmRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeRequest;
+import com.f1.quiket.domain.mypage.dto.MyPasswordChangeRequest;
 import com.f1.quiket.domain.mypage.dto.MyProfileResponse;
 import com.f1.quiket.domain.mypage.dto.NicknameUpdateRequest;
 import com.f1.quiket.domain.mypage.event.MyEmailChangeMailRequestedEvent;
@@ -15,6 +17,7 @@ import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -33,6 +36,8 @@ public class MyPageService {
     private final EmailVerificationCodeGenerator verificationCodeGenerator;
     private final MyEmailChangeVerificationStore emailChangeVerificationStore;
     private final ApplicationEventPublisher eventPublisher;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthTokenService authTokenService;
 
     @Transactional(readOnly = true)
     public MyProfileResponse getMyProfile(String userPublicId) {
@@ -81,6 +86,18 @@ public class MyPageService {
         return toMyProfileResponse(user);
     }
 
+    public void updatePassword(String userPublicId, MyPasswordChangeRequest request) {
+        validatePasswordConfirm(request.getNewPassword(), request.getNewPasswordConfirm());
+
+        User user = findActiveUser(userPublicId);
+        UserAuthIdentity localIdentity = findLocalIdentity(user);
+        validateCurrentPassword(localIdentity, request.getCurrentPassword());
+        validateNewPassword(localIdentity, request.getNewPassword());
+
+        localIdentity.changePassword(passwordEncoder.encode(request.getNewPassword()));
+        authTokenService.revokeAllActiveRefreshTokens(user);
+    }
+
     private User findActiveUser(String userPublicId) {
         return userRepository.findByPublicIdAndDeletedAtIsNull(userPublicId)
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_USER_NOT_FOUND));
@@ -106,6 +123,24 @@ public class MyPageService {
     private void validateNotInCooldown(String userPublicId) {
         if (emailChangeVerificationStore.isInCooldown(userPublicId)) {
             throw new CustomException(ErrorCode.MY_EMAIL_CHANGE_TOO_FREQUENT);
+        }
+    }
+
+    private void validatePasswordConfirm(String password, String passwordConfirm) {
+        if (!password.equals(passwordConfirm)) {
+            throw new CustomException(ErrorCode.AUTH_PASSWORD_CONFIRM_MISMATCH);
+        }
+    }
+
+    private void validateCurrentPassword(UserAuthIdentity localIdentity, String currentPassword) {
+        if (!passwordEncoder.matches(currentPassword, localIdentity.getPasswordHash())) {
+            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        }
+    }
+
+    private void validateNewPassword(UserAuthIdentity localIdentity, String newPassword) {
+        if (passwordEncoder.matches(newPassword, localIdentity.getPasswordHash())) {
+            throw new CustomException(ErrorCode.AUTH_PASSWORD_SAME_AS_PREVIOUS);
         }
     }
 

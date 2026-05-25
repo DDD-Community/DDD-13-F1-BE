@@ -13,9 +13,11 @@ import static org.mockito.Mockito.when;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
 import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
 import com.f1.quiket.domain.auth.repository.UserAuthIdentityRepository;
+import com.f1.quiket.domain.auth.service.AuthTokenService;
 import com.f1.quiket.domain.auth.service.EmailVerificationCodeGenerator;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeConfirmRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeRequest;
+import com.f1.quiket.domain.mypage.dto.MyPasswordChangeRequest;
 import com.f1.quiket.domain.mypage.dto.MyProfileResponse;
 import com.f1.quiket.domain.mypage.dto.NicknameUpdateRequest;
 import com.f1.quiket.domain.mypage.event.MyEmailChangeMailRequestedEvent;
@@ -29,6 +31,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class MyPageServiceTest {
@@ -38,6 +42,8 @@ class MyPageServiceTest {
     private EmailVerificationCodeGenerator verificationCodeGenerator;
     private MyEmailChangeVerificationStore emailChangeVerificationStore;
     private ApplicationEventPublisher eventPublisher;
+    private PasswordEncoder passwordEncoder;
+    private AuthTokenService authTokenService;
     private MyPageService myPageService;
 
     @BeforeEach
@@ -47,12 +53,16 @@ class MyPageServiceTest {
         verificationCodeGenerator = mock(EmailVerificationCodeGenerator.class);
         emailChangeVerificationStore = mock(MyEmailChangeVerificationStore.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
+        passwordEncoder = new BCryptPasswordEncoder();
+        authTokenService = mock(AuthTokenService.class);
         myPageService = new MyPageService(
                 userRepository,
                 userAuthIdentityRepository,
                 verificationCodeGenerator,
                 emailChangeVerificationStore,
-                eventPublisher
+                eventPublisher,
+                passwordEncoder,
+                authTokenService
         );
     }
 
@@ -247,6 +257,117 @@ class MyPageServiceTest {
         verify(emailChangeVerificationStore, never()).delete(user.getPublicId());
     }
 
+    @Test
+    void updatePassword_changes_password_and_revokes_tokens() {
+        User user = user();
+        UserAuthIdentity identity = UserAuthIdentity.createLocal(
+                user,
+                passwordEncoder.encode("Password123!"),
+                true
+        );
+        MyPasswordChangeRequest request = passwordChangeRequest(
+                "Password123!",
+                "NewPassword123!",
+                "NewPassword123!"
+        );
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
+                .thenReturn(Optional.of(identity));
+
+        myPageService.updatePassword(user.getPublicId(), request);
+
+        assertThat(passwordEncoder.matches("NewPassword123!", identity.getPasswordHash())).isTrue();
+        assertThat(passwordEncoder.matches("Password123!", identity.getPasswordHash())).isFalse();
+        verify(authTokenService).revokeAllActiveRefreshTokens(user);
+    }
+
+    @Test
+    void updatePassword_throws_mismatch_when_password_confirm_differs() {
+        String userPublicId = "018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901";
+        MyPasswordChangeRequest request = passwordChangeRequest(
+                "Password123!",
+                "NewPassword123!",
+                "OtherPassword123!"
+        );
+
+        assertThatThrownBy(() -> myPageService.updatePassword(userPublicId, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.AUTH_PASSWORD_CONFIRM_MISMATCH);
+        verify(userRepository, never()).findByPublicIdAndDeletedAtIsNull(userPublicId);
+    }
+
+    @Test
+    void updatePassword_throws_invalid_credentials_when_current_password_wrong() {
+        User user = user();
+        UserAuthIdentity identity = UserAuthIdentity.createLocal(
+                user,
+                passwordEncoder.encode("Password123!"),
+                true
+        );
+        MyPasswordChangeRequest request = passwordChangeRequest(
+                "WrongPassword123!",
+                "NewPassword123!",
+                "NewPassword123!"
+        );
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
+                .thenReturn(Optional.of(identity));
+
+        assertThatThrownBy(() -> myPageService.updatePassword(user.getPublicId(), request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        verify(authTokenService, never()).revokeAllActiveRefreshTokens(user);
+    }
+
+    @Test
+    void updatePassword_throws_same_as_previous_when_new_password_same() {
+        User user = user();
+        UserAuthIdentity identity = UserAuthIdentity.createLocal(
+                user,
+                passwordEncoder.encode("Password123!"),
+                true
+        );
+        MyPasswordChangeRequest request = passwordChangeRequest(
+                "Password123!",
+                "Password123!",
+                "Password123!"
+        );
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
+                .thenReturn(Optional.of(identity));
+
+        assertThatThrownBy(() -> myPageService.updatePassword(user.getPublicId(), request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.AUTH_PASSWORD_SAME_AS_PREVIOUS);
+        verify(authTokenService, never()).revokeAllActiveRefreshTokens(user);
+    }
+
+    @Test
+    void updatePassword_throws_conflict_when_local_identity_missing() {
+        User user = user();
+        MyPasswordChangeRequest request = passwordChangeRequest(
+                "Password123!",
+                "NewPassword123!",
+                "NewPassword123!"
+        );
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> myPageService.updatePassword(user.getPublicId(), request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.AUTH_LOCAL_IDENTITY_NOT_FOUND);
+        verify(authTokenService, never()).revokeAllActiveRefreshTokens(user);
+    }
+
     private User user() {
         User user = User.create("018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901", "user@example.com", "도토리");
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -274,6 +395,18 @@ class MyPageServiceTest {
         MyEmailChangeConfirmRequest request = new MyEmailChangeConfirmRequest();
         ReflectionTestUtils.setField(request, "newEmail", newEmail);
         ReflectionTestUtils.setField(request, "verificationCode", verificationCode);
+        return request;
+    }
+
+    private MyPasswordChangeRequest passwordChangeRequest(
+            String currentPassword,
+            String newPassword,
+            String newPasswordConfirm
+    ) {
+        MyPasswordChangeRequest request = new MyPasswordChangeRequest();
+        ReflectionTestUtils.setField(request, "currentPassword", currentPassword);
+        ReflectionTestUtils.setField(request, "newPassword", newPassword);
+        ReflectionTestUtils.setField(request, "newPasswordConfirm", newPasswordConfirm);
         return request;
     }
 }

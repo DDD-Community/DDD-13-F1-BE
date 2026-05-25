@@ -3,6 +3,7 @@ package com.f1.quiket.domain.mypage.controller;
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeConfirmRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeRequest;
+import com.f1.quiket.domain.mypage.dto.MyPasswordChangeRequest;
 import com.f1.quiket.domain.mypage.dto.MyProfileResponse;
 import com.f1.quiket.domain.mypage.dto.NicknameUpdateRequest;
 import com.f1.quiket.domain.mypage.service.MyPageService;
@@ -69,5 +70,14 @@ public class MyPageController {
     ) {
         MyProfileResponse response = myPageService.confirmEmailChange(principal.getPublicId(), request);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
+    }
+
+    @PatchMapping("/password")
+    public ResponseEntity<ApiResponse<Void>> updatePassword(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody MyPasswordChangeRequest request
+    ) {
+        myPageService.updatePassword(principal.getPublicId(), request);
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK));
     }
 }
