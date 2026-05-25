@@ -61,21 +61,27 @@ public class QuizPlaySessionStartService {
             QuizSession quizSession,
             QuizPlayStartRequest request
     ) {
+        QuizPlaySession playSession = QuizPlaySession.createFirst(
+                request.getClientSessionId(),
+                quizSession.getId(),
+                userId,
+                quizSession.getSubjectId(),
+                request.getQuestionShuffled(),
+                request.getOptionShuffled(),
+                request.getShuffleSeed()
+        );
         try {
-            QuizPlaySession playSession = QuizPlaySession.createFirst(
-                    request.getClientSessionId(),
-                    quizSession.getId(),
-                    userId,
-                    quizSession.getSubjectId(),
-                    request.getQuestionShuffled(),
-                    request.getOptionShuffled(),
-                    request.getShuffleSeed()
-            );
-            return QuizPlaySessionResponse.of(quizPlaySessionRepository.save(playSession), quizSession);
+            QuizPlaySession saved = quizPlaySessionRepository.save(playSession);
+            return QuizPlaySessionResponse.of(saved, quizSession);
         } catch (DataIntegrityViolationException e) {
-            return quizPlaySessionRepository.findByClientSessionId(request.getClientSessionId())
-                    .map(existing -> responseFromExisting(existing, quizSession, request))
-                    .orElseThrow(() -> e);
+            // 사전 find 이후 다른 트랜잭션이 같은 clientSessionId로 먼저 insert한 race 케이스.
+            // 같은 트랜잭션은 이미 rollback-only로 마킹된 상태라 여기서 재조회하지 않고
+            // CONFLICT 응답으로 위임 — 클라이언트가 동일 ID로 재시도하면 사전 find 분기로 idempotent 처리됨.
+            throw new CustomException(
+                    ErrorCode.CONFLICT,
+                    "이미 다른 풀이 세션에서 사용 중인 clientSessionId입니다.",
+                    e
+            );
         }
     }
 }
