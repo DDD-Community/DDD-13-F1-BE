@@ -116,6 +116,10 @@ public class QuizResult {
             Integer skipCount,
             Integer accuracyPct,
             Integer elapsedMs,
+            Integer dotoriEarned,
+            Integer xpEarned,
+            Boolean leveledUp,
+            Integer newLevel,
             Boolean scoreMatched,
             Boolean abuseFlagged
     ) {
@@ -131,9 +135,10 @@ public class QuizResult {
         result.skipCount = skipCount;
         result.accuracyPct = accuracyPct;
         result.elapsedMs = elapsedMs;
-        result.dotoriEarned = 0;
-        result.xpEarned = 0;
-        result.leveledUp = false;
+        result.dotoriEarned = dotoriEarned;
+        result.xpEarned = xpEarned;
+        result.leveledUp = leveledUp;
+        result.newLevel = newLevel;
         result.scoreMatched = scoreMatched;
         result.abuseFlagged = abuseFlagged;
         return result;

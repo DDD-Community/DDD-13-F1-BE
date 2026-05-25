@@ -8,6 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.f1.quiket.domain.gamification.service.GamificationRewardService;
+import com.f1.quiket.domain.gamification.service.QuizRewardResult;
 import com.f1.quiket.domain.quiz.dto.QuizAnswerSubmitItem;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitOutcome;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitRequest;
@@ -27,6 +29,8 @@ import com.f1.quiket.domain.quiz.repository.QuizResultRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
 import com.f1.quiket.domain.subject.entity.Subject;
 import com.f1.quiket.domain.subject.repository.SubjectRepository;
+import com.f1.quiket.domain.user.entity.User;
+import com.f1.quiket.domain.user.repository.UserRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import java.util.ArrayList;
@@ -47,6 +51,8 @@ class QuizResultSubmitServiceTest {
     private QuizPlaySessionRepository quizPlaySessionRepository;
     private QuizPlayAnswerRepository quizPlayAnswerRepository;
     private QuizResultRepository quizResultRepository;
+    private UserRepository userRepository;
+    private GamificationRewardService gamificationRewardService;
     private QuizResultSubmitService quizResultSubmitService;
 
     @BeforeEach
@@ -59,6 +65,8 @@ class QuizResultSubmitServiceTest {
         quizPlaySessionRepository = mock(QuizPlaySessionRepository.class);
         quizPlayAnswerRepository = mock(QuizPlayAnswerRepository.class);
         quizResultRepository = mock(QuizResultRepository.class);
+        userRepository = mock(UserRepository.class);
+        gamificationRewardService = mock(GamificationRewardService.class);
         quizResultSubmitService = new QuizResultSubmitService(
                 quizSessionRepository,
                 subjectRepository,
@@ -67,13 +75,16 @@ class QuizResultSubmitServiceTest {
                 questionAnswerRepository,
                 quizPlaySessionRepository,
                 quizPlayAnswerRepository,
-                quizResultRepository
+                quizResultRepository,
+                userRepository,
+                gamificationRewardService
         );
     }
 
     @Test
     void submit_creates_result_with_server_grading() {
         Long userId = 1L;
+        User user = user(userId, 12, 360, 3);
         Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
         QuizSession quizSession = quizSession(500L, "quiz-session-public-id", userId, subject.getId(), "completed");
         QuizPlaySession playSession = playSession(700L, "client-session-id", quizSession.getId(), userId, subject.getId());
@@ -87,9 +98,10 @@ class QuizResultSubmitServiceTest {
                 430000,
                 List.of(answerItem(question.getPublicId(), String.valueOf(correctOption.getId()), true, false))
         );
-        mockSubmitData(userId, subject, quizSession, playSession, List.of(question), List.of(correctOption, wrongOption), List.of(answer));
+        mockSubmitData(user, subject, quizSession, playSession, List.of(question), List.of(correctOption, wrongOption), List.of(answer));
         when(quizResultRepository.findByPlaySessionId(playSession.getId()))
                 .thenReturn(Optional.empty());
+        mockReward(user, playSession, quizSession, 1, 1, 4, false, null, 3);
         when(quizResultRepository.save(any(QuizResult.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -106,7 +118,10 @@ class QuizResultSubmitServiceTest {
         assertThat(outcome.getResponse().getAccuracyPct()).isEqualTo(100);
         assertThat(outcome.getResponse().getScoreMatched()).isTrue();
         assertThat(outcome.getResponse().getAbuseFlagged()).isFalse();
-        assertThat(outcome.getResponse().getRewards().getDotoriEarned()).isZero();
+        assertThat(outcome.getResponse().getRewards().getDotoriEarned()).isEqualTo(1);
+        assertThat(outcome.getResponse().getRewards().getXpEarned()).isEqualTo(4);
+        assertThat(outcome.getResponse().getRewards().getCurrentDotoriBalance()).isEqualTo(13);
+        assertThat(outcome.getResponse().getRewards().getCurrentXpTotal()).isEqualTo(364);
         assertThat(outcome.getResponse().getReviewItems()).hasSize(1);
         assertThat(outcome.getResponse().getReviewItems().get(0).getCorrectServer()).isTrue();
         assertThat(playSession.getStatus()).isEqualTo("submitted");
@@ -127,11 +142,15 @@ class QuizResultSubmitServiceTest {
         assertThat(savedResult.getAccuracyPct()).isEqualTo(100);
         assertThat(savedResult.getScoreMatched()).isTrue();
         assertThat(savedResult.getAbuseFlagged()).isFalse();
+        assertThat(savedResult.getDotoriEarned()).isEqualTo(1);
+        assertThat(savedResult.getXpEarned()).isEqualTo(4);
+        verify(gamificationRewardService).applyQuizReward(user, playSession, quizSession, 1);
     }
 
     @Test
     void submit_returns_existing_result_when_duplicate_request_is_retried() {
         Long userId = 1L;
+        User user = user(userId, 13, 364, 3);
         Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
         QuizSession quizSession = quizSession(500L, "quiz-session-public-id", userId, subject.getId(), "completed");
         QuizPlaySession playSession = playSession(700L, "client-session-id", quizSession.getId(), userId, subject.getId());
@@ -146,7 +165,7 @@ class QuizResultSubmitServiceTest {
                 430000,
                 List.of(answerItem(question.getPublicId(), String.valueOf(option.getId()), true, false))
         );
-        mockSubmitData(userId, subject, quizSession, playSession, List.of(question), List.of(option), List.of(answer));
+        mockSubmitData(user, subject, quizSession, playSession, List.of(question), List.of(option), List.of(answer));
         when(quizResultRepository.findByPlaySessionId(playSession.getId()))
                 .thenReturn(Optional.of(existingResult));
         when(quizPlayAnswerRepository.findAllByPlaySessionId(playSession.getId()))
@@ -157,13 +176,16 @@ class QuizResultSubmitServiceTest {
         assertThat(outcome.isCreated()).isFalse();
         assertThat(outcome.getResponse().getResultId()).isEqualTo("result-public-id");
         assertThat(outcome.getResponse().getCorrectCount()).isEqualTo(1);
+        assertThat(outcome.getResponse().getRewards().getCurrentDotoriBalance()).isEqualTo(13);
         verify(quizPlayAnswerRepository, never()).saveAll(any());
         verify(quizResultRepository, never()).save(any());
+        verify(gamificationRewardService, never()).applyQuizReward(any(), any(), any(), any());
     }
 
     @Test
     void submit_flags_score_mismatch_and_abuse_when_client_score_differs() {
         Long userId = 1L;
+        User user = user(userId, 12, 360, 3);
         Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
         QuizSession quizSession = quizSession(500L, "quiz-session-public-id", userId, subject.getId(), "completed");
         QuizPlaySession playSession = playSession(700L, "client-session-id", quizSession.getId(), userId, subject.getId());
@@ -183,7 +205,7 @@ class QuizResultSubmitServiceTest {
                 )
         );
         mockSubmitData(
-                userId,
+                user,
                 subject,
                 quizSession,
                 playSession,
@@ -193,6 +215,7 @@ class QuizResultSubmitServiceTest {
         );
         when(quizResultRepository.findByPlaySessionId(playSession.getId()))
                 .thenReturn(Optional.empty());
+        mockReward(user, playSession, quizSession, 1, 1, 4, false, null, 3);
         when(quizResultRepository.save(any(QuizResult.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -207,6 +230,7 @@ class QuizResultSubmitServiceTest {
     @Test
     void submit_throws_invalid_option_when_answer_question_is_missing() {
         Long userId = 1L;
+        User user = user(userId, 12, 360, 3);
         Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
         QuizSession quizSession = quizSession(500L, "quiz-session-public-id", userId, subject.getId(), "completed");
         QuizPlaySession playSession = playSession(700L, "client-session-id", quizSession.getId(), userId, subject.getId());
@@ -219,7 +243,7 @@ class QuizResultSubmitServiceTest {
                 430000,
                 List.of(answerItem("unknown-question-id", String.valueOf(option.getId()), true, false))
         );
-        mockSubmitData(userId, subject, quizSession, playSession, List.of(question), List.of(option), List.of(answer));
+        mockSubmitData(user, subject, quizSession, playSession, List.of(question), List.of(option), List.of(answer));
         when(quizResultRepository.findByPlaySessionId(playSession.getId()))
                 .thenReturn(Optional.empty());
 
@@ -230,7 +254,7 @@ class QuizResultSubmitServiceTest {
     }
 
     private void mockSubmitData(
-            Long userId,
+            User user,
             Subject subject,
             QuizSession quizSession,
             QuizPlaySession playSession,
@@ -238,6 +262,9 @@ class QuizResultSubmitServiceTest {
             List<QuestionOption> options,
             List<QuestionAnswer> answers
     ) {
+        Long userId = user.getId();
+        when(userRepository.findByIdAndDeletedAtIsNull(userId))
+                .thenReturn(Optional.of(user));
         when(quizPlaySessionRepository.findByClientSessionId(playSession.getClientSessionId()))
                 .thenReturn(Optional.of(playSession));
         when(quizSessionRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(quizSession.getPublicId(), userId))
@@ -277,6 +304,41 @@ class QuizResultSubmitServiceTest {
         ReflectionTestUtils.setField(item, "answerElapsedMs", 15000);
         ReflectionTestUtils.setField(item, "marked", false);
         return item;
+    }
+
+    private void mockReward(
+            User user,
+            QuizPlaySession playSession,
+            QuizSession quizSession,
+            Integer correctCount,
+            Integer dotoriEarned,
+            Integer xpEarned,
+            Boolean leveledUp,
+            Integer newLevel,
+            Integer levelAfter
+    ) {
+        when(gamificationRewardService.applyQuizReward(user, playSession, quizSession, correctCount))
+                .thenAnswer(invocation -> {
+                    user.applyQuizReward(dotoriEarned, xpEarned, levelAfter);
+                    return new QuizRewardResult(
+                            dotoriEarned,
+                            xpEarned,
+                            leveledUp,
+                            newLevel,
+                            user.getDotoriBalance(),
+                            user.getXpTotal()
+                    );
+                });
+    }
+
+    private User user(Long id, Integer dotoriBalance, Integer xpTotal, Integer currentLevel) {
+        User user = User.create("user-public-id", "user@example.com", "도토리");
+        ReflectionTestUtils.setField(user, "id", id);
+        ReflectionTestUtils.setField(user, "emailVerified", true);
+        ReflectionTestUtils.setField(user, "dotoriBalance", dotoriBalance);
+        ReflectionTestUtils.setField(user, "xpTotal", xpTotal);
+        ReflectionTestUtils.setField(user, "currentLevel", currentLevel);
+        return user;
     }
 
     private Subject subject(Long id, String publicId, Long userId, String name) {
@@ -384,6 +446,10 @@ class QuizResultSubmitServiceTest {
                 skipCount,
                 accuracyPct,
                 playSession.getElapsedMs(),
+                1,
+                4,
+                false,
+                null,
                 true,
                 false
         );

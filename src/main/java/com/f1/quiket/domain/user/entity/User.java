@@ -93,6 +93,12 @@ public class User extends BaseEntity {
         this.nickname = nickname;
     }
 
+    public void applyQuizReward(int dotoriEarned, int xpEarned, int levelAfter) {
+        this.dotoriBalance += dotoriEarned;
+        this.xpTotal += xpEarned;
+        this.currentLevel = levelAfter;
+    }
+
     public void recordLoginFailure(int maxFailedCount) {
         LocalDateTime now = LocalDateTime.now();
         this.failedLoginCount++;

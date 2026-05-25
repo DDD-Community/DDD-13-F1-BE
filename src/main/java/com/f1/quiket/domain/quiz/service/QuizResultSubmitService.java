@@ -1,5 +1,7 @@
 package com.f1.quiket.domain.quiz.service;
 
+import com.f1.quiket.domain.gamification.service.GamificationRewardService;
+import com.f1.quiket.domain.gamification.service.QuizRewardResult;
 import com.f1.quiket.domain.quiz.dto.QuizAnswerSubmitItem;
 import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitOutcome;
@@ -21,6 +23,8 @@ import com.f1.quiket.domain.quiz.repository.QuizResultRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
 import com.f1.quiket.domain.subject.entity.Subject;
 import com.f1.quiket.domain.subject.repository.SubjectRepository;
+import com.f1.quiket.domain.user.entity.User;
+import com.f1.quiket.domain.user.repository.UserRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import com.f1.quiket.global.util.UuidV7Generator;
@@ -55,8 +59,11 @@ public class QuizResultSubmitService {
     private final QuizPlaySessionRepository quizPlaySessionRepository;
     private final QuizPlayAnswerRepository quizPlayAnswerRepository;
     private final QuizResultRepository quizResultRepository;
+    private final UserRepository userRepository;
+    private final GamificationRewardService gamificationRewardService;
 
     public QuizResultSubmitOutcome submit(Long userId, QuizResultSubmitRequest request) {
+        User user = findUser(userId);
         QuizPlaySession playSession = findPlaySession(userId, request.getClientSessionId());
         QuizSession quizSession = findQuizSession(userId, request.getQuizSessionId());
         Subject subject = findSubject(userId, quizSession.getSubjectId());
@@ -76,6 +83,7 @@ public class QuizResultSubmitService {
                         playSession,
                         quizSession,
                         subject,
+                        user,
                         questions,
                         optionsByQuestionId,
                         answersByQuestionId
@@ -86,10 +94,16 @@ public class QuizResultSubmitService {
                         playSession,
                         quizSession,
                         subject,
+                        user,
                         questions,
                         optionsByQuestionId,
                         answersByQuestionId
                 ));
+    }
+
+    private User findUser(Long userId) {
+        return userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_USER_NOT_FOUND));
     }
 
     private QuizPlaySession findPlaySession(Long userId, String clientSessionId) {
@@ -158,6 +172,7 @@ public class QuizResultSubmitService {
             QuizPlaySession playSession,
             QuizSession quizSession,
             Subject subject,
+            User user,
             List<Question> questions,
             Map<Long, List<QuestionOption>> optionsByQuestionId,
             Map<Long, QuestionAnswer> answersByQuestionId
@@ -168,6 +183,7 @@ public class QuizResultSubmitService {
                 playSession,
                 quizSession,
                 subject,
+                user,
                 questions,
                 optionsByQuestionId,
                 answersByQuestionId,
@@ -182,6 +198,7 @@ public class QuizResultSubmitService {
             QuizPlaySession playSession,
             QuizSession quizSession,
             Subject subject,
+            User user,
             List<Question> questions,
             Map<Long, List<QuestionOption>> optionsByQuestionId,
             Map<Long, QuestionAnswer> answersByQuestionId
@@ -213,6 +230,12 @@ public class QuizResultSubmitService {
 
         quizPlayAnswerRepository.saveAll(playAnswers);
         playSession.submit(request.getElapsedMs());
+        QuizRewardResult reward = gamificationRewardService.applyQuizReward(
+                user,
+                playSession,
+                quizSession,
+                correctCount
+        );
         QuizResult savedResult = quizResultRepository.save(QuizResult.create(
                 UuidV7Generator.generate(),
                 playSession.getId(),
@@ -225,6 +248,10 @@ public class QuizResultSubmitService {
                 skipCount,
                 accuracyPct,
                 request.getElapsedMs(),
+                reward.dotoriEarned(),
+                reward.xpEarned(),
+                reward.leveledUp(),
+                reward.newLevel(),
                 scoreMatched,
                 abuseFlagged
         ));
@@ -234,6 +261,7 @@ public class QuizResultSubmitService {
                 playSession,
                 quizSession,
                 subject,
+                user,
                 questions,
                 optionsByQuestionId,
                 answersByQuestionId,
@@ -350,6 +378,7 @@ public class QuizResultSubmitService {
             QuizPlaySession playSession,
             QuizSession quizSession,
             Subject subject,
+            User user,
             List<Question> questions,
             Map<Long, List<QuestionOption>> optionsByQuestionId,
             Map<Long, QuestionAnswer> answersByQuestionId,
@@ -365,7 +394,7 @@ public class QuizResultSubmitService {
                         getPlayAnswer(playAnswersByQuestionId, question)
                 ))
                 .toList();
-        return QuizResultResponse.of(result, playSession, quizSession, subject, reviewItems);
+        return QuizResultResponse.of(result, playSession, quizSession, subject, user, reviewItems);
     }
 
     private QuizPlayAnswer getPlayAnswer(Map<Long, QuizPlayAnswer> playAnswersByQuestionId, Question question) {
