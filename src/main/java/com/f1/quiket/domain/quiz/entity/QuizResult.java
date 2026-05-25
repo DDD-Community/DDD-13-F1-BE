@@ -136,8 +136,6 @@ public class QuizResult {
         result.leveledUp = false;
         result.scoreMatched = scoreMatched;
         result.abuseFlagged = abuseFlagged;
-        result.createdAt = LocalDateTime.now();
-        result.updatedAt = result.createdAt;
         return result;
     }
 }
