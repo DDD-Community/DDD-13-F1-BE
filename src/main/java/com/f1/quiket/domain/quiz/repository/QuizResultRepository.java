@@ -21,4 +21,9 @@ public interface QuizResultRepository extends JpaRepository<QuizResult, Long> {
      * 풀이 세션 결과 단건 조회
      */
     Optional<QuizResult> findByPlaySessionId(Long playSessionId);
+
+    /**
+     * 사용자 결과 단건 조회
+     */
+    Optional<QuizResult> findByPublicIdAndUserId(String publicId, Long userId);
 }

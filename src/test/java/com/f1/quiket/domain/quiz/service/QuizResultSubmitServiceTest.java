@@ -77,7 +77,8 @@ class QuizResultSubmitServiceTest {
                 quizPlayAnswerRepository,
                 quizResultRepository,
                 userRepository,
-                gamificationRewardService
+                gamificationRewardService,
+                new QuizResultResponseAssembler()
         );
     }
 

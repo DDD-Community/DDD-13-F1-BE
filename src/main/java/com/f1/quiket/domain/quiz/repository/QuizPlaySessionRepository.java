@@ -21,4 +21,9 @@ public interface QuizPlaySessionRepository extends JpaRepository<QuizPlaySession
      * 클라이언트 풀이 세션 단건 조회
      */
     Optional<QuizPlaySession> findByClientSessionId(String clientSessionId);
+
+    /**
+     * 사용자 풀이 세션 단건 조회
+     */
+    Optional<QuizPlaySession> findByIdAndUserId(Long id, Long userId);
 }
