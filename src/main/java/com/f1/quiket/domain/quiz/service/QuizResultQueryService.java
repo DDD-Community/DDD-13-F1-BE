@@ -46,9 +46,9 @@ public class QuizResultQueryService {
     private final QuizResultResponseAssembler quizResultResponseAssembler;
 
     public QuizResultResponse getQuizResult(Long userId, String resultPublicId) {
-        User user = findUser(userId);
         QuizResult result = quizResultRepository.findByPublicIdAndUserId(resultPublicId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.QUIZ_RESULT_NOT_FOUND));
+        User user = findUser(userId);
         QuizPlaySession playSession = quizPlaySessionRepository.findByIdAndUserId(result.getPlaySessionId(), userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.QUIZ_PLAY_SESSION_NOT_FOUND));
         QuizSession quizSession = quizSessionRepository.findByIdAndUserIdAndDeletedAtIsNull(result.getQuizSessionId(), userId)
