@@ -56,6 +56,7 @@ public enum ErrorCode {
     QUIZ_GENERATION_IN_PROGRESS(409, "QUIZ_GENERATION_IN_PROGRESS", "이미 생성 중인 퀴즈가 있습니다."),
     QUIZ_SESSION_NOT_FOUND(404, "QUIZ_SESSION_NOT_FOUND", "퀴즈 세션을 찾을 수 없습니다."),
     QUIZ_SESSION_NOT_COMPLETED(409, "QUIZ_SESSION_NOT_COMPLETED", "아직 생성 완료 전인 퀴즈입니다."),
+    QUIZ_PLAY_SESSION_NOT_FOUND(404, "QUIZ_PLAY_SESSION_NOT_FOUND", "퀴즈 풀이 세션을 찾을 수 없습니다."),
 
     // MyPage Errors
     MY_EMAIL_CHANGE_TOO_FREQUENT(429, "MY_EMAIL_CHANGE_TOO_FREQUENT", "이메일 변경은 하루에 1회만 가능합니다."),

@@ -43,6 +43,7 @@ public class QuizPlaySession {
 
     private static final String PLAY_TYPE_FIRST = "first";
     private static final String STATUS_IN_PROGRESS = "in_progress";
+    private static final String STATUS_SUBMITTED = "submitted";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -131,5 +132,11 @@ public class QuizPlaySession {
         return this.quizSessionId.equals(quizSessionId)
                 && this.userId.equals(userId)
                 && this.playType.equals(playType);
+    }
+
+    public void submit(Integer elapsedMs) {
+        this.status = STATUS_SUBMITTED;
+        this.elapsedMs = elapsedMs;
+        this.submittedAt = LocalDateTime.now();
     }
 }
