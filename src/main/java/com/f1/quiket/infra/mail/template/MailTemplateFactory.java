@@ -33,6 +33,12 @@ public class MailTemplateFactory {
         return MailSendRequest.html(toEmail, subject, body);
     }
 
+    public MailSendRequest createEmailChangeMail(String toEmail, String verificationCode) {
+        String subject = "[Quiket] 이메일 변경 인증";
+        String body = createVerificationCodeBody(verificationCode);
+        return MailSendRequest.html(toEmail, subject, body);
+    }
+
     private String createVerificationCodeBody(String verificationCode) {
         return loadTemplate(VERIFICATION_TEMPLATE_PATH)
                 .replace(VERIFICATION_CODE_PLACEHOLDER, verificationCode);

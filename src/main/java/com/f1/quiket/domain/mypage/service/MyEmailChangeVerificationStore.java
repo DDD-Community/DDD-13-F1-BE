@@ -1,0 +1,89 @@
+package com.f1.quiket.domain.mypage.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.f1.quiket.global.error.CustomException;
+import com.f1.quiket.global.response.ErrorCode;
+import java.time.Duration;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+
+@Component
+@RequiredArgsConstructor
+public class MyEmailChangeVerificationStore {
+
+    private static final String KEY_PREFIX = "my:email-change:";
+    private static final String COOLDOWN_KEY_PREFIX = "my:email-change:cooldown:";
+    private static final String COOLDOWN_VALUE = "1";
+
+    private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public void save(String userPublicId, MyEmailChangeVerificationPayload payload, long ttlSeconds) {
+        try {
+            stringRedisTemplate.opsForValue()
+                    .set(
+                            buildKey(userPublicId),
+                            objectMapper.writeValueAsString(payload),
+                            Duration.ofSeconds(ttlSeconds)
+                    );
+        } catch (DataAccessException | JsonProcessingException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    public Optional<MyEmailChangeVerificationPayload> find(String userPublicId) {
+        try {
+            String payload = stringRedisTemplate.opsForValue().get(buildKey(userPublicId));
+            if (!StringUtils.hasText(payload)) {
+                return Optional.empty();
+            }
+            return Optional.of(objectMapper.readValue(payload, MyEmailChangeVerificationPayload.class));
+        } catch (DataAccessException | JsonProcessingException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    public void delete(String userPublicId) {
+        try {
+            stringRedisTemplate.delete(buildKey(userPublicId));
+        } catch (DataAccessException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    /**
+     * 이메일 변경 성공 시 하루(24h) cool-down 시작 (기능명세 MY-001 정책)
+     */
+    public void markCooldown(String userPublicId, long cooldownSeconds) {
+        try {
+            stringRedisTemplate.opsForValue()
+                    .set(buildCooldownKey(userPublicId), COOLDOWN_VALUE, Duration.ofSeconds(cooldownSeconds));
+        } catch (DataAccessException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    /**
+     * 이메일 변경 cool-down 여부
+     */
+    public boolean isInCooldown(String userPublicId) {
+        try {
+            return Boolean.TRUE.equals(stringRedisTemplate.hasKey(buildCooldownKey(userPublicId)));
+        } catch (DataAccessException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    private String buildKey(String userPublicId) {
+        return KEY_PREFIX + userPublicId;
+    }
+
+    private String buildCooldownKey(String userPublicId) {
+        return COOLDOWN_KEY_PREFIX + userPublicId;
+    }
+}
