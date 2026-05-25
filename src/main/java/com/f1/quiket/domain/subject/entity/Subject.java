@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.subject.entity;
 
 import com.f1.quiket.global.entity.BaseEntity;
+import com.f1.quiket.global.util.UuidV7Generator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
@@ -41,4 +42,30 @@ public class Subject extends BaseEntity {
 
     @Column(name = "purpose", length = 20, nullable = false)
     String purpose;
+
+    /**
+     * 과목 생성
+     */
+    public static Subject create(Long userId, String name, String purpose) {
+        Subject subject = new Subject();
+        subject.publicId = UuidV7Generator.generate();
+        subject.userId = userId;
+        subject.name = name;
+        subject.purpose = purpose;
+        return subject;
+    }
+
+    /**
+     * 과목명 변경
+     */
+    public void updateName(String name) {
+        this.name = name;
+    }
+
+    /**
+     * 과목 상세 유형 변경
+     */
+    public void updatePurpose(String purpose) {
+        this.purpose = purpose;
+    }
 }

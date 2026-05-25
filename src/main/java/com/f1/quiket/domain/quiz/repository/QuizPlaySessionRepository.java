@@ -15,4 +15,5 @@ public interface QuizPlaySessionRepository extends JpaRepository<QuizPlaySession
      * 사용자 풀이 세션 목록 조회
      */
     List<QuizPlaySession> findAllByUserId(Long userId);
+
 }

@@ -4,6 +4,7 @@ import com.f1.quiket.domain.subject.entity.SubjectExamSchedule;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -27,4 +28,14 @@ public interface SubjectExamScheduleRepository extends JpaRepository<SubjectExam
      * 과목별 일정 목록 조회
      */
     List<SubjectExamSchedule> findAllBySubjectIdInAndDeletedAtIsNull(Collection<Long> subjectIds);
+
+    /**
+     * 과목 일정 조회
+     */
+    Optional<SubjectExamSchedule> findBySubjectIdAndDeletedAtIsNull(Long subjectId);
+
+    /**
+     * 과목 일정 전체 조회
+     */
+    Optional<SubjectExamSchedule> findBySubjectId(Long subjectId);
 }
