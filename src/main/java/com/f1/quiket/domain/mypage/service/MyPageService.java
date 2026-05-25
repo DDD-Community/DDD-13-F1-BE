@@ -5,6 +5,7 @@ import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
 import com.f1.quiket.domain.auth.repository.UserAuthIdentityRepository;
 import com.f1.quiket.domain.auth.service.AuthTokenService;
 import com.f1.quiket.domain.auth.service.EmailVerificationCodeGenerator;
+import com.f1.quiket.domain.mypage.dto.MyAccountDeleteRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeConfirmRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeRequest;
 import com.f1.quiket.domain.mypage.dto.MyPasswordChangeRequest;
@@ -15,6 +16,8 @@ import com.f1.quiket.domain.user.entity.User;
 import com.f1.quiket.domain.user.repository.UserRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
+import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -98,6 +101,19 @@ public class MyPageService {
         authTokenService.revokeAllActiveRefreshTokens(user);
     }
 
+    public void deleteAccount(String userPublicId, MyAccountDeleteRequest request) {
+        validateDeleteAgreement(request);
+
+        User user = findActiveUser(userPublicId);
+        List<UserAuthIdentity> identities = userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user);
+        findLocalIdentity(identities).ifPresent(localIdentity ->
+                validateAccountDeletePassword(localIdentity, request.getPassword()));
+
+        authTokenService.revokeAllActiveRefreshTokens(user);
+        identities.forEach(UserAuthIdentity::delete);
+        user.delete();
+    }
+
     private User findActiveUser(String userPublicId) {
         return userRepository.findByPublicIdAndDeletedAtIsNull(userPublicId)
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_USER_NOT_FOUND));
@@ -112,6 +128,12 @@ public class MyPageService {
             throw new CustomException(ErrorCode.AUTH_LOCAL_IDENTITY_NOT_FOUND);
         }
         return localIdentity;
+    }
+
+    private Optional<UserAuthIdentity> findLocalIdentity(List<UserAuthIdentity> identities) {
+        return identities.stream()
+                .filter(identity -> PROVIDER_LOCAL.equals(identity.getProvider()))
+                .findFirst();
     }
 
     private void validateEmailNotExists(String email) {
@@ -141,6 +163,21 @@ public class MyPageService {
     private void validateNewPassword(UserAuthIdentity localIdentity, String newPassword) {
         if (passwordEncoder.matches(newPassword, localIdentity.getPasswordHash())) {
             throw new CustomException(ErrorCode.AUTH_PASSWORD_SAME_AS_PREVIOUS);
+        }
+    }
+
+    private void validateDeleteAgreement(MyAccountDeleteRequest request) {
+        if (!request.isAgreedToDelete()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "회원 탈퇴 동의는 필수입니다.");
+        }
+    }
+
+    private void validateAccountDeletePassword(UserAuthIdentity localIdentity, String password) {
+        if (!StringUtils.hasText(localIdentity.getPasswordHash())) {
+            throw new CustomException(ErrorCode.AUTH_LOCAL_IDENTITY_NOT_FOUND);
+        }
+        if (!StringUtils.hasText(password) || !passwordEncoder.matches(password, localIdentity.getPasswordHash())) {
+            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
         }
     }
 
