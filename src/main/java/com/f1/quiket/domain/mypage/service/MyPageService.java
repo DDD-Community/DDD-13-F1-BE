@@ -26,6 +26,7 @@ public class MyPageService {
 
     private static final String PROVIDER_LOCAL = "local";
     private static final long EMAIL_CHANGE_TTL_SECONDS = 600L;
+    private static final long EMAIL_CHANGE_COOLDOWN_SECONDS = 86_400L;
 
     private final UserRepository userRepository;
     private final UserAuthIdentityRepository userAuthIdentityRepository;
@@ -48,6 +49,7 @@ public class MyPageService {
     public EmailVerificationSentResponse requestEmailChange(String userPublicId, MyEmailChangeRequest request) {
         User user = findActiveUser(userPublicId);
         findLocalIdentity(user);
+        validateNotInCooldown(userPublicId);
         validateEmailNotExists(request.getNewEmail());
 
         String verificationCode = verificationCodeGenerator.generate();
@@ -74,6 +76,8 @@ public class MyPageService {
 
         user.changeEmail(request.getNewEmail());
         emailChangeVerificationStore.delete(userPublicId);
+        // 기능명세 MY-001 정책 — 이메일 변경 성공 시 하루 cool-down 시작
+        emailChangeVerificationStore.markCooldown(userPublicId, EMAIL_CHANGE_COOLDOWN_SECONDS);
         return toMyProfileResponse(user);
     }
 
@@ -96,6 +100,12 @@ public class MyPageService {
     private void validateEmailNotExists(String email) {
         if (userRepository.existsByEmail(email)) {
             throw new CustomException(ErrorCode.AUTH_EMAIL_ALREADY_EXISTS);
+        }
+    }
+
+    private void validateNotInCooldown(String userPublicId) {
+        if (emailChangeVerificationStore.isInCooldown(userPublicId)) {
+            throw new CustomException(ErrorCode.MY_EMAIL_CHANGE_TOO_FREQUENT);
         }
     }
 

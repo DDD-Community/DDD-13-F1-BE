@@ -17,6 +17,8 @@ import org.springframework.util.StringUtils;
 public class MyEmailChangeVerificationStore {
 
     private static final String KEY_PREFIX = "my:email-change:";
+    private static final String COOLDOWN_KEY_PREFIX = "my:email-change:cooldown:";
+    private static final String COOLDOWN_VALUE = "1";
 
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -54,7 +56,34 @@ public class MyEmailChangeVerificationStore {
         }
     }
 
+    /**
+     * 이메일 변경 성공 시 하루(24h) cool-down 시작 (기능명세 MY-001 정책)
+     */
+    public void markCooldown(String userPublicId, long cooldownSeconds) {
+        try {
+            stringRedisTemplate.opsForValue()
+                    .set(buildCooldownKey(userPublicId), COOLDOWN_VALUE, Duration.ofSeconds(cooldownSeconds));
+        } catch (DataAccessException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    /**
+     * 이메일 변경 cool-down 여부
+     */
+    public boolean isInCooldown(String userPublicId) {
+        try {
+            return Boolean.TRUE.equals(stringRedisTemplate.hasKey(buildCooldownKey(userPublicId)));
+        } catch (DataAccessException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
     private String buildKey(String userPublicId) {
         return KEY_PREFIX + userPublicId;
+    }
+
+    private String buildCooldownKey(String userPublicId) {
+        return COOLDOWN_KEY_PREFIX + userPublicId;
     }
 }

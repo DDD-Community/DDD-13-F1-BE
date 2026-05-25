@@ -120,6 +120,7 @@ class MyPageServiceTest {
 
         assertThat(response.getEmail()).isEqualTo("new.user@example.com");
         assertThat(response.getExpiresInSeconds()).isEqualTo(600L);
+        verify(emailChangeVerificationStore).isInCooldown(user.getPublicId());
         verify(emailChangeVerificationStore).save(
                 user.getPublicId(),
                 new MyEmailChangeVerificationPayload("new.user@example.com", "123456"),
@@ -127,6 +128,28 @@ class MyPageServiceTest {
         );
         verify(eventPublisher).publishEvent(
                 new MyEmailChangeMailRequestedEvent("new.user@example.com", "123456")
+        );
+    }
+
+    @Test
+    void requestEmailChange_throws_too_frequent_when_in_cooldown() {
+        User user = user();
+        UserAuthIdentity identity = UserAuthIdentity.createLocal(user, "password-hash", true);
+        MyEmailChangeRequest request = emailChangeRequest("new.user@example.com");
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findByUserAndProviderAndDeletedAtIsNull(user, "local"))
+                .thenReturn(Optional.of(identity));
+        when(emailChangeVerificationStore.isInCooldown(user.getPublicId())).thenReturn(true);
+
+        assertThatThrownBy(() -> myPageService.requestEmailChange(user.getPublicId(), request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.MY_EMAIL_CHANGE_TOO_FREQUENT);
+        verify(emailChangeVerificationStore, never()).save(
+                user.getPublicId(),
+                new MyEmailChangeVerificationPayload("new.user@example.com", "123456"),
+                600L
         );
     }
 
@@ -186,6 +209,7 @@ class MyPageServiceTest {
         assertThat(user.getEmail()).isEqualTo("new.user@example.com");
         assertThat(response.getEmail()).isEqualTo("new.user@example.com");
         verify(emailChangeVerificationStore).delete(user.getPublicId());
+        verify(emailChangeVerificationStore).markCooldown(user.getPublicId(), 86_400L);
     }
 
     @Test
