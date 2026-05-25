@@ -190,7 +190,7 @@ return ResponseEntity.status(errorCode.getStatus())
 
 - 커밋 메시지: `type: 한국어 핵심`
 - PR 제목: `[Type] 한국어 핵심`
-- Squash merge 커밋 메시지: `type: 한국어 핵심 (#PR번호)`
+- Squash merge 커밋 메시지: `[Type] 한국어 핵심 (#PR번호)`
 - `develop` → `main` Merge commit 메시지: `[Release] 버전/날짜 배포`
 
 ### 이슈 및 PR 제목
