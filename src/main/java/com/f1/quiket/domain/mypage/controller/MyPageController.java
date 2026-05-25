@@ -72,6 +72,9 @@ public class MyPageController {
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
     }
 
+    /**
+     * 비밀번호 변경
+     */
     @PatchMapping("/password")
     public ResponseEntity<ApiResponse<Void>> updatePassword(
             @AuthenticationPrincipal UserPrincipal principal,
