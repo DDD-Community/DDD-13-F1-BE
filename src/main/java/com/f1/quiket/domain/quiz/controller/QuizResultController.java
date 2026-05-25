@@ -3,6 +3,7 @@ package com.f1.quiket.domain.quiz.controller;
 import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitOutcome;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitRequest;
+import com.f1.quiket.domain.quiz.service.QuizResultQueryService;
 import com.f1.quiket.domain.quiz.service.QuizResultSubmitService;
 import com.f1.quiket.global.auth.UserPrincipal;
 import com.f1.quiket.global.response.ApiResponse;
@@ -12,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class QuizResultController {
 
     private final QuizResultSubmitService quizResultSubmitService;
+    private final QuizResultQueryService quizResultQueryService;
 
     /**
      * 퀴즈 결과 제출
@@ -40,5 +44,17 @@ public class QuizResultController {
         return ResponseEntity
                 .status(outcome.isCreated() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.success(outcome.isCreated() ? SuccessCode.CREATED : SuccessCode.OK, outcome.getResponse()));
+    }
+
+    /**
+     * 과거 퀴즈 결과 상세 조회
+     */
+    @GetMapping("/{resultId}")
+    public ResponseEntity<ApiResponse<QuizResultResponse>> getQuizResult(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("resultId") String resultPublicId
+    ) {
+        QuizResultResponse response = quizResultQueryService.getQuizResult(principal.getUserId(), resultPublicId);
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
     }
 }
