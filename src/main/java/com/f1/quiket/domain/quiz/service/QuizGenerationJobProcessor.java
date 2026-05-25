@@ -56,6 +56,14 @@ public class QuizGenerationJobProcessor {
     private final QuestionAnswerRepository questionAnswerRepository;
     private final TransactionTemplate transactionTemplate;
 
+    /**
+     * 퀴즈 생성 작업 처리.
+     *
+     * <p>성공/실패 무관 항상 {@code true} 반환 — 호출 측({@code QuizGenerationWorker})이
+     * 큐에서 메시지를 ack(삭제)하도록 함. 실패 케이스는 generation_job/quiz_session을
+     * failed 상태로 마킹해 사용자 status 조회로 노출되며, 큐에는 남기지 않음 (자동 재시도 X).
+     * 자동 재시도가 필요해지면 후속 이슈에서 {@code retryCount}/{@code is_retryable} 기반 재enqueue 도입.</p>
+     */
     public boolean process(QuizGenerationQueueMessage message) {
         try {
             GenerationContext context = transactionTemplate.execute(status -> prepareContext(message));

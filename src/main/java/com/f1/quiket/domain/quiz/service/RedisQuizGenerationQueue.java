@@ -14,6 +14,18 @@ import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * Redis Stream 기반 퀴즈 생성 큐 — MVP 단일 워커 가정.
+ *
+ * <h3>제약</h3>
+ * <ul>
+ *     <li>{@code XRANGE} + {@code XDEL} 패턴 — Consumer Group({@code XREADGROUP}/{@code XACK}) 미사용</li>
+ *     <li>워커 인스턴스가 2개 이상이면 동일 메시지가 중복 처리될 수 있음 — 단일 워커 한정으로만 안전</li>
+ *     <li>워커가 처리 도중 죽으면 {@link #acknowledge(String)}가 호출되지 않아 같은 메시지가 다음 poll에 재선택 → 처리 idempotency 가정 필요</li>
+ * </ul>
+ *
+ * <p>운영 트래픽 증가 또는 워커 다중화 시 Consumer Group 기반 redelivery로 전환 필요 (후속 이슈).</p>
+ */
 @Component
 @RequiredArgsConstructor
 public class RedisQuizGenerationQueue implements QuizGenerationQueue {
