@@ -14,10 +14,6 @@ public class QuizPlaySessionResponse {
     private final String quizSessionId;
     private final String playType;
     private final String status;
-    private final Boolean questionShuffled;
-    private final Boolean optionShuffled;
-    private final String shuffleSeed;
-    private final Integer lastQuestionIndex;
 
     public static QuizPlaySessionResponse of(QuizPlaySession playSession, QuizSession quizSession) {
         return QuizPlaySessionResponse.builder()
@@ -26,10 +22,6 @@ public class QuizPlaySessionResponse {
                 .quizSessionId(quizSession.getPublicId())
                 .playType(playSession.getPlayType())
                 .status(playSession.getStatus())
-                .questionShuffled(playSession.getQuestionShuffled())
-                .optionShuffled(playSession.getOptionShuffled())
-                .shuffleSeed(playSession.getShuffleSeed())
-                .lastQuestionIndex(playSession.getLastQuestionIndex())
                 .build();
     }
 }
