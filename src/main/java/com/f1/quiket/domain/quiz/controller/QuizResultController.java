@@ -1,0 +1,44 @@
+package com.f1.quiket.domain.quiz.controller;
+
+import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
+import com.f1.quiket.domain.quiz.dto.QuizResultSubmitOutcome;
+import com.f1.quiket.domain.quiz.dto.QuizResultSubmitRequest;
+import com.f1.quiket.domain.quiz.service.QuizResultSubmitService;
+import com.f1.quiket.global.auth.UserPrincipal;
+import com.f1.quiket.global.response.ApiResponse;
+import com.f1.quiket.global.response.SuccessCode;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 퀴즈 결과 API 진입점
+ */
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/quiz-results")
+public class QuizResultController {
+
+    private final QuizResultSubmitService quizResultSubmitService;
+
+    /**
+     * 퀴즈 결과 제출
+     */
+    @PostMapping
+    public ResponseEntity<ApiResponse<QuizResultResponse>> submitQuizResult(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody QuizResultSubmitRequest request
+    ) {
+        QuizResultSubmitOutcome outcome = quizResultSubmitService.submit(principal.getUserId(), request);
+
+        return ResponseEntity
+                .status(outcome.isCreated() ? HttpStatus.CREATED : HttpStatus.OK)
+                .body(ApiResponse.success(outcome.isCreated() ? SuccessCode.CREATED : SuccessCode.OK, outcome.getResponse()));
+    }
+}
