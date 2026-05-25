@@ -21,9 +21,12 @@ public class MyNotificationService {
     private final UserRepository userRepository;
     private final UserNotificationSettingRepository userNotificationSettingRepository;
 
+    @Transactional(readOnly = true)
     public NotificationSettingsResponse getNotificationSettings(String userPublicId) {
         User user = findActiveUser(userPublicId);
-        return NotificationSettingsResponse.from(findOrCreateSetting(user.getId()));
+        return userNotificationSettingRepository.findByUserId(user.getId())
+                .map(NotificationSettingsResponse::from)
+                .orElseGet(NotificationSettingsResponse::defaults);
     }
 
     public NotificationSettingsResponse updateNotificationSettings(

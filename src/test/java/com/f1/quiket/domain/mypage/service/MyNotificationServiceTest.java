@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,12 +37,10 @@ class MyNotificationServiceTest {
     }
 
     @Test
-    void getNotificationSettings_creates_default_when_missing() {
+    void getNotificationSettings_returns_default_without_insert_when_missing() {
         User user = user();
         when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
         when(userNotificationSettingRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
-        when(userNotificationSettingRepository.save(any(UserNotificationSetting.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
         NotificationSettingsResponse response = myNotificationService.getNotificationSettings(user.getPublicId());
 
@@ -49,11 +48,8 @@ class MyNotificationServiceTest {
         assertThat(response.isActivityEnabled()).isTrue();
         assertThat(response.isUpdateEnabled()).isTrue();
         assertThat(response.isReviewEnabled()).isTrue();
-
-        ArgumentCaptor<UserNotificationSetting> settingCaptor =
-                ArgumentCaptor.forClass(UserNotificationSetting.class);
-        verify(userNotificationSettingRepository).save(settingCaptor.capture());
-        assertThat(settingCaptor.getValue().getUserId()).isEqualTo(user.getId());
+        // GET은 read-only — 첫 호출에도 INSERT 발생하지 않아야 함
+        verify(userNotificationSettingRepository, never()).save(any(UserNotificationSetting.class));
     }
 
     @Test
