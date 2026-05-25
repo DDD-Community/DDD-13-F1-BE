@@ -6,7 +6,6 @@ import com.f1.quiket.domain.quiz.dto.QuizAnswerSubmitItem;
 import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitOutcome;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitRequest;
-import com.f1.quiket.domain.quiz.dto.QuizReviewItemResponse;
 import com.f1.quiket.domain.quiz.entity.Question;
 import com.f1.quiket.domain.quiz.entity.QuestionAnswer;
 import com.f1.quiket.domain.quiz.entity.QuestionOption;
@@ -61,6 +60,7 @@ public class QuizResultSubmitService {
     private final QuizResultRepository quizResultRepository;
     private final UserRepository userRepository;
     private final GamificationRewardService gamificationRewardService;
+    private final QuizResultResponseAssembler quizResultResponseAssembler;
 
     public QuizResultSubmitOutcome submit(Long userId, QuizResultSubmitRequest request) {
         User user = findUser(userId);
@@ -178,7 +178,7 @@ public class QuizResultSubmitService {
             Map<Long, QuestionAnswer> answersByQuestionId
     ) {
         List<QuizPlayAnswer> playAnswers = quizPlayAnswerRepository.findAllByPlaySessionId(playSession.getId());
-        QuizResultResponse response = buildResponse(
+        QuizResultResponse response = quizResultResponseAssembler.build(
                 result,
                 playSession,
                 quizSession,
@@ -256,7 +256,7 @@ public class QuizResultSubmitService {
                 abuseFlagged
         ));
 
-        QuizResultResponse response = buildResponse(
+        QuizResultResponse response = quizResultResponseAssembler.build(
                 savedResult,
                 playSession,
                 quizSession,
@@ -371,38 +371,6 @@ public class QuizResultSubmitService {
                 .filter(answer -> answer.getCorrectClient() != null)
                 .filter(answer -> !answer.getCorrectClient().equals(answer.getCorrectServer()))
                 .count();
-    }
-
-    private QuizResultResponse buildResponse(
-            QuizResult result,
-            QuizPlaySession playSession,
-            QuizSession quizSession,
-            Subject subject,
-            User user,
-            List<Question> questions,
-            Map<Long, List<QuestionOption>> optionsByQuestionId,
-            Map<Long, QuestionAnswer> answersByQuestionId,
-            List<QuizPlayAnswer> playAnswers
-    ) {
-        Map<Long, QuizPlayAnswer> playAnswersByQuestionId = playAnswers.stream()
-                .collect(Collectors.toMap(QuizPlayAnswer::getQuestionId, Function.identity()));
-        List<QuizReviewItemResponse> reviewItems = questions.stream()
-                .map(question -> QuizReviewItemResponse.of(
-                        question,
-                        optionsByQuestionId.getOrDefault(question.getId(), List.of()),
-                        answersByQuestionId.get(question.getId()),
-                        getPlayAnswer(playAnswersByQuestionId, question)
-                ))
-                .toList();
-        return QuizResultResponse.of(result, playSession, quizSession, subject, user, reviewItems);
-    }
-
-    private QuizPlayAnswer getPlayAnswer(Map<Long, QuizPlayAnswer> playAnswersByQuestionId, Question question) {
-        QuizPlayAnswer playAnswer = playAnswersByQuestionId.get(question.getId());
-        if (playAnswer == null) {
-            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "퀴즈 풀이 답안 정보가 올바르지 않습니다.");
-        }
-        return playAnswer;
     }
 
     private record GradedAnswer(Long selectedOptionId, String selectedValue, Boolean correct) {
