@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 마이페이지 API 진입점
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/my")
@@ -23,6 +26,9 @@ public class MyPageController {
 
     private final MyPageService myPageService;
 
+    /**
+     * 마이페이지 계정 정보 조회
+     */
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<MyProfileResponse>> getMyProfile(
             @AuthenticationPrincipal UserPrincipal principal
@@ -31,6 +37,9 @@ public class MyPageController {
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
     }
 
+    /**
+     * 닉네임 변경
+     */
     @PatchMapping("/profile/nickname")
     public ResponseEntity<ApiResponse<MyProfileResponse>> updateNickname(
             @AuthenticationPrincipal UserPrincipal principal,
