@@ -57,6 +57,9 @@ public enum ErrorCode {
     QUIZ_SESSION_NOT_FOUND(404, "QUIZ_SESSION_NOT_FOUND", "퀴즈 세션을 찾을 수 없습니다."),
     QUIZ_SESSION_NOT_COMPLETED(409, "QUIZ_SESSION_NOT_COMPLETED", "아직 생성 완료 전인 퀴즈입니다."),
 
+    // MyPage Errors
+    MY_EMAIL_CHANGE_TOO_FREQUENT(429, "MY_EMAIL_CHANGE_TOO_FREQUENT", "이메일 변경은 하루에 1회만 가능합니다."),
+
     // 5xx Server Errors
     INTERNAL_SERVER_ERROR(500, "C002", "서버 내부 오류가 발생했습니다."),
     SERVICE_UNAVAILABLE(503, "C009", "일시적으로 서비스를 이용할 수 없습니다."),
