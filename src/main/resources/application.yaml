@@ -48,3 +48,12 @@ quiket:
 kakao:
   oauth:
     user-info-uri: https://kapi.kakao.com/v2/user/me
+
+azure:
+  openai:
+    endpoint: ${AZURE_OPENAI_ENDPOINT:}
+    api-key: ${AZURE_OPENAI_API_KEY:}
+    deployment-name: ${AZURE_OPENAI_DEPLOYMENT_NAME:}
+    api-version: ${AZURE_OPENAI_API_VERSION:2024-10-21}
+    max-output-tokens: ${AZURE_OPENAI_MAX_OUTPUT_TOKENS:4096}
+    temperature: ${AZURE_OPENAI_TEMPERATURE:0.2}
