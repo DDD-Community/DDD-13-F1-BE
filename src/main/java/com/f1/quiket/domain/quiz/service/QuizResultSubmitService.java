@@ -46,6 +46,7 @@ public class QuizResultSubmitService {
 
     private static final String QUIZ_SESSION_STATUS_COMPLETED = "completed";
     private static final String PLAY_TYPE_FIRST = "first";
+    private static final String PLAY_TYPE_RETRY_ALL = "retry_all";
     private static final String QUESTION_TYPE_MULTIPLE_CHOICE = "multiple_choice";
     private static final String QUESTION_TYPE_OX = "ox";
     private static final int ABUSE_MISMATCH_THRESHOLD_PCT = 30;
@@ -133,11 +134,15 @@ public class QuizResultSubmitService {
         if (!playSession.getQuizSessionId().equals(quizSession.getId())) {
             throw new CustomException(ErrorCode.QUIZ_OPTION_INVALID);
         }
-        if (!PLAY_TYPE_FIRST.equals(request.getPlayType())
-                || !PLAY_TYPE_FIRST.equals(playSession.getPlayType())
+        if (!playSession.getPlayType().equals(request.getPlayType())
+                || !isSupportedPlayType(playSession.getPlayType())
                 || StringUtils.hasText(request.getParentPlaySessionId())) {
             throw new CustomException(ErrorCode.QUIZ_OPTION_INVALID);
         }
+    }
+
+    private boolean isSupportedPlayType(String playType) {
+        return PLAY_TYPE_FIRST.equals(playType) || PLAY_TYPE_RETRY_ALL.equals(playType);
     }
 
     private List<Question> findQuestions(Long userId, Long quizSessionId) {
