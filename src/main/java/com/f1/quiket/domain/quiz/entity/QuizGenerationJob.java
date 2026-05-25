@@ -153,4 +153,10 @@ public class QuizGenerationJob {
     public void increaseRetryCount() {
         this.retryCount++;
     }
+
+    public boolean isTerminalStatus() {
+        return STATUS_COMPLETED.equals(this.status)
+                || STATUS_FAILED.equals(this.status)
+                || STATUS_TIMEOUT.equals(this.status);
+    }
 }

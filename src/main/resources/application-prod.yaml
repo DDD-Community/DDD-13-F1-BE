@@ -69,3 +69,9 @@ quiket:
   jwt:
     secret: ${QUIKET_JWT_SECRET}
     enabled: false  # Swagger UI 비활성화
+  quiz:
+    generation:
+      worker:
+        enabled: ${QUIKET_QUIZ_GENERATION_WORKER_ENABLED:true}
+        fixed-delay-ms: ${QUIKET_QUIZ_GENERATION_WORKER_FIXED_DELAY_MS:1000}
+        timeout-sweep-fixed-delay-ms: ${QUIKET_QUIZ_GENERATION_TIMEOUT_SWEEP_FIXED_DELAY_MS:60000}

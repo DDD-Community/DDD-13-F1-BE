@@ -79,4 +79,36 @@ public class Question {
 
     @Column(name = "display_order", nullable = false)
     Integer displayOrder;
+
+    public static Question create(
+            String publicId,
+            Long quizSessionId,
+            Long userId,
+            Long subjectId,
+            Long chapterId,
+            Long partId,
+            String questionType,
+            String difficulty,
+            String body,
+            String summary,
+            String correctExplanation,
+            String incorrectExplanation,
+            Integer displayOrder
+    ) {
+        Question question = new Question();
+        question.publicId = publicId;
+        question.quizSessionId = quizSessionId;
+        question.userId = userId;
+        question.subjectId = subjectId;
+        question.chapterId = chapterId;
+        question.partId = partId;
+        question.questionType = questionType;
+        question.difficulty = difficulty;
+        question.body = body;
+        question.summary = summary;
+        question.correctExplanation = correctExplanation;
+        question.incorrectExplanation = incorrectExplanation;
+        question.displayOrder = displayOrder;
+        return question;
+    }
 }
