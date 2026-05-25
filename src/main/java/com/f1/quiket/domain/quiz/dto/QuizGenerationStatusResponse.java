@@ -1,8 +1,10 @@
 package com.f1.quiket.domain.quiz.dto;
 
+import com.f1.quiket.domain.quiz.entity.QuizGenerationJob;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
 import lombok.Builder;
 import lombok.Getter;
+import org.springframework.util.StringUtils;
 
 /**
  * 퀴즈 생성 상태 응답 DTO
@@ -25,7 +27,6 @@ public class QuizGenerationStatusResponse {
     private final String failReason;
 
     public static QuizGenerationStatusResponse from(QuizSession quizSession) {
-        // TODO: AI 생성 도입 후 estimatedSeconds 산출
         return QuizGenerationStatusResponse.builder()
                 .quizSessionId(quizSession.getPublicId())
                 .jobId(quizSession.getJobId())
@@ -37,7 +38,26 @@ public class QuizGenerationStatusResponse {
                 .build();
     }
 
-    // TODO: progressPct — AI 생성 도입 후 quiz_generation_jobs.progress_pct 실제 진행률 사용. 현재는 상태별 placeholder
+    public static QuizGenerationStatusResponse from(QuizSession quizSession, QuizGenerationJob generationJob) {
+        return QuizGenerationStatusResponse.builder()
+                .quizSessionId(quizSession.getPublicId())
+                .jobId(quizSession.getJobId())
+                .status(generationJob.getStatus())
+                .estimatedSeconds(generationJob.getEstimatedSeconds())
+                .progressPct(generationJob.getProgressPct())
+                .generatedCount(quizSession.getGeneratedCount())
+                .failReason(resolveFailReason(quizSession, generationJob))
+                .build();
+    }
+
+    private static String resolveFailReason(QuizSession quizSession, QuizGenerationJob generationJob) {
+        if (StringUtils.hasText(generationJob.getFailReason())) {
+            return generationJob.getFailReason();
+        }
+        return quizSession.getFailReason();
+    }
+
+    // TODO: 이전 생성 세션 호환용 fallback
     private static Integer resolveProgressPct(String status) {
         return switch (status) {
             case STATUS_PENDING -> 0;

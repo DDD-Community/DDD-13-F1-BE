@@ -54,7 +54,24 @@ aws:
     # SES 발신자 이메일 설정값
     from-email: ${AWS_SES_FROM_EMAIL:ja2hoon97@gmail.com}
 
+azure:
+  openai:
+    endpoint: ${AZURE_OPENAI_ENDPOINT:}
+    api-key: ${AZURE_OPENAI_API_KEY:}
+    deployment-name: ${AZURE_OPENAI_DEPLOYMENT_NAME:}
+    api-version: ${AZURE_OPENAI_API_VERSION:2024-10-21}
+    max-output-tokens: ${AZURE_OPENAI_MAX_OUTPUT_TOKENS:4096}
+    temperature: ${AZURE_OPENAI_TEMPERATURE:0.2}
+    connect-timeout-seconds: ${AZURE_OPENAI_CONNECT_TIMEOUT_SECONDS:10}
+    read-timeout-seconds: ${AZURE_OPENAI_READ_TIMEOUT_SECONDS:120}
+
 quiket:
   jwt:
     secret: ${QUIKET_JWT_SECRET}
     enabled: false  # Swagger UI 비활성화
+  quiz:
+    generation:
+      worker:
+        enabled: ${QUIKET_QUIZ_GENERATION_WORKER_ENABLED:true}
+        fixed-delay-ms: ${QUIKET_QUIZ_GENERATION_WORKER_FIXED_DELAY_MS:1000}
+        timeout-sweep-fixed-delay-ms: ${QUIKET_QUIZ_GENERATION_TIMEOUT_SWEEP_FIXED_DELAY_MS:60000}

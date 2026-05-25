@@ -49,4 +49,18 @@ public class QuestionOption {
 
     @Column(name = "is_correct", nullable = false)
     Boolean correct;
+
+    public static QuestionOption create(
+            Long questionId,
+            Integer optionNumber,
+            String content,
+            Boolean correct
+    ) {
+        QuestionOption option = new QuestionOption();
+        option.questionId = questionId;
+        option.optionNumber = optionNumber;
+        option.content = content;
+        option.correct = correct;
+        return option;
+    }
 }
