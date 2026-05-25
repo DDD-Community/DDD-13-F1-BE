@@ -1,9 +1,12 @@
 package com.f1.quiket.domain.quiz.controller;
 
+import com.f1.quiket.domain.quiz.dto.QuizPlaySessionResponse;
 import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitOutcome;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitRequest;
+import com.f1.quiket.domain.quiz.dto.QuizRetryRequest;
 import com.f1.quiket.domain.quiz.service.QuizResultQueryService;
+import com.f1.quiket.domain.quiz.service.QuizResultRetryAllService;
 import com.f1.quiket.domain.quiz.service.QuizResultSubmitService;
 import com.f1.quiket.global.auth.UserPrincipal;
 import com.f1.quiket.global.response.ApiResponse;
@@ -30,6 +33,7 @@ public class QuizResultController {
 
     private final QuizResultSubmitService quizResultSubmitService;
     private final QuizResultQueryService quizResultQueryService;
+    private final QuizResultRetryAllService quizResultRetryAllService;
 
     /**
      * 퀴즈 결과 제출
@@ -56,5 +60,24 @@ public class QuizResultController {
     ) {
         QuizResultResponse response = quizResultQueryService.getQuizResult(principal.getUserId(), resultPublicId);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
+    }
+
+    /**
+     * 전체 다시풀기 시작
+     */
+    @PostMapping("/{resultId}/retry-all")
+    public ResponseEntity<ApiResponse<QuizPlaySessionResponse>> retryAllQuestions(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("resultId") String resultPublicId,
+            @Valid @RequestBody QuizRetryRequest request
+    ) {
+        QuizPlaySessionResponse response = quizResultRetryAllService.retryAll(
+                principal.getUserId(),
+                resultPublicId,
+                request
+        );
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(SuccessCode.CREATED, response));
     }
 }
