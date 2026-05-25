@@ -417,7 +417,7 @@ class MyPageServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
-        verify(userRepository, never()).findByPublicIdAndDeletedAtIsNull(userPublicId);
+        verify(userRepository, never()).findByPublicIdAndDeletedAtIsNull(anyString());
     }
 
     @Test
