@@ -15,6 +15,7 @@ import com.f1.quiket.domain.auth.entity.UserAuthIdentity;
 import com.f1.quiket.domain.auth.repository.UserAuthIdentityRepository;
 import com.f1.quiket.domain.auth.service.AuthTokenService;
 import com.f1.quiket.domain.auth.service.EmailVerificationCodeGenerator;
+import com.f1.quiket.domain.mypage.dto.MyAccountDeleteRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeConfirmRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeRequest;
 import com.f1.quiket.domain.mypage.dto.MyPasswordChangeRequest;
@@ -368,6 +369,101 @@ class MyPageServiceTest {
         verify(authTokenService, never()).revokeAllActiveRefreshTokens(user);
     }
 
+    @Test
+    void deleteAccount_deletes_local_account_and_revokes_tokens() {
+        User user = user();
+        UserAuthIdentity localIdentity = UserAuthIdentity.createLocal(
+                user,
+                passwordEncoder.encode("Password123!"),
+                true
+        );
+        UserAuthIdentity kakaoIdentity = UserAuthIdentity.createOAuth(user, "kakao", "kakao-subject", false);
+        MyAccountDeleteRequest request = accountDeleteRequest("Password123!", true);
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user))
+                .thenReturn(List.of(localIdentity, kakaoIdentity));
+
+        myPageService.deleteAccount(user.getPublicId(), request);
+
+        assertThat(user.getDeletedAt()).isNotNull();
+        assertThat(localIdentity.getDeletedAt()).isNotNull();
+        assertThat(kakaoIdentity.getDeletedAt()).isNotNull();
+        verify(authTokenService).revokeAllActiveRefreshTokens(user);
+    }
+
+    @Test
+    void deleteAccount_deletes_social_only_account_without_password() {
+        User user = user();
+        UserAuthIdentity kakaoIdentity = UserAuthIdentity.createOAuth(user, "kakao", "kakao-subject", true);
+        MyAccountDeleteRequest request = accountDeleteRequest(null, true);
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user)).thenReturn(List.of(kakaoIdentity));
+
+        myPageService.deleteAccount(user.getPublicId(), request);
+
+        assertThat(user.getDeletedAt()).isNotNull();
+        assertThat(kakaoIdentity.getDeletedAt()).isNotNull();
+        verify(authTokenService).revokeAllActiveRefreshTokens(user);
+    }
+
+    @Test
+    void deleteAccount_throws_invalid_input_when_agreement_missing() {
+        String userPublicId = "018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901";
+        MyAccountDeleteRequest request = accountDeleteRequest("Password123!", false);
+
+        assertThatThrownBy(() -> myPageService.deleteAccount(userPublicId, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(userRepository, never()).findByPublicIdAndDeletedAtIsNull(userPublicId);
+    }
+
+    @Test
+    void deleteAccount_throws_invalid_credentials_when_local_password_missing() {
+        User user = user();
+        UserAuthIdentity localIdentity = UserAuthIdentity.createLocal(
+                user,
+                passwordEncoder.encode("Password123!"),
+                true
+        );
+        MyAccountDeleteRequest request = accountDeleteRequest(null, true);
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user)).thenReturn(List.of(localIdentity));
+
+        assertThatThrownBy(() -> myPageService.deleteAccount(user.getPublicId(), request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        verify(authTokenService, never()).revokeAllActiveRefreshTokens(user);
+        assertThat(user.getDeletedAt()).isNull();
+        assertThat(localIdentity.getDeletedAt()).isNull();
+    }
+
+    @Test
+    void deleteAccount_throws_invalid_credentials_when_local_password_wrong() {
+        User user = user();
+        UserAuthIdentity localIdentity = UserAuthIdentity.createLocal(
+                user,
+                passwordEncoder.encode("Password123!"),
+                true
+        );
+        MyAccountDeleteRequest request = accountDeleteRequest("WrongPassword123!", true);
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(userAuthIdentityRepository.findAllByUserAndDeletedAtIsNull(user)).thenReturn(List.of(localIdentity));
+
+        assertThatThrownBy(() -> myPageService.deleteAccount(user.getPublicId(), request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        verify(authTokenService, never()).revokeAllActiveRefreshTokens(user);
+        assertThat(user.getDeletedAt()).isNull();
+        assertThat(localIdentity.getDeletedAt()).isNull();
+    }
+
     private User user() {
         User user = User.create("018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901", "user@example.com", "도토리");
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -407,6 +503,13 @@ class MyPageServiceTest {
         ReflectionTestUtils.setField(request, "currentPassword", currentPassword);
         ReflectionTestUtils.setField(request, "newPassword", newPassword);
         ReflectionTestUtils.setField(request, "newPasswordConfirm", newPasswordConfirm);
+        return request;
+    }
+
+    private MyAccountDeleteRequest accountDeleteRequest(String password, boolean agreedToDelete) {
+        MyAccountDeleteRequest request = new MyAccountDeleteRequest();
+        ReflectionTestUtils.setField(request, "password", password);
+        ReflectionTestUtils.setField(request, "agreedToDelete", agreedToDelete);
         return request;
     }
 }

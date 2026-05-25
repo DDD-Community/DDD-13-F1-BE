@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.mypage.controller;
 
 import com.f1.quiket.domain.auth.dto.EmailVerificationSentResponse;
+import com.f1.quiket.domain.mypage.dto.MyAccountDeleteRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeConfirmRequest;
 import com.f1.quiket.domain.mypage.dto.MyEmailChangeRequest;
 import com.f1.quiket.domain.mypage.dto.MyPasswordChangeRequest;
@@ -81,6 +82,15 @@ public class MyPageController {
             @Valid @RequestBody MyPasswordChangeRequest request
     ) {
         myPageService.updatePassword(principal.getPublicId(), request);
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK));
+    }
+
+    @PostMapping("/account/deletion")
+    public ResponseEntity<ApiResponse<Void>> deleteMyAccount(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody MyAccountDeleteRequest request
+    ) {
+        myPageService.deleteAccount(principal.getPublicId(), request);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK));
     }
 }
