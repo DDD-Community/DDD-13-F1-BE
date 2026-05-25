@@ -62,6 +62,8 @@ azure:
     api-version: ${AZURE_OPENAI_API_VERSION:2024-10-21}
     max-output-tokens: ${AZURE_OPENAI_MAX_OUTPUT_TOKENS:4096}
     temperature: ${AZURE_OPENAI_TEMPERATURE:0.2}
+    connect-timeout-seconds: ${AZURE_OPENAI_CONNECT_TIMEOUT_SECONDS:10}
+    read-timeout-seconds: ${AZURE_OPENAI_READ_TIMEOUT_SECONDS:120}
 
 quiket:
   jwt:

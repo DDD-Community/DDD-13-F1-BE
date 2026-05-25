@@ -16,6 +16,8 @@ public class AzureOpenAiProperties {
     private String apiVersion = "2024-10-21";
     private Integer maxOutputTokens = 4096;
     private Double temperature = 0.2;
+    private Integer connectTimeoutSeconds = 10;
+    private Integer readTimeoutSeconds = 120;
 
     public boolean isConfigured() {
         return StringUtils.hasText(endpoint)
