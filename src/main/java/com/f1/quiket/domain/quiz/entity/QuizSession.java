@@ -33,6 +33,11 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class QuizSession extends BaseEntity {
 
+    private static final String STATUS_IN_PROGRESS = "in_progress";
+    private static final String STATUS_COMPLETED = "completed";
+    private static final String STATUS_FAILED = "failed";
+    private static final int FAIL_REASON_MAX_LENGTH = 255;
+
     @Column(name = "public_id", length = 36, nullable = false)
     String publicId;
 
@@ -111,5 +116,30 @@ public class QuizSession extends BaseEntity {
         quizSession.status = status;
         quizSession.jobId = jobId;
         return quizSession;
+    }
+
+    public void markGenerationInProgress() {
+        this.status = STATUS_IN_PROGRESS;
+        this.failReason = null;
+    }
+
+    public void markGenerationCompleted(Integer generatedCount) {
+        this.status = STATUS_COMPLETED;
+        this.generatedCount = generatedCount;
+        this.failReason = null;
+        this.completedAt = LocalDateTime.now();
+    }
+
+    public void markGenerationFailed(String failReason) {
+        this.status = STATUS_FAILED;
+        this.failReason = truncateFailReason(failReason);
+        this.completedAt = LocalDateTime.now();
+    }
+
+    private String truncateFailReason(String failReason) {
+        if (failReason == null || failReason.length() <= FAIL_REASON_MAX_LENGTH) {
+            return failReason;
+        }
+        return failReason.substring(0, FAIL_REASON_MAX_LENGTH);
     }
 }

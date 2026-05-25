@@ -37,4 +37,11 @@ public class QuestionAnswer {
 
     @Column(name = "answer_value", length = 10, nullable = false)
     String answerValue;
+
+    public static QuestionAnswer create(Long questionId, String answerValue) {
+        QuestionAnswer answer = new QuestionAnswer();
+        answer.questionId = questionId;
+        answer.answerValue = answerValue;
+        return answer;
+    }
 }

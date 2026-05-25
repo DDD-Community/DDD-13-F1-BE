@@ -27,4 +27,9 @@ public interface QuizSessionRepository extends JpaRepository<QuizSession, Long> 
      * 사용자 퀴즈 세션 단건 조회
      */
     Optional<QuizSession> findByPublicIdAndUserIdAndDeletedAtIsNull(String publicId, Long userId);
+
+    /**
+     * 사용자 퀴즈 세션 단건 조회 (PK 기반)
+     */
+    Optional<QuizSession> findByIdAndUserIdAndDeletedAtIsNull(Long id, Long userId);
 }
