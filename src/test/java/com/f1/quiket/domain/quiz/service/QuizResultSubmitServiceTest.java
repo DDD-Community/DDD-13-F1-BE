@@ -264,6 +264,41 @@ class QuizResultSubmitServiceTest {
     }
 
     @Test
+    void submit_creates_retry_wrong_result_with_review_reward() {
+        Long userId = 1L;
+        User user = user(userId, 13, 364, 3);
+        Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
+        QuizSession quizSession = quizSession(500L, "quiz-session-public-id", userId, subject.getId(), "completed");
+        QuizPlaySession playSession = retryWrongPlaySession(702L, "retry-wrong-client-session-id", quizSession.getId(), userId, subject.getId());
+        Question question = question(900L, "question-public-id", quizSession.getId(), userId, subject.getId(), 1);
+        QuestionOption correctOption = option(1000L, question.getId(), 1, "정답", true);
+        QuestionAnswer answer = answer(2000L, question.getId(), "1");
+        QuizResultSubmitRequest request = request(
+                playSession.getClientSessionId(),
+                quizSession.getPublicId(),
+                "retry_wrong",
+                210000,
+                List.of(answerItem(question.getPublicId(), String.valueOf(correctOption.getId()), true, false))
+        );
+        mockSubmitData(user, subject, quizSession, playSession, List.of(question), List.of(correctOption), List.of(answer));
+        when(quizResultRepository.findByPlaySessionId(playSession.getId()))
+                .thenReturn(Optional.empty());
+        mockReward(user, playSession, quizSession, 1, 0, 3, false, null, 3);
+        when(quizResultRepository.save(any(QuizResult.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        QuizResultSubmitOutcome outcome = quizResultSubmitService.submit(userId, request);
+
+        assertThat(outcome.isCreated()).isTrue();
+        assertThat(outcome.getResponse().getPlaySessionId()).isEqualTo(playSession.getClientSessionId());
+        assertThat(outcome.getResponse().getRewards().getDotoriEarned()).isZero();
+        assertThat(outcome.getResponse().getRewards().getXpEarned()).isEqualTo(3);
+        assertThat(outcome.getResponse().getRewards().getCurrentDotoriBalance()).isEqualTo(13);
+        assertThat(outcome.getResponse().getRewards().getCurrentXpTotal()).isEqualTo(367);
+        verify(gamificationRewardService).applyQuizReward(user, playSession, quizSession, 1);
+    }
+
+    @Test
     void submit_throws_invalid_option_when_answer_question_is_missing() {
         Long userId = 1L;
         User user = user(userId, 12, 360, 3);
@@ -438,6 +473,23 @@ class QuizResultSubmitServiceTest {
                 userId,
                 subjectId,
                 false,
+                true,
+                null
+        );
+        ReflectionTestUtils.setField(playSession, "id", id);
+        return playSession;
+    }
+
+    private QuizPlaySession retryWrongPlaySession(Long id, String clientSessionId, Long quizSessionId, Long userId, Long subjectId) {
+        QuizPlaySession playSession = QuizPlaySession.createRetryWrong(
+                clientSessionId,
+                quizSessionId,
+                userId,
+                subjectId,
+                700L,
+                500L,
+                1,
+                true,
                 true,
                 null
         );
