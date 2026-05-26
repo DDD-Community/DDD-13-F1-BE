@@ -7,6 +7,7 @@ import com.f1.quiket.domain.quiz.dto.QuizResultSubmitRequest;
 import com.f1.quiket.domain.quiz.dto.QuizRetryRequest;
 import com.f1.quiket.domain.quiz.service.QuizResultQueryService;
 import com.f1.quiket.domain.quiz.service.QuizResultRetryAllService;
+import com.f1.quiket.domain.quiz.service.QuizResultRetryWrongService;
 import com.f1.quiket.domain.quiz.service.QuizResultSubmitService;
 import com.f1.quiket.global.auth.UserPrincipal;
 import com.f1.quiket.global.response.ApiResponse;
@@ -34,6 +35,7 @@ public class QuizResultController {
     private final QuizResultSubmitService quizResultSubmitService;
     private final QuizResultQueryService quizResultQueryService;
     private final QuizResultRetryAllService quizResultRetryAllService;
+    private final QuizResultRetryWrongService quizResultRetryWrongService;
 
     /**
      * 퀴즈 결과 제출
@@ -72,6 +74,25 @@ public class QuizResultController {
             @Valid @RequestBody QuizRetryRequest request
     ) {
         QuizPlaySessionResponse response = quizResultRetryAllService.retryAll(
+                principal.getUserId(),
+                resultPublicId,
+                request
+        );
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(SuccessCode.CREATED, response));
+    }
+
+    /**
+     * 틀린 문제만 다시풀기 시작
+     */
+    @PostMapping("/{resultId}/retry-wrong")
+    public ResponseEntity<ApiResponse<QuizPlaySessionResponse>> retryWrongQuestions(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("resultId") String resultPublicId,
+            @Valid @RequestBody QuizRetryRequest request
+    ) {
+        QuizPlaySessionResponse response = quizResultRetryWrongService.retryWrong(
                 principal.getUserId(),
                 resultPublicId,
                 request
