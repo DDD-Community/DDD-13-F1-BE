@@ -131,6 +131,8 @@ class GamificationRewardServiceTest {
     @Test
     void applyQuizReward_blocks_xp_after_max_level_reached() {
         // 명세 GAMIF-002 — 만렙(Lv.10) 도달 후 추가 풀이는 XP 누적 X.
+        // 단, 명세 예외 "만렙 도달 후 추가 풀이: 레벨업 모달 노출 X, 일반 도토리 모달만 노출"에 따라
+        // 도토리는 first 풀이라면 정상 적립되어야 한다 — XP만 cap 대상이고 도토리는 GAMIF-001 정책 그대로 동작.
         User user = user(1L, 0, GamificationLevelCalculator.MAX_LEVEL_MIN_XP, 10);
         QuizSession quizSession = quizSession(500L, user.getId(), 20L, "hard");
         QuizPlaySession playSession = playSession(700L, quizSession.getId(), user.getId(), quizSession.getSubjectId());
@@ -142,10 +144,49 @@ class GamificationRewardServiceTest {
 
         assertThat(result.xpEarned()).isZero();
         assertThat(result.leveledUp()).isFalse();
+        assertThat(result.newLevel()).isNull();
         assertThat(user.getXpTotal()).isEqualTo(GamificationLevelCalculator.MAX_LEVEL_MIN_XP);
         assertThat(user.getCurrentLevel()).isEqualTo(10);
 
-        // 적립값이 0이면 UserXpLog는 남기지 않는다 (saveRewardLogs 조건)
+        // 도토리는 first 풀이 정답 3개 → +3 정상 적립
+        assertThat(result.dotoriEarned()).isEqualTo(3);
+        assertThat(user.getDotoriBalance()).isEqualTo(3);
+        ArgumentCaptor<UserDotoriLog> dotoriCaptor = ArgumentCaptor.forClass(UserDotoriLog.class);
+        verify(userDotoriLogRepository).save(dotoriCaptor.capture());
+        assertThat(dotoriCaptor.getValue().getAmount()).isEqualTo(3);
+        assertThat(dotoriCaptor.getValue().getBalanceAfter()).isEqualTo(3);
+
+        // XP 적립값이 0이면 UserXpLog는 남기지 않는다 (saveRewardLogs 조건)
+        verify(userXpLogRepository, never()).save(any(UserXpLog.class));
+    }
+
+    @Test
+    void applyQuizReward_records_streak_but_no_logs_when_zero_correct() {
+        // 명세 GAMIF-001/002 — 정답이 0개라도 학습 행동(풀이 제출) 자체는 발생했으므로 streak는 기록한다.
+        // 다만 적립값이 0인 도토리/XP 로그는 saveRewardLogs 조건상 저장되지 않는다.
+        User user = user(1L, 0, 0, 1);
+        QuizSession quizSession = quizSession(500L, user.getId(), 20L, "medium");
+        QuizPlaySession playSession = playSession(700L, quizSession.getId(), user.getId(), quizSession.getSubjectId());
+        LocalDate today = today();
+        when(userStreakLogRepository.findByUserIdAndStudyDate(user.getId(), today))
+                .thenReturn(Optional.empty());
+        when(userStreakLogRepository.findTopByUserIdAndStudyDateBeforeOrderByStudyDateDesc(user.getId(), today))
+                .thenReturn(Optional.empty());
+        when(userStreakLogRepository.save(any(UserStreakLog.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        QuizRewardResult result = gamificationRewardService.applyQuizReward(user, playSession, quizSession, 0);
+
+        assertThat(result.dotoriEarned()).isZero();
+        assertThat(result.xpEarned()).isZero();
+        assertThat(result.leveledUp()).isFalse();
+        assertThat(result.newLevel()).isNull();
+        assertThat(user.getDotoriBalance()).isZero();
+        assertThat(user.getXpTotal()).isZero();
+        assertThat(user.getCurrentLevel()).isEqualTo(1);
+
+        verify(userStreakLogRepository).save(any(UserStreakLog.class));
+        verify(userDotoriLogRepository, never()).save(any(UserDotoriLog.class));
         verify(userXpLogRepository, never()).save(any(UserXpLog.class));
     }
 
