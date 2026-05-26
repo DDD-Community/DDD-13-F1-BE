@@ -43,6 +43,7 @@ public class QuizPlaySession {
 
     private static final String PLAY_TYPE_FIRST = "first";
     private static final String PLAY_TYPE_RETRY_ALL = "retry_all";
+    private static final String PLAY_TYPE_RETRY_WRONG = "retry_wrong";
     private static final String STATUS_IN_PROGRESS = "in_progress";
     private static final String STATUS_SUBMITTED = "submitted";
 
@@ -150,6 +151,34 @@ public class QuizPlaySession {
         return playSession;
     }
 
+    public static QuizPlaySession createRetryWrong(
+            String clientSessionId,
+            Long quizSessionId,
+            Long userId,
+            Long subjectId,
+            Long parentPlaySessionId,
+            Long parentQuizSessionId,
+            Integer generation,
+            Boolean questionShuffled,
+            Boolean optionShuffled,
+            String shuffleSeed
+    ) {
+        QuizPlaySession playSession = createBase(
+                clientSessionId,
+                quizSessionId,
+                userId,
+                subjectId,
+                PLAY_TYPE_RETRY_WRONG,
+                questionShuffled == null || Boolean.TRUE.equals(questionShuffled),
+                optionShuffled,
+                shuffleSeed
+        );
+        playSession.parentPlaySessionId = parentPlaySessionId;
+        playSession.parentQuizSessionId = parentQuizSessionId;
+        playSession.generation = generation;
+        return playSession;
+    }
+
     private static QuizPlaySession createBase(
             String clientSessionId,
             Long quizSessionId,
@@ -179,6 +208,15 @@ public class QuizPlaySession {
         return this.quizSessionId.equals(quizSessionId)
                 && this.userId.equals(userId)
                 && this.playType.equals(playType);
+    }
+
+    public boolean isSameRetryWrongRequest(Long parentPlaySessionId, Long parentQuizSessionId, Long userId) {
+        return this.userId.equals(userId)
+                && PLAY_TYPE_RETRY_WRONG.equals(this.playType)
+                && this.parentPlaySessionId != null
+                && this.parentPlaySessionId.equals(parentPlaySessionId)
+                && this.parentQuizSessionId != null
+                && this.parentQuizSessionId.equals(parentQuizSessionId);
     }
 
     public void submit(Integer elapsedMs) {
