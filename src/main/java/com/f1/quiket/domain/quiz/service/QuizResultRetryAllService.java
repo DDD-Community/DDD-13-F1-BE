@@ -8,6 +8,7 @@ import com.f1.quiket.domain.quiz.entity.QuizSession;
 import com.f1.quiket.domain.quiz.repository.QuizPlaySessionRepository;
 import com.f1.quiket.domain.quiz.repository.QuizResultRepository;
 import com.f1.quiket.domain.quiz.repository.QuizSessionRepository;
+import com.f1.quiket.domain.subject.repository.SubjectRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -26,17 +27,24 @@ public class QuizResultRetryAllService {
     private final QuizResultRepository quizResultRepository;
     private final QuizSessionRepository quizSessionRepository;
     private final QuizPlaySessionRepository quizPlaySessionRepository;
+    private final SubjectRepository subjectRepository;
 
     public QuizPlaySessionResponse retryAll(Long userId, String resultPublicId, QuizRetryRequest request) {
         QuizResult result = quizResultRepository.findByPublicIdAndUserId(resultPublicId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.QUIZ_RESULT_NOT_FOUND));
         QuizSession quizSession = quizSessionRepository.findByIdAndUserIdAndDeletedAtIsNull(result.getQuizSessionId(), userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.QUIZ_SESSION_NOT_FOUND));
+        validateSubjectAlive(userId, quizSession.getSubjectId());
         validateRetryable(quizSession);
 
         return quizPlaySessionRepository.findByClientSessionId(request.getClientSessionId())
                 .map(existing -> responseFromExisting(existing, quizSession))
                 .orElseGet(() -> createRetryAllPlaySession(userId, quizSession, request));
+    }
+
+    private void validateSubjectAlive(Long userId, Long subjectId) {
+        subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(subjectId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SUBJECT_NOT_FOUND));
     }
 
     private void validateRetryable(QuizSession quizSession) {
