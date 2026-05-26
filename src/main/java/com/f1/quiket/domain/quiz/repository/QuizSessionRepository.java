@@ -19,6 +19,11 @@ public interface QuizSessionRepository extends JpaRepository<QuizSession, Long> 
     List<QuizSession> findAllByUserIdAndDeletedAtIsNull(Long userId);
 
     /**
+     * 과목 퀴즈 세션 목록 조회
+     */
+    List<QuizSession> findAllBySubjectIdAndDeletedAtIsNull(Long subjectId);
+    
+    /**
      * 사용자 생성 중 퀴즈 존재 여부
      */
     boolean existsByUserIdAndStatusInAndDeletedAtIsNull(Long userId, Collection<String> statuses);

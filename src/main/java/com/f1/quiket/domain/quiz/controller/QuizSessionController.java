@@ -3,8 +3,11 @@ package com.f1.quiket.domain.quiz.controller;
 import com.f1.quiket.domain.quiz.dto.QuizCreateRequest;
 import com.f1.quiket.domain.quiz.dto.QuizGenerationAcceptedResponse;
 import com.f1.quiket.domain.quiz.dto.QuizGenerationStatusResponse;
+import com.f1.quiket.domain.quiz.dto.QuizPlaySessionResponse;
+import com.f1.quiket.domain.quiz.dto.QuizPlayStartRequest;
 import com.f1.quiket.domain.quiz.dto.QuizSessionResponse;
 import com.f1.quiket.domain.quiz.service.QuizGenerationStatusService;
+import com.f1.quiket.domain.quiz.service.QuizPlaySessionStartService;
 import com.f1.quiket.domain.quiz.service.QuizSessionCreateService;
 import com.f1.quiket.domain.quiz.service.QuizSessionQueryService;
 import com.f1.quiket.global.auth.UserPrincipal;
@@ -33,6 +36,7 @@ public class QuizSessionController {
     private final QuizSessionCreateService quizSessionCreateService;
     private final QuizGenerationStatusService quizGenerationStatusService;
     private final QuizSessionQueryService quizSessionQueryService;
+    private final QuizPlaySessionStartService quizPlaySessionStartService;
 
     /**
      * 퀴즈 생성 요청
@@ -86,5 +90,25 @@ public class QuizSessionController {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(ApiResponse.success(SuccessCode.OK, response));
+    }
+
+    /**
+     * 퀴즈 풀이 세션 시작
+     */
+    @PostMapping("/{quizSessionId}/play-sessions")
+    public ResponseEntity<ApiResponse<QuizPlaySessionResponse>> startPlaySession(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("quizSessionId") String quizSessionPublicId,
+            @Valid @RequestBody QuizPlayStartRequest request
+    ) {
+        QuizPlaySessionResponse response = quizPlaySessionStartService.start(
+                principal.getUserId(),
+                quizSessionPublicId,
+                request
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(SuccessCode.CREATED, response));
     }
 }
