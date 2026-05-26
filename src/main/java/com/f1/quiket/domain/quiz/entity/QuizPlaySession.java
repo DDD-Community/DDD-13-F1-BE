@@ -169,7 +169,7 @@ public class QuizPlaySession {
                 userId,
                 subjectId,
                 PLAY_TYPE_RETRY_WRONG,
-                questionShuffled == null || Boolean.TRUE.equals(questionShuffled),
+                questionShuffled,
                 optionShuffled,
                 shuffleSeed
         );

@@ -89,7 +89,7 @@ class QuizResultRetryWrongServiceTest {
         QuestionOption wrongQuestionWrongOption = option(1003L, wrongQuestion.getId(), 2, "틀린 문제 오답", false);
         QuestionAnswer correctAnswer = answer(2001L, correctQuestion.getId(), "1");
         QuestionAnswer wrongAnswer = answer(2002L, wrongQuestion.getId(), "1");
-        QuizRetryRequest request = request("retry-wrong-client-session-id", null, null, "seed-1");
+        QuizRetryRequest request = request("retry-wrong-client-session-id", true, null, "seed-1");
         mockBaseData(userId, result, parentPlaySession, parentQuizSession);
         when(quizPlaySessionRepository.findByClientSessionId(request.getClientSessionId()))
                 .thenReturn(Optional.empty());
