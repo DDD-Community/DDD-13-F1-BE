@@ -42,6 +42,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 public class QuizPlaySession {
 
     private static final String PLAY_TYPE_FIRST = "first";
+    private static final String PLAY_TYPE_RETRY_ALL = "retry_all";
     private static final String STATUS_IN_PROGRESS = "in_progress";
     private static final String STATUS_SUBMITTED = "submitted";
 
@@ -112,13 +113,59 @@ public class QuizPlaySession {
             Boolean optionShuffled,
             String shuffleSeed
     ) {
+        QuizPlaySession playSession = createBase(
+                clientSessionId,
+                quizSessionId,
+                userId,
+                subjectId,
+                PLAY_TYPE_FIRST,
+                questionShuffled,
+                optionShuffled,
+                shuffleSeed
+        );
+        playSession.generation = 0;
+        return playSession;
+    }
+
+    public static QuizPlaySession createRetryAll(
+            String clientSessionId,
+            Long quizSessionId,
+            Long userId,
+            Long subjectId,
+            Boolean questionShuffled,
+            Boolean optionShuffled,
+            String shuffleSeed
+    ) {
+        QuizPlaySession playSession = createBase(
+                clientSessionId,
+                quizSessionId,
+                userId,
+                subjectId,
+                PLAY_TYPE_RETRY_ALL,
+                questionShuffled,
+                optionShuffled,
+                shuffleSeed
+        );
+        playSession.generation = 0;
+        return playSession;
+    }
+
+    private static QuizPlaySession createBase(
+            String clientSessionId,
+            Long quizSessionId,
+            Long userId,
+            Long subjectId,
+            String playType,
+            Boolean questionShuffled,
+            Boolean optionShuffled,
+            String shuffleSeed
+    ) {
         QuizPlaySession playSession = new QuizPlaySession();
         playSession.clientSessionId = clientSessionId;
         playSession.quizSessionId = quizSessionId;
         playSession.userId = userId;
         playSession.subjectId = subjectId;
-        playSession.playType = PLAY_TYPE_FIRST;
-        playSession.generation = 0;
+        playSession.playType = playType;
         playSession.questionShuffled = Boolean.TRUE.equals(questionShuffled);
         playSession.optionShuffled = optionShuffled == null || Boolean.TRUE.equals(optionShuffled);
         playSession.shuffleSeed = shuffleSeed;
