@@ -43,11 +43,14 @@ public class GamificationRewardService {
 
         int dotoriEarned = calculateDotoriEarned(playSession, normalizedCorrectCount);
         int baseXp = normalizedCorrectCount * xpPerCorrect(quizSession.getDifficulty(), playSession.getPlayType());
-        int earnedXp = calculateEarnedXp(baseXp, streakMultiplier);
+        int rawEarnedXp = calculateEarnedXp(baseXp, streakMultiplier);
 
         int dotoriBefore = user.getDotoriBalance();
         int xpBefore = user.getXpTotal();
         int levelBefore = user.getCurrentLevel();
+        // 명세 GAMIF-002 — 만렙(Lv.10) 도달 후엔 추가 XP 누적 X.
+        // 만렙 진입선까지의 잔여 분만큼만 적립하여, 응답·로그·user.xpTotal이 모두 같은 값으로 정렬되도록 한다.
+        int earnedXp = capByMaxLevelXp(xpBefore, rawEarnedXp);
         int dotoriAfter = dotoriBefore + dotoriEarned;
         int xpAfter = xpBefore + earnedXp;
         int levelAfter = GamificationLevelCalculator.levelOf(xpAfter);
@@ -94,6 +97,10 @@ public class GamificationRewardService {
         return userStreakLogRepository.save(UserStreakLog.create(userId, today, streakCount, multiplierOf(streakCount)));
     }
 
+    /**
+     * 명세 GAMIF-001 — 도토리는 첫 풀이(first)에 한해 정답 1문항당 +1 적립한다.
+     * retry_all / retry_wrong은 XP만 적립하고 도토리는 0이다.
+     */
     private int calculateDotoriEarned(QuizPlaySession playSession, int correctCount) {
         if (!PLAY_TYPE_FIRST.equals(playSession.getPlayType())) {
             return 0;
@@ -101,6 +108,14 @@ public class GamificationRewardService {
         return correctCount;
     }
 
+    /**
+     * 명세 GAMIF-002 — 난이도별 정답 1문항당 적립 XP.
+     * <ul>
+     *     <li>첫 풀이(first): easy 3 / medium 4 / hard 5</li>
+     *     <li>복습(retry_all, retry_wrong): easy 2 / medium 3 / hard 4</li>
+     * </ul>
+     * <p>알 수 없는 난이도 값은 medium 기준으로 매핑한다.</p>
+     */
     private int xpPerCorrect(String difficulty, String playType) {
         if (PLAY_TYPE_FIRST.equals(playType)) {
             return switch (difficulty) {
@@ -116,6 +131,17 @@ public class GamificationRewardService {
         };
     }
 
+    /**
+     * 명세 GAMIF-002 — 연속 학습 일일 보너스 배수.
+     * <ul>
+     *     <li>1일: *1.0</li>
+     *     <li>2일: *1.1</li>
+     *     <li>3~5일: *1.2</li>
+     *     <li>6~13일: *1.5</li>
+     *     <li>14~29일: *2.0</li>
+     *     <li>30일 이상: *2.5</li>
+     * </ul>
+     */
     private BigDecimal multiplierOf(int streakCount) {
         if (streakCount >= 30) {
             return BigDecimal.valueOf(2.5);
@@ -140,6 +166,16 @@ public class GamificationRewardService {
                 .multiply(streakMultiplier)
                 .setScale(0, RoundingMode.DOWN)
                 .intValue();
+    }
+
+    /**
+     * 명세 GAMIF-002 — 만렙(Lv.10) 도달 후엔 XP 누적이 멈춘다.
+     * xpBefore가 만렙 진입선({@link GamificationLevelCalculator#MAX_LEVEL_MIN_XP}) 이상이면 0,
+     * 그렇지 않으면 진입선까지의 잔여 분과 rawEarnedXp 중 작은 값을 실제 적립값으로 사용한다.
+     */
+    private int capByMaxLevelXp(int xpBefore, int rawEarnedXp) {
+        int remainingToMax = Math.max(GamificationLevelCalculator.MAX_LEVEL_MIN_XP - xpBefore, 0);
+        return Math.min(rawEarnedXp, remainingToMax);
     }
 
     private void saveRewardLogs(
