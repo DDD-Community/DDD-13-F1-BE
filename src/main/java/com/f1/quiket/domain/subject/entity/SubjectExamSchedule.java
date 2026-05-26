@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.subject.entity;
 
 import com.f1.quiket.global.entity.BaseEntity;
+import com.f1.quiket.global.util.UuidV7Generator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
@@ -46,4 +47,26 @@ public class SubjectExamSchedule extends BaseEntity {
 
     @Column(name = "exam_date", nullable = false)
     LocalDate examDate;
+
+    /**
+     * 시험 일정 생성
+     */
+    public static SubjectExamSchedule create(Long subjectId, Long userId, String examName, LocalDate examDate) {
+        SubjectExamSchedule schedule = new SubjectExamSchedule();
+        schedule.publicId = UuidV7Generator.generate();
+        schedule.subjectId = subjectId;
+        schedule.userId = userId;
+        schedule.examName = examName;
+        schedule.examDate = examDate;
+        return schedule;
+    }
+
+    /**
+     * 시험 일정 변경
+     */
+    public void update(String examName, LocalDate examDate) {
+        this.examName = examName;
+        this.examDate = examDate;
+        restore();
+    }
 }

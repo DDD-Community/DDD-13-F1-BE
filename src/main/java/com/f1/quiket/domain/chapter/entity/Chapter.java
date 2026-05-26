@@ -44,4 +44,11 @@ public class Chapter extends BaseEntity {
 
     @Column(name = "display_order", nullable = false)
     Integer displayOrder;
+
+    /**
+     * 챕터명 변경
+     */
+    public void updateName(String name) {
+        this.name = name;
+    }
 }

@@ -22,6 +22,17 @@ public interface PartRepository extends JpaRepository<Part, Long> {
     /**
      * 과목 파트 목록 조회
      */
+    List<Part> findAllBySubjectIdAndDeletedAtIsNull(Long subjectId);
+
+    /**
+     * 챕터별 파트 목록 조회
+     */
+    List<Part> findAllByChapterIdInAndDeletedAtIsNull(Collection<Long> chapterIds);
+
+    /**
+     * 과목별 파트 목록 조회
+     */
+    List<Part> findAllBySubjectIdInAndDeletedAtIsNull(Collection<Long> subjectIds);
     List<Part> findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByChapterIdAscPartNumberAscCreatedAtAsc(
             Long subjectId,
             Long userId
