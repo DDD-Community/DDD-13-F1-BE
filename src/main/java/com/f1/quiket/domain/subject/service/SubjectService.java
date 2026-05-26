@@ -137,7 +137,7 @@ public class SubjectService {
     public SubjectDetailResponse getSubject(String userPublicId, String subjectPublicId) {
         User user = findUser(userPublicId);
         Subject subject = findSubject(subjectPublicId, user.getId());
-        return toDetail(subject);
+        return toDetail(subject, user.getId());
     }
 
     /**
@@ -150,7 +150,7 @@ public class SubjectService {
         return QuizScopeResponse.builder()
                 .subjectId(subject.getPublicId())
                 .subjectName(subject.getName())
-                .chapters(getChapterWithParts(subject))
+                .chapters(getChapterWithParts(subject, user.getId()))
                 .build();
     }
 
@@ -175,7 +175,7 @@ public class SubjectService {
         SubjectPurpose purpose = validatePurpose(request);
         subject.updatePurpose(purpose.value());
         replaceDetails(subject.getId(), purpose, request);
-        return toDetail(subject);
+        return toDetail(subject, user.getId());
     }
 
     /**
@@ -218,7 +218,8 @@ public class SubjectService {
 
         // 하위 데이터 soft delete
         subjectExamScheduleRepository.findBySubjectIdAndDeletedAtIsNull(subject.getId()).ifPresent(SubjectExamSchedule::delete);
-        chapterRepository.findAllBySubjectIdAndDeletedAtIsNullOrderByDisplayOrderAscCreatedAtAsc(subject.getId()).forEach(Chapter::delete);
+        chapterRepository.findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByDisplayOrderAscCreatedAtAsc(subject.getId(), user.getId())
+                .forEach(Chapter::delete);
         partRepository.findAllBySubjectIdAndDeletedAtIsNull(subject.getId()).forEach(Part::delete);
         quizSessionRepository.findAllBySubjectIdAndDeletedAtIsNull(subject.getId()).forEach(session -> session.delete());
 
@@ -244,8 +245,8 @@ public class SubjectService {
     /**
      * 과목 상세 응답 변환
      */
-    private SubjectDetailResponse toDetail(Subject subject) {
-        List<ChapterWithPartsResponse> chapterResponses = getChapterWithParts(subject);
+    private SubjectDetailResponse toDetail(Subject subject, Long userId) {
+        List<ChapterWithPartsResponse> chapterResponses = getChapterWithParts(subject, userId);
 
         SubjectExamScheduleResponse scheduleResponse = subjectExamScheduleRepository.findBySubjectIdAndDeletedAtIsNull(subject.getId())
                 .map(schedule -> SubjectExamScheduleResponse.of(schedule, subject))
@@ -265,8 +266,11 @@ public class SubjectService {
     /**
      * 챕터와 파트 응답 목록 생성
      */
-    private List<ChapterWithPartsResponse> getChapterWithParts(Subject subject) {
-        List<Chapter> chapters = chapterRepository.findAllBySubjectIdAndDeletedAtIsNullOrderByDisplayOrderAscCreatedAtAsc(subject.getId());
+    private List<ChapterWithPartsResponse> getChapterWithParts(Subject subject, Long userId) {
+        List<Chapter> chapters = chapterRepository.findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByDisplayOrderAscCreatedAtAsc(
+                subject.getId(),
+                userId
+        );
         if (chapters.isEmpty()) {
             return List.of();
         }
