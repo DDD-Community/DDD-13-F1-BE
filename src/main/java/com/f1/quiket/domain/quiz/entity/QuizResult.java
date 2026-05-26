@@ -2,6 +2,7 @@ package com.f1.quiket.domain.quiz.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -13,6 +14,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
  * 퀴즈 결과 엔티티
@@ -32,6 +36,7 @@ import lombok.experimental.FieldDefaults;
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EntityListeners(AuditingEntityListener.class)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class QuizResult {
 
@@ -61,9 +66,81 @@ public class QuizResult {
     @Column(name = "correct_count", nullable = false)
     Integer correctCount;
 
+    @Column(name = "wrong_count", nullable = false)
+    Integer wrongCount;
+
+    @Column(name = "skip_count", nullable = false)
+    Integer skipCount;
+
+    @Column(name = "accuracy_pct", nullable = false)
+    Integer accuracyPct;
+
+    @Column(name = "elapsed_ms", nullable = false)
+    Integer elapsedMs;
+
+    @Column(name = "dotori_earned", nullable = false)
+    Integer dotoriEarned;
+
+    @Column(name = "xp_earned", nullable = false)
+    Integer xpEarned;
+
+    @Column(name = "is_leveled_up", nullable = false)
+    Boolean leveledUp;
+
+    @Column(name = "new_level")
+    Integer newLevel;
+
+    @Column(name = "is_score_matched", nullable = false)
+    Boolean scoreMatched;
+
+    @Column(name = "is_abuse_flagged", nullable = false)
+    Boolean abuseFlagged;
+
+    @CreatedDate
     @Column(name = "created_at", nullable = false)
     LocalDateTime createdAt;
 
+    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     LocalDateTime updatedAt;
+
+    public static QuizResult create(
+            String publicId,
+            Long playSessionId,
+            Long quizSessionId,
+            Long userId,
+            Long subjectId,
+            Integer totalCount,
+            Integer correctCount,
+            Integer wrongCount,
+            Integer skipCount,
+            Integer accuracyPct,
+            Integer elapsedMs,
+            Integer dotoriEarned,
+            Integer xpEarned,
+            Boolean leveledUp,
+            Integer newLevel,
+            Boolean scoreMatched,
+            Boolean abuseFlagged
+    ) {
+        QuizResult result = new QuizResult();
+        result.publicId = publicId;
+        result.playSessionId = playSessionId;
+        result.quizSessionId = quizSessionId;
+        result.userId = userId;
+        result.subjectId = subjectId;
+        result.totalCount = totalCount;
+        result.correctCount = correctCount;
+        result.wrongCount = wrongCount;
+        result.skipCount = skipCount;
+        result.accuracyPct = accuracyPct;
+        result.elapsedMs = elapsedMs;
+        result.dotoriEarned = dotoriEarned;
+        result.xpEarned = xpEarned;
+        result.leveledUp = leveledUp;
+        result.newLevel = newLevel;
+        result.scoreMatched = scoreMatched;
+        result.abuseFlagged = abuseFlagged;
+        return result;
+    }
 }

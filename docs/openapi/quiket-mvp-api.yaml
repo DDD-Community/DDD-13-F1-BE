@@ -1434,18 +1434,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /quiz-results/{playSessionId}:
+  /quiz-results/{resultId}:
     get:
       tags:
         - Results
         - History
       summary: 퀴즈 결과 상세 조회
-      description: 과거에 저장된 퀴즈 결과를 조회합니다. 홈 최근활동의 완료 카드에서 진입합니다.
+      description: 과거에 저장된 퀴즈 결과를 조회합니다. 홈 최근활동의 완료 카드에서 resultId로 진입합니다.
       operationId: getQuizResult
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/PlaySessionId'
+        - $ref: '#/components/parameters/ResultId'
       responses:
         '200':
           description: 결과 상세 조회 성공
@@ -1458,7 +1458,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /quiz-results/{playSessionId}/review:
+  /quiz-results/{resultId}/review:
     get:
       tags:
         - Results
@@ -1468,7 +1468,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/PlaySessionId'
+        - $ref: '#/components/parameters/ResultId'
         - name: filter
           in: query
           required: false
@@ -1492,7 +1492,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /quiz-results/{playSessionId}/retry-all:
+  /quiz-results/{resultId}/retry-all:
     post:
       tags:
         - History
@@ -1503,7 +1503,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/PlaySessionId'
+        - $ref: '#/components/parameters/ResultId'
       requestBody:
         required: true
         content:
@@ -1524,7 +1524,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /quiz-results/{playSessionId}/retry-wrong:
+  /quiz-results/{resultId}/retry-wrong:
     post:
       tags:
         - History
@@ -1535,7 +1535,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/PlaySessionId'
+        - $ref: '#/components/parameters/ResultId'
       requestBody:
         required: true
         content:
@@ -1944,6 +1944,15 @@ components:
         type: string
         format: uuid
         example: 018f8c2e-8123-72ab-96a1-f7c49c1d1111
+    ResultId:
+      name: resultId
+      in: path
+      required: true
+      description: 퀴즈 결과 publicId
+      schema:
+        type: string
+        format: uuid
+        example: 018f8c2e-9999-7b11-b2d1-774f4c1c2222
     PlaySessionId:
       name: playSessionId
       in: path
@@ -2789,6 +2798,7 @@ components:
           type: string
           format: uuid
           nullable: true
+          description: 퀴즈 결과 publicId. activityType이 quiz_completed인 경우 사용
           example: 018f8c2e-9999-7b11-b2d1-774f4c1c2222
         title:
           type: string
@@ -3163,6 +3173,7 @@ components:
         id:
           type: string
           format: uuid
+          description: 시험 일정 publicId
           example: 018f8c2e-1234-7abc-91c1-000000000001
         subjectId:
           type: string
@@ -3593,7 +3604,6 @@ components:
         - quizType
         - questionCount
         - playMode
-        - difficulty
       properties:
         subjectId:
           type: string
@@ -3613,6 +3623,7 @@ components:
         choiceCount:
           type: integer
           nullable: true
+          description: 객관식 보기 수. quizType이 multiple_choice이고 미입력 시 4로 처리
           enum:
             - 4
             - 5
@@ -3641,7 +3652,9 @@ components:
           minimum: 1
           example: 60
         difficulty:
-          $ref: '#/components/schemas/QuizDifficulty'
+          description: 미입력 시 medium으로 처리
+          allOf:
+            - $ref: '#/components/schemas/QuizDifficulty'
 
     QuizGenerationAcceptedResponse:
       allOf:
@@ -4008,6 +4021,7 @@ components:
     QuizResult:
       type: object
       required:
+        - resultId
         - playSessionId
         - quizSessionId
         - subjectId
@@ -4020,6 +4034,11 @@ components:
         - rewards
         - reviewItems
       properties:
+        resultId:
+          type: string
+          format: uuid
+          description: 퀴즈 결과 publicId
+          example: 018f8c2e-9999-7b11-b2d1-774f4c1c2222
         playSessionId:
           type: string
           example: android-play-session-uuid

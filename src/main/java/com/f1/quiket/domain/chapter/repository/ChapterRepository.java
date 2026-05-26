@@ -32,4 +32,13 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
      * 공개 식별자 기반 사용자 챕터 조회
      */
     Optional<Chapter> findByPublicIdAndUserIdAndDeletedAtIsNull(String publicId, Long userId);
+    List<Chapter> findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByDisplayOrderAscCreatedAtAsc(
+            Long subjectId,
+            Long userId
+    );
+
+    /**
+     * 사용자 챕터 목록 조회 (PK 컬렉션 기반)
+     */
+    List<Chapter> findAllByIdInAndUserIdAndDeletedAtIsNull(Collection<Long> ids, Long userId);
 }

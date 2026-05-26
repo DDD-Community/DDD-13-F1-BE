@@ -46,6 +46,22 @@ public enum ErrorCode {
     AUTH_OAUTH_TEMP_TOKEN_STORE_FAILED(503, "AUTH_OAUTH_TEMP_TOKEN_STORE_FAILED", "Kakao OAuth 임시 토큰 처리에 실패했습니다."),
     AUTH_OAUTH_USER_INFO_FAILED(503, "AUTH_OAUTH_USER_INFO_FAILED", "Kakao 사용자 정보 조회에 실패했습니다."),
 
+    // Subject Errors
+    SUBJECT_NOT_FOUND(404, "SUBJECT_NOT_FOUND", "과목을 찾을 수 없습니다."),
+
+    // Quiz Errors
+    QUIZ_OPTION_INVALID(400, "QUIZ_OPTION_INVALID", "퀴즈 옵션이 올바르지 않습니다."),
+    QUIZ_SCOPE_INVALID(400, "QUIZ_SCOPE_INVALID", "출제 범위가 올바르지 않습니다."),
+    QUIZ_SCOPE_TEXT_INSUFFICIENT(422, "QUIZ_SCOPE_TEXT_INSUFFICIENT", "출제 범위의 텍스트가 부족하여 요청한 문제 수를 만들 수 없습니다."),
+    QUIZ_GENERATION_IN_PROGRESS(409, "QUIZ_GENERATION_IN_PROGRESS", "이미 생성 중인 퀴즈가 있습니다."),
+    QUIZ_SESSION_NOT_FOUND(404, "QUIZ_SESSION_NOT_FOUND", "퀴즈 세션을 찾을 수 없습니다."),
+    QUIZ_SESSION_NOT_COMPLETED(409, "QUIZ_SESSION_NOT_COMPLETED", "아직 생성 완료 전인 퀴즈입니다."),
+    QUIZ_PLAY_SESSION_NOT_FOUND(404, "QUIZ_PLAY_SESSION_NOT_FOUND", "퀴즈 풀이 세션을 찾을 수 없습니다."),
+    QUIZ_RESULT_NOT_FOUND(404, "QUIZ_RESULT_NOT_FOUND", "퀴즈 결과를 찾을 수 없습니다."),
+
+    // MyPage Errors
+    MY_EMAIL_CHANGE_TOO_FREQUENT(429, "MY_EMAIL_CHANGE_TOO_FREQUENT", "이메일 변경은 하루에 1회만 가능합니다."),
+
     // 5xx Server Errors
     INTERNAL_SERVER_ERROR(500, "C002", "서버 내부 오류가 발생했습니다."),
     SERVICE_UNAVAILABLE(503, "C009", "일시적으로 서비스를 이용할 수 없습니다."),
