@@ -23,8 +23,8 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 20MB     # 단일 파일 최대 크기
-      max-request-size: 20MB  # 요청 전체 최대 크기
+      max-file-size: 50MB     # 단일 파일 최대 크기
+      max-request-size: 50MB  # 요청 전체 최대 크기
 
 # Swagger (SpringDoc OpenAPI)
 springdoc:
