@@ -22,6 +22,8 @@ public class GeminiProperties {
     private Double temperature = 0.2;
     private Integer connectTimeoutSeconds = 10;
     private Integer readTimeoutSeconds = 120;
+    private Integer retryMaxAttempts = 3;
+    private Long retryBackoffMillis = 1_000L;
 
     /**
      * Gemini 필수 설정값 존재 여부
@@ -33,4 +35,3 @@ public class GeminiProperties {
                 && StringUtils.hasText(model);
     }
 }
-
