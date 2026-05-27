@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.f1.quiket.global.error.CustomException;
@@ -16,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -34,6 +36,7 @@ class GeminiClientTest {
         RestClient.Builder builder = RestClient.builder();
         mockServer = MockRestServiceServer.bindTo(builder).build();
         properties = properties();
+        properties.setRetryBackoffMillis(0L);
         geminiClient = new GeminiClient(builder.build(), properties);
     }
 
@@ -65,6 +68,48 @@ class GeminiClientTest {
                                 .mimeType("image/png")
                                 .bytes("img".getBytes(StandardCharsets.UTF_8))
                                 .build())
+                )
+                .getContent();
+
+        assertThat(response).contains("\"parts\"");
+        mockServer.verify();
+    }
+
+    @Test
+    void generate_retries_when_gemini_is_temporarily_unavailable() {
+        mockServer.expect(requestTo(URI))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {
+                                  "error": {
+                                    "code": 503,
+                                    "message": "temporary high demand",
+                                    "status": "UNAVAILABLE"
+                                  }
+                                }
+                                """));
+        mockServer.expect(requestTo(URI))
+                .andRespond(withSuccess("""
+                        {
+                          "candidates": [
+                            {
+                              "content": {
+                                "parts": [
+                                  {"text":"{\\"parts\\":[{\\"partNumber\\":1,\\"name\\":\\"재시도\\",\\"content\\":\\"본문\\"}]}"}
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        String response = geminiClient.generate(
+                        GeminiCompletionRequest.builder()
+                                .systemMessage("system")
+                                .userMessage("user")
+                                .build(),
+                        List.of()
                 )
                 .getContent();
 

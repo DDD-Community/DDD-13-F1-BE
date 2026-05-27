@@ -16,9 +16,11 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -56,13 +58,7 @@ public class GeminiClient {
             log.debug("Gemini API request uri={}, body={}", maskApiKey(uri), toJsonForLog(requestBody));
 
             // Gemini generateContent 호출
-            String responseBody = restClient.post()
-                    .uri(uri)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .body(requestBody)
-                    .retrieve()
-                    .body(String.class);
+            String responseBody = requestWithRetry(uri, requestBody);
             log.debug("Gemini API response body={}", responseBody);
             return GeminiCompletionResponse.builder().content(parseResponse(responseBody)).build();
         } catch (CustomException e) {
@@ -124,6 +120,64 @@ public class GeminiClient {
                 "contents", List.of(Map.of("role", "user", "parts", parts)),
                 "generationConfig", generationConfig
         );
+    }
+
+    /**
+     * 일시 장애 응답 재시도
+     */
+    private String requestWithRetry(String uri, Map<String, Object> requestBody) {
+        int maxAttempts = Math.max(1, properties.getRetryMaxAttempts());
+        RestClientException lastException = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return restClient.post()
+                        .uri(uri)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .body(requestBody)
+                        .retrieve()
+                        .body(String.class);
+            } catch (RestClientException e) {
+                lastException = e;
+                if (attempt >= maxAttempts || !isRetryable(e)) {
+                    throw e;
+                }
+                log.warn("Gemini API retry attempt={}/{} cause={}", attempt + 1, maxAttempts, e.getMessage());
+                sleepBeforeRetry();
+            }
+        }
+        throw lastException;
+    }
+
+    /**
+     * 재시도 가능 응답 여부
+     */
+    private boolean isRetryable(RestClientException e) {
+        if (!(e instanceof HttpStatusCodeException statusException)) {
+            return false;
+        }
+        HttpStatus status = HttpStatus.resolve(statusException.getStatusCode().value());
+        return status == HttpStatus.TOO_MANY_REQUESTS
+                || status == HttpStatus.SERVICE_UNAVAILABLE
+                || status == HttpStatus.BAD_GATEWAY
+                || status == HttpStatus.GATEWAY_TIMEOUT
+                || statusException.getStatusCode().is5xxServerError();
+    }
+
+    /**
+     * 재시도 대기
+     */
+    private void sleepBeforeRetry() {
+        long backoffMillis = Math.max(0L, properties.getRetryBackoffMillis());
+        if (backoffMillis == 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(backoffMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini API 재시도 대기가 중단되었습니다.", e);
+        }
     }
 
     /**
