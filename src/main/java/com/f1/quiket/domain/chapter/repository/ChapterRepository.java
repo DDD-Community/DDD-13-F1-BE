@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -40,4 +42,15 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
      * 사용자 챕터 목록 조회 (PK 컬렉션 기반)
      */
     List<Chapter> findAllByIdInAndUserIdAndDeletedAtIsNull(Collection<Long> ids, Long userId);
+
+    /**
+     * 과목 내 마지막 챕터 순서 조회
+     */
+    @Query("""
+            select coalesce(max(c.displayOrder), 0)
+            from Chapter c
+            where c.subjectId = :subjectId
+              and c.deletedAt is null
+            """)
+    int findMaxDisplayOrderBySubjectId(@Param("subjectId") Long subjectId);
 }

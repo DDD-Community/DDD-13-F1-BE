@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.part.entity;
 
 import com.f1.quiket.global.entity.BaseEntity;
+import com.f1.quiket.global.util.UuidV7Generator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
@@ -43,6 +44,9 @@ public class Part extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     Long userId;
 
+    @Column(name = "lecture_upload_id")
+    Long lectureUploadId;
+
     @Column(name = "name", length = 100, nullable = false)
     String name;
 
@@ -52,4 +56,32 @@ public class Part extends BaseEntity {
     @Lob
     @Column(name = "content")
     String content;
+
+    @Column(name = "is_content_deleted", nullable = false)
+    Boolean contentDeleted = false;
+
+    /**
+     * 업로드 분류 결과 파트 생성
+     */
+    public static Part createFromLectureUpload(
+            Long chapterId,
+            Long subjectId,
+            Long userId,
+            Long lectureUploadId,
+            String name,
+            Integer partNumber,
+            String content
+    ) {
+        Part part = new Part();
+        part.publicId = UuidV7Generator.generate();
+        part.chapterId = chapterId;
+        part.subjectId = subjectId;
+        part.userId = userId;
+        part.lectureUploadId = lectureUploadId;
+        part.name = name;
+        part.partNumber = partNumber;
+        part.content = content;
+        part.contentDeleted = false;
+        return part;
+    }
 }

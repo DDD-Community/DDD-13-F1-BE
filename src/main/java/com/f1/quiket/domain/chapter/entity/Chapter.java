@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.chapter.entity;
 
 import com.f1.quiket.global.entity.BaseEntity;
+import com.f1.quiket.global.util.UuidV7Generator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
@@ -44,6 +45,19 @@ public class Chapter extends BaseEntity {
 
     @Column(name = "display_order", nullable = false)
     Integer displayOrder;
+
+    /**
+     * 챕터 생성
+     */
+    public static Chapter create(Long subjectId, Long userId, String name, Integer displayOrder) {
+        Chapter chapter = new Chapter();
+        chapter.publicId = UuidV7Generator.generate();
+        chapter.subjectId = subjectId;
+        chapter.userId = userId;
+        chapter.name = name;
+        chapter.displayOrder = displayOrder;
+        return chapter;
+    }
 
     /**
      * 챕터명 변경

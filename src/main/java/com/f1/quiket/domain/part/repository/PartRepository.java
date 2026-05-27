@@ -68,4 +68,12 @@ public interface PartRepository extends JpaRepository<Part, Long> {
      * 사용자 파트 목록 조회 (PK 컬렉션 기반)
      */
     List<Part> findAllByIdInAndUserIdAndDeletedAtIsNull(Collection<Long> ids, Long userId);
+
+    /**
+     * 업로드 기반 생성 파트 목록 조회
+     */
+    List<Part> findAllByLectureUploadIdAndUserIdAndDeletedAtIsNullOrderByPartNumberAsc(
+            Long lectureUploadId,
+            Long userId
+    );
 }
