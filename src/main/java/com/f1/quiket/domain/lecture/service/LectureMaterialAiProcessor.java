@@ -4,12 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.f1.quiket.domain.lecture.dto.LectureMaterialAiProcessRequest;
 import com.f1.quiket.domain.lecture.dto.LectureMaterialAiProcessResult;
-import com.f1.quiket.domain.lecture.dto.LectureMaterialFile;
 import com.f1.quiket.domain.lecture.dto.LecturePartDraft;
 import com.f1.quiket.domain.lecture.dto.LecturePartSplitPlan;
-import com.f1.quiket.domain.lecture.dto.LecturePdfTextExtractionResult;
-import com.f1.quiket.domain.lecture.dto.LectureUploadType;
 import com.f1.quiket.domain.lecture.dto.PartSplitMethod;
+import com.f1.quiket.domain.material.dto.StudyMaterialFile;
+import com.f1.quiket.domain.material.dto.StudyMaterialPdfTextExtractionResult;
+import com.f1.quiket.domain.material.dto.StudyMaterialUploadType;
+import com.f1.quiket.domain.material.port.StudyMaterialAiGateway;
+import com.f1.quiket.domain.material.port.StudyMaterialPdfTextExtractor;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import java.util.ArrayList;
@@ -35,8 +37,8 @@ public class LectureMaterialAiProcessor {
             코드블록, 마크다운, 설명 문장은 절대 포함하지 않는다.
             """;
 
-    private final LectureMaterialAiGateway lectureMaterialAiGateway;
-    private final LecturePdfTextExtractor lecturePdfTextExtractor;
+    private final StudyMaterialAiGateway studyMaterialAiGateway;
+    private final StudyMaterialPdfTextExtractor studyMaterialPdfTextExtractor;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public LectureMaterialAiProcessResult process(LectureMaterialAiProcessRequest request) {
@@ -50,7 +52,7 @@ public class LectureMaterialAiProcessor {
     }
 
     private LectureMaterialAiProcessResult processImage(LectureMaterialAiProcessRequest request) {
-        String aiResponse = lectureMaterialAiGateway.analyzeImage(
+        String aiResponse = studyMaterialAiGateway.generateFromImages(
                 SYSTEM_MESSAGE,
                 buildGeminiPrompt(request, null),
                 request.getFiles()
@@ -64,12 +66,12 @@ public class LectureMaterialAiProcessor {
     }
 
     private LectureMaterialAiProcessResult processPdf(LectureMaterialAiProcessRequest request) {
-        LectureMaterialFile pdfFile = request.getFiles().get(0);
-        LecturePdfTextExtractionResult extractionResult = lecturePdfTextExtractor.extract(pdfFile);
+        StudyMaterialFile pdfFile = request.getFiles().get(0);
+        StudyMaterialPdfTextExtractionResult extractionResult = studyMaterialPdfTextExtractor.extract(pdfFile);
 
         if (extractionResult.isHasTextLayer()) {
             String text = extractionResult.getExtractedText();
-            String aiResponse = lectureMaterialAiGateway.analyzeText(
+            String aiResponse = studyMaterialAiGateway.generateFromText(
                     SYSTEM_MESSAGE,
                     buildGroqPrompt(request, text)
             );
@@ -80,7 +82,7 @@ public class LectureMaterialAiProcessor {
                     .build();
         }
 
-        String aiResponse = lectureMaterialAiGateway.analyzePdf(
+        String aiResponse = studyMaterialAiGateway.generateFromPdf(
                 SYSTEM_MESSAGE,
                 buildGeminiPrompt(request, null),
                 pdfFile
@@ -93,7 +95,7 @@ public class LectureMaterialAiProcessor {
     }
 
     private LectureMaterialAiProcessResult processText(LectureMaterialAiProcessRequest request) {
-        String aiResponse = lectureMaterialAiGateway.analyzeText(
+        String aiResponse = studyMaterialAiGateway.generateFromText(
                 SYSTEM_MESSAGE,
                 buildGroqPrompt(request, request.getText())
         );
@@ -108,10 +110,10 @@ public class LectureMaterialAiProcessor {
         if (request == null || request.getUploadType() == null || request.getPartSplitMethod() == null) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "강의 자료 AI 처리 요청값이 올바르지 않습니다.");
         }
-        if (request.getUploadType() == LectureUploadType.TEXT && !StringUtils.hasText(request.getText())) {
+        if (request.getUploadType() == StudyMaterialUploadType.TEXT && !StringUtils.hasText(request.getText())) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "텍스트 업로드는 본문 텍스트가 필요합니다.");
         }
-        if (request.getUploadType() != LectureUploadType.TEXT
+        if (request.getUploadType() != StudyMaterialUploadType.TEXT
                 && (request.getFiles() == null || request.getFiles().isEmpty())) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "파일 업로드는 최소 1개 파일이 필요합니다.");
         }
