@@ -105,6 +105,9 @@ public class QuizPlaySession {
     @Column(name = "updated_at", nullable = false)
     LocalDateTime updatedAt;
 
+    @Column(name = "deleted_at")
+    LocalDateTime deletedAt;
+
     public static QuizPlaySession createFirst(
             String clientSessionId,
             Long quizSessionId,

@@ -5,7 +5,10 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 사용자 레벨 명칭
+ * 명세 GAMIF-002 — 사용자 레벨별 다람쥐 명칭.
+ *
+ * <p>Lv.1~Lv.10 매핑은 캐릭터 성장 정책의 단일 정답 소스로, 레벨 구간 XP는
+ * {@link com.f1.quiket.domain.gamification.service.GamificationLevelCalculator}에 정의되어 있다.</p>
  */
 @Getter
 @RequiredArgsConstructor

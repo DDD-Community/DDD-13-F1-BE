@@ -272,6 +272,7 @@ CREATE TABLE certificates (
     display_order       INT             NOT NULL DEFAULT 0               COMMENT '노출 순서',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '생성 시각',
     updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
+    deleted_at          DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_certificates_name (name),
@@ -322,6 +323,7 @@ CREATE TABLE lecture_uploads (
     raw_text            MEDIUMTEXT      NULL                             COMMENT '추출된 원본 텍스트 (텍스트 직접입력 or OCR 결과)',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '생성 시각',
     updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
+    deleted_at          DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_lecture_uploads_public_id (public_id),
@@ -347,6 +349,7 @@ CREATE TABLE lecture_upload_files (
     ocr_status          VARCHAR(20)     NULL                             COMMENT 'OCR 상태 (이미지 업로드 시): pending / success / failed',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '생성 시각',
     updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
+    deleted_at          DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
     KEY idx_lecture_upload_files_lecture_upload_id_order (lecture_upload_id, display_order),
@@ -539,6 +542,7 @@ CREATE TABLE questions (
 
     created_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '생성 시각',
     updated_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
+    deleted_at              DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_questions_public_id (public_id),
@@ -668,6 +672,7 @@ CREATE TABLE quiz_play_sessions (
     submitted_at            DATETIME(3)     NULL                             COMMENT '결과 제출 시각',
     created_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '생성 시각 (풀이 시작 시각)',
     updated_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
+    deleted_at              DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_quiz_play_sessions_client_session_id (client_session_id),
@@ -757,6 +762,7 @@ CREATE TABLE quiz_results (
 
     created_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '결과 저장 시각',
     updated_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
+    deleted_at              DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_quiz_results_public_id (public_id),
@@ -868,6 +874,7 @@ CREATE TABLE user_feedbacks (
     os_version              VARCHAR(50)     NULL                             COMMENT 'OS 버전',
     device_model            VARCHAR(100)    NULL                             COMMENT '디바이스 모델',
     created_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '제출 시각',
+    deleted_at              DATETIME(3)     NULL                             COMMENT '삭제 시각 (soft delete)',
 
     PRIMARY KEY (id),
     KEY idx_user_feedbacks_user_id (user_id),

@@ -51,4 +51,7 @@ public class Certificate {
 
     @Column(name = "updated_at", nullable = false)
     LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    LocalDateTime deletedAt;
 }
