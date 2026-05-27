@@ -144,6 +144,7 @@ public class QuizResult {
         result.newLevel = newLevel;
         result.scoreMatched = scoreMatched;
         result.abuseFlagged = abuseFlagged;
+        result.deletedAt = null;
         return result;
     }
 }

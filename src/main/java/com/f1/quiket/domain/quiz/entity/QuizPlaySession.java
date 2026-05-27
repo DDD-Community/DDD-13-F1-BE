@@ -204,6 +204,7 @@ public class QuizPlaySession {
         playSession.status = STATUS_IN_PROGRESS;
         playSession.lastQuestionIndex = 0;
         playSession.elapsedMs = 0;
+        playSession.deletedAt = null;
         return playSession;
     }
 

@@ -113,6 +113,7 @@ public class Question {
         question.correctExplanation = correctExplanation;
         question.incorrectExplanation = incorrectExplanation;
         question.displayOrder = displayOrder;
+        question.deletedAt = null;
         return question;
     }
 }
