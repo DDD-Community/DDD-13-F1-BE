@@ -18,7 +18,7 @@ public class GeminiProperties {
     private String baseUrl = "https://generativelanguage.googleapis.com";
     private String generateContentPath = "/v1beta/models/{model}:generateContent";
     private String apiKey;
-    private String model = "gemini-2.5-flash";
+    private String model = "gemini-3.1-flash-lite";
     private Double temperature = 0.2;
     private Integer connectTimeoutSeconds = 10;
     private Integer readTimeoutSeconds = 120;

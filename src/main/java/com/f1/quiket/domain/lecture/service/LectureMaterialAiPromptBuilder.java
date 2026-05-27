@@ -34,6 +34,8 @@ public class LectureMaterialAiPromptBuilder {
     private String systemMessage() {
         return """
                 너는 Quiket 강의 자료 파트 분류 엔진이다.
+                역할은 입력 자료를 파트 단위로 나누는 것이며 요약 엔진이 아니다.
+                content에는 원문 내용을 누락 없이 보존한다.
                 반드시 JSON만 반환한다.
                 코드블록, 마크다운, 설명 문장은 절대 포함하지 않는다.
                 """;
@@ -55,7 +57,11 @@ public class LectureMaterialAiPromptBuilder {
                 - 반환 형식: {"parts":[{"partNumber":1,"name":"...","content":"..."}]}
                 - partNumber는 1부터 시작하는 오름차순 정수
                 - name은 1자 이상 30자 이하
-                - content는 핵심 내용을 유지한 한국어 본문
+                - content는 해당 파트에 속한 입력 텍스트 원문 전체
+                - content는 요약, 압축, 재작성, 해설 추가 금지
+                - content는 문장, 목록, 표의 의미 단위를 누락 없이 유지
+                - content는 OCR 오류로 인한 명백한 줄바꿈만 자연스럽게 정리
+                - 입력 텍스트의 모든 내용은 parts 중 하나의 content에 반드시 포함
                 - partSplitMethod가 manual이면 분류 계획의 partNumber를 그대로 사용
                 - partSplitMethod가 manual이고 intendedName이 있으면 반드시 그 이름 사용
                 - parts는 최소 1개 이상 생성
@@ -86,7 +92,11 @@ public class LectureMaterialAiPromptBuilder {
                 - 반환 형식: {"parts":[{"partNumber":1,"name":"...","content":"..."}]}
                 - partNumber는 1부터 시작하는 오름차순 정수
                 - name은 1자 이상 30자 이하
-                - content는 핵심 내용을 유지한 한국어 본문
+                - content는 해당 파트에 속한 OCR 추출 원문 전체
+                - content는 요약, 압축, 재작성, 해설 추가 금지
+                - content는 문장, 목록, 표의 의미 단위를 누락 없이 유지
+                - content는 OCR 오류로 인한 명백한 줄바꿈만 자연스럽게 정리
+                - 업로드 파일에서 읽은 모든 내용은 parts 중 하나의 content에 반드시 포함
                 - partSplitMethod가 manual이면 분류 계획의 partNumber를 그대로 사용
                 - partSplitMethod가 manual이고 intendedName이 있으면 반드시 그 이름 사용
                 - parts는 최소 1개 이상 생성

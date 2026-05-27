@@ -23,7 +23,7 @@ import org.springframework.web.client.RestClient;
 class GeminiClientTest {
 
     private static final String URI =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=gemini-key";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=gemini-key";
 
     private MockRestServiceServer mockServer;
     private GeminiClient geminiClient;
@@ -89,7 +89,7 @@ class GeminiClientTest {
         GeminiProperties properties = new GeminiProperties();
         properties.setBaseUrl("https://generativelanguage.googleapis.com");
         properties.setApiKey("gemini-key");
-        properties.setModel("gemini-2.5-flash");
+        properties.setModel("gemini-3.1-flash-lite");
         properties.setTemperature(0.2);
         return properties;
     }

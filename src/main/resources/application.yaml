@@ -71,7 +71,7 @@ google:
     base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
     generate-content-path: ${GEMINI_GENERATE_CONTENT_PATH:/v1beta/models/{model}:generateContent}
     api-key: ${GEMINI_API_KEY:}
-    model: ${GEMINI_MODEL:gemini-2.5-flash}
+    model: ${GEMINI_MODEL:gemini-3.1-flash-lite}
     temperature: ${GEMINI_TEMPERATURE:0.2}
     connect-timeout-seconds: ${GEMINI_CONNECT_TIMEOUT_SECONDS:10}
     read-timeout-seconds: ${GEMINI_READ_TIMEOUT_SECONDS:120}
