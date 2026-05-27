@@ -12,10 +12,11 @@ import org.springframework.util.StringUtils;
  */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "ai.gemini")
+@ConfigurationProperties(prefix = "google.gemini")
 public class GeminiProperties {
 
     private String baseUrl = "https://generativelanguage.googleapis.com";
+    private String generateContentPath = "/v1beta/models/{model}:generateContent";
     private String apiKey;
     private String model = "gemini-2.5-flash";
     private Double temperature = 0.2;
@@ -27,6 +28,7 @@ public class GeminiProperties {
      */
     public boolean isConfigured() {
         return StringUtils.hasText(baseUrl)
+                && StringUtils.hasText(generateContentPath)
                 && StringUtils.hasText(apiKey)
                 && StringUtils.hasText(model);
     }

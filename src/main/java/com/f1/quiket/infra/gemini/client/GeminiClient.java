@@ -79,8 +79,9 @@ public class GeminiClient {
      */
     private String generateUri() {
         String baseUrl = properties.getBaseUrl().replaceAll("/+$", "");
+        String path = properties.getGenerateContentPath().replace("{model}", properties.getModel());
         return UriComponentsBuilder.fromUriString(baseUrl)
-                .path("/v1beta/models/" + properties.getModel() + ":generateContent")
+                .path(path)
                 .queryParam("key", properties.getApiKey())
                 .build()
                 .toUriString();

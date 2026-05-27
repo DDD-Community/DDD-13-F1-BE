@@ -66,16 +66,20 @@ azure:
     connect-timeout-seconds: ${AZURE_OPENAI_CONNECT_TIMEOUT_SECONDS:10}
     read-timeout-seconds: ${AZURE_OPENAI_READ_TIMEOUT_SECONDS:120}
 
-ai:
+google:
   gemini:
     base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+    generate-content-path: ${GEMINI_GENERATE_CONTENT_PATH:/v1beta/models/{model}:generateContent}
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-2.5-flash}
     temperature: ${GEMINI_TEMPERATURE:0.2}
     connect-timeout-seconds: ${GEMINI_CONNECT_TIMEOUT_SECONDS:10}
     read-timeout-seconds: ${GEMINI_READ_TIMEOUT_SECONDS:120}
-  groq:
+
+groq:
+  openai:
     base-url: ${GROQ_BASE_URL:https://api.groq.com}
+    completions-path: ${GROQ_COMPLETIONS_PATH:/openai/v1/chat/completions}
     api-key: ${GROQ_API_KEY:}
     model: ${GROQ_MODEL:llama-3.3-70b-versatile}
     temperature: ${GROQ_TEMPERATURE:0.2}

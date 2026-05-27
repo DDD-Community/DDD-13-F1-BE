@@ -77,7 +77,7 @@ public class GroqClient {
     private String chatCompletionUri() {
         String baseUrl = properties.getBaseUrl().replaceAll("/+$", "");
         return UriComponentsBuilder.fromUriString(baseUrl)
-                .pathSegment("openai", "v1", "chat", "completions")
+                .path(properties.getCompletionsPath())
                 .build()
                 .toUriString();
     }

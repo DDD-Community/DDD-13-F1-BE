@@ -12,10 +12,11 @@ import org.springframework.util.StringUtils;
  */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "ai.groq")
+@ConfigurationProperties(prefix = "groq.openai")
 public class GroqProperties {
 
     private String baseUrl = "https://api.groq.com";
+    private String completionsPath = "/openai/v1/chat/completions";
     private String apiKey;
     private String model = "llama-3.3-70b-versatile";
     private Double temperature = 0.2;
@@ -27,8 +28,8 @@ public class GroqProperties {
      */
     public boolean isConfigured() {
         return StringUtils.hasText(baseUrl)
+                && StringUtils.hasText(completionsPath)
                 && StringUtils.hasText(apiKey)
                 && StringUtils.hasText(model);
     }
 }
-
