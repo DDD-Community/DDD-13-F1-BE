@@ -223,7 +223,14 @@ public class LectureMaterialAiProcessor {
                             nextSourceLine,
                             startLine - 1
                     );
-                    parts.add(unclassifiedPart(nextPartNumber++, sourceText, lineSpans, nextSourceLine, startLine - 1));
+                    nextPartNumber = addUnclassifiedPart(
+                            parts,
+                            nextPartNumber,
+                            sourceText,
+                            lineSpans,
+                            nextSourceLine,
+                            startLine - 1
+                    );
                 }
                 if (startLine < nextSourceLine) {
                     log.warn(
@@ -246,11 +253,8 @@ public class LectureMaterialAiProcessor {
 
                 LineSpan start = lineSpans.get(startLine - 1);
                 LineSpan end = lineSpans.get(endLine - 1);
-                parts.add(LecturePartDraft.builder()
-                        .partNumber(nextPartNumber++)
-                        .name(resolvePartName(part))
-                        .content(sourceText.substring(start.startIndex(), end.endIndex()))
-                        .build());
+                String content = sourceText.substring(start.startIndex(), end.endIndex());
+                nextPartNumber = addPart(parts, nextPartNumber, resolvePartName(part), content);
                 nextSourceLine = endLine + 1;
             }
 
@@ -260,7 +264,7 @@ public class LectureMaterialAiProcessor {
                         nextSourceLine,
                         lineSpans.size()
                 );
-                parts.add(unclassifiedPart(nextPartNumber, sourceText, lineSpans, nextSourceLine, lineSpans.size()));
+                addUnclassifiedPart(parts, nextPartNumber, sourceText, lineSpans, nextSourceLine, lineSpans.size());
             }
             return parts;
         } catch (JsonProcessingException e) {
@@ -296,6 +300,31 @@ public class LectureMaterialAiProcessor {
                 .name(UNCLASSIFIED_PART_NAME)
                 .content(sourceText.substring(start.startIndex(), end.endIndex()))
                 .build();
+    }
+
+    private int addUnclassifiedPart(
+            List<LecturePartDraft> parts,
+            int partNumber,
+            String sourceText,
+            List<LineSpan> lineSpans,
+            int startLine,
+            int endLine
+    ) {
+        LecturePartDraft part = unclassifiedPart(partNumber, sourceText, lineSpans, startLine, endLine);
+        return addPart(parts, partNumber, part.getName(), part.getContent());
+    }
+
+    private int addPart(List<LecturePartDraft> parts, int partNumber, String name, String content) {
+        if (!StringUtils.hasText(content)) {
+            log.warn("Groq 공백 파트 범위 무시 partNumber={}, name={}", partNumber, name);
+            return partNumber;
+        }
+        parts.add(LecturePartDraft.builder()
+                .partNumber(partNumber)
+                .name(name)
+                .content(content)
+                .build());
+        return partNumber + 1;
     }
 
     /**
