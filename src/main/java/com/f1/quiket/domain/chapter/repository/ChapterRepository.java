@@ -1,10 +1,14 @@
 package com.f1.quiket.domain.chapter.repository;
 
 import com.f1.quiket.domain.chapter.entity.Chapter;
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -37,7 +41,34 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
     Optional<Chapter> findByPublicIdAndUserIdAndDeletedAtIsNull(String publicId, Long userId);
 
     /**
+     * 공개 식별자 기반 사용자 챕터 쓰기 잠금 조회
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select c
+            from Chapter c
+            where c.publicId = :publicId
+              and c.userId = :userId
+              and c.deletedAt is null
+            """)
+    Optional<Chapter> findForUpdateByPublicIdAndUserIdAndDeletedAtIsNull(
+            @Param("publicId") String publicId,
+            @Param("userId") Long userId
+    );
+
+    /**
      * 사용자 챕터 목록 조회 (PK 컬렉션 기반)
      */
     List<Chapter> findAllByIdInAndUserIdAndDeletedAtIsNull(Collection<Long> ids, Long userId);
+
+    /**
+     * 과목 내 마지막 챕터 순서 조회
+     */
+    @Query("""
+            select coalesce(max(c.displayOrder), 0)
+            from Chapter c
+            where c.subjectId = :subjectId
+              and c.deletedAt is null
+            """)
+    int findMaxDisplayOrderBySubjectId(@Param("subjectId") Long subjectId);
 }

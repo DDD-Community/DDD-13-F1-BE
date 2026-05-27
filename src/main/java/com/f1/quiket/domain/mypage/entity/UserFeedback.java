@@ -61,6 +61,9 @@ public class UserFeedback {
     @Column(name = "created_at", nullable = false, updatable = false)
     LocalDateTime createdAt;
 
+    @Column(name = "deleted_at")
+    LocalDateTime deletedAt;
+
     public static UserFeedback create(Long userId, FeedbackCreateRequest request) {
         UserFeedback feedback = new UserFeedback();
         feedback.userId = userId;
@@ -70,6 +73,7 @@ public class UserFeedback {
         feedback.appVersion = request.getAppVersion();
         feedback.osVersion = request.getOsVersion();
         feedback.deviceModel = request.getDeviceModel();
+        feedback.deletedAt = null;
         return feedback;
     }
 }

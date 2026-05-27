@@ -47,6 +47,10 @@ dependencies {
 	// AWS SES
 	implementation 'software.amazon.awssdk:sesv2:2.32.19'
 
+	// PDF
+	implementation 'org.apache.tika:tika-core:3.2.3'
+	implementation 'org.apache.tika:tika-parsers-standard-package:3.2.3'
+
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-redis-test'
@@ -55,6 +59,10 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs.add('-parameters')
 }
 
 tasks.named('test') {

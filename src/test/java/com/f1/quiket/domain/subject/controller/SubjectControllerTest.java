@@ -5,7 +5,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.f1.quiket.domain.subject.dto.QuizScopeResponse;
+import com.f1.quiket.domain.quiz.dto.QuizScopeResponse;
+import com.f1.quiket.domain.quiz.service.QuizScopeService;
 import com.f1.quiket.domain.subject.dto.SubjectCreateRequest;
 import com.f1.quiket.domain.subject.dto.SubjectDetailResponse;
 import com.f1.quiket.domain.subject.dto.SubjectDetailUpdateRequest;
@@ -32,13 +33,15 @@ import org.springframework.test.util.ReflectionTestUtils;
 class SubjectControllerTest {
 
     private SubjectService subjectService;
+    private QuizScopeService quizScopeService;
     private SubjectController subjectController;
     private UserPrincipal principal;
 
     @BeforeEach
     void setUp() {
         subjectService = mock(SubjectService.class);
-        subjectController = new SubjectController(subjectService);
+        quizScopeService = mock(QuizScopeService.class);
+        subjectController = new SubjectController(subjectService, quizScopeService);
         principal = principal("user-public-id");
     }
 
@@ -115,7 +118,7 @@ class SubjectControllerTest {
                 .subjectName("데이터베이스")
                 .chapters(List.of())
                 .build();
-        when(subjectService.getQuizScope(principal.getPublicId(), "subject-public-id")).thenReturn(response);
+        when(quizScopeService.getQuizScope(principal.getUserId(), "subject-public-id")).thenReturn(response);
 
         ResponseEntity<ApiResponse<QuizScopeResponse>> result = subjectController.getQuizScope(principal, "subject-public-id");
 
@@ -123,7 +126,7 @@ class SubjectControllerTest {
         assertThat(result.getBody().isSuccess()).isTrue();
         assertThat(result.getBody().getCode()).isEqualTo(SuccessCode.OK.getCode());
         assertThat(result.getBody().getData()).isSameAs(response);
-        verify(subjectService).getQuizScope(principal.getPublicId(), "subject-public-id");
+        verify(quizScopeService).getQuizScope(principal.getUserId(), "subject-public-id");
     }
 
     @Test

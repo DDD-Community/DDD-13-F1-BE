@@ -39,7 +39,7 @@ public abstract class BaseEntity {
     LocalDateTime updatedAt;
 
     @Column(name = "deleted_at")
-    LocalDateTime deletedAt;
+    LocalDateTime deletedAt = null;
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();

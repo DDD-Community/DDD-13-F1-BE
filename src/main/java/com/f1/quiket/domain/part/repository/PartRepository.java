@@ -3,6 +3,7 @@ package com.f1.quiket.domain.part.repository;
 import com.f1.quiket.domain.part.entity.Part;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,11 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface PartRepository extends JpaRepository<Part, Long> {
+
+    /**
+     * 공개 식별자 기반 사용자 파트 조회
+     */
+    Optional<Part> findByPublicIdAndUserIdAndContentDeletedFalseAndDeletedAtIsNull(String publicId, Long userId);
 
     /**
      * 사용자 파트 목록 조회
@@ -68,4 +74,23 @@ public interface PartRepository extends JpaRepository<Part, Long> {
      * 사용자 파트 목록 조회 (PK 컬렉션 기반)
      */
     List<Part> findAllByIdInAndUserIdAndDeletedAtIsNull(Collection<Long> ids, Long userId);
+
+    /**
+     * 업로드 기반 생성 파트 목록 조회
+     */
+    List<Part> findAllByLectureUploadIdAndUserIdAndDeletedAtIsNullOrderByPartNumberAsc(
+            Long lectureUploadId,
+            Long userId
+    );
+
+    /**
+     * 챕터 내 마지막 파트 번호 조회
+     */
+    @Query("""
+            select coalesce(max(p.partNumber), 0)
+            from Part p
+            where p.chapterId = :chapterId
+              and p.deletedAt is null
+            """)
+    int findMaxPartNumberByChapterId(@Param("chapterId") Long chapterId);
 }
