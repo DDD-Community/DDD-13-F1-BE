@@ -9,6 +9,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -79,6 +80,9 @@ public class Question {
 
     @Column(name = "display_order", nullable = false)
     Integer displayOrder;
+
+    @Column(name = "deleted_at")
+    LocalDateTime deletedAt;
 
     public static Question create(
             String publicId,
