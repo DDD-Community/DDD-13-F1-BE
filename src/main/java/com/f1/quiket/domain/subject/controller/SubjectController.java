@@ -72,7 +72,7 @@ public class SubjectController {
     @GetMapping("/{subjectId}")
     public ResponseEntity<ApiResponse<SubjectDetailResponse>> getSubject(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId
+            @PathVariable("subjectId") String subjectId
     ) {
         SubjectDetailResponse response = subjectService.getSubject(principal.getPublicId(), subjectId);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
@@ -84,7 +84,7 @@ public class SubjectController {
     @GetMapping("/{subjectId}/quiz-scope")
     public ResponseEntity<ApiResponse<QuizScopeResponse>> getQuizScope(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId
+            @PathVariable("subjectId") String subjectId
     ) {
         QuizScopeResponse response = quizScopeService.getQuizScope(principal.getUserId(), subjectId);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
@@ -96,7 +96,7 @@ public class SubjectController {
     @DeleteMapping("/{subjectId}")
     public ResponseEntity<ApiResponse<Void>> deleteSubject(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId
+            @PathVariable("subjectId") String subjectId
     ) {
         subjectService.deleteSubject(principal.getPublicId(), subjectId);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK));
@@ -108,7 +108,7 @@ public class SubjectController {
     @PatchMapping("/{subjectId}/name")
     public ResponseEntity<ApiResponse<SubjectResponse>> updateSubjectName(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId,
+            @PathVariable("subjectId") String subjectId,
             @Valid @RequestBody SubjectNameUpdateRequest request
     ) {
         SubjectResponse response = subjectService.updateSubjectName(principal.getPublicId(), subjectId, request.getName());
@@ -121,7 +121,7 @@ public class SubjectController {
     @PutMapping("/{subjectId}/details")
     public ResponseEntity<ApiResponse<SubjectDetailResponse>> updateSubjectDetails(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId,
+            @PathVariable("subjectId") String subjectId,
             @Valid @RequestBody SubjectDetailUpdateRequest request
     ) {
         SubjectDetailResponse response = subjectService.updateSubjectDetails(principal.getPublicId(), subjectId, request);
@@ -134,7 +134,7 @@ public class SubjectController {
     @PutMapping("/{subjectId}/exam-schedule")
     public ResponseEntity<ApiResponse<SubjectExamScheduleResponse>> upsertSubjectExamSchedule(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId,
+            @PathVariable("subjectId") String subjectId,
             @Valid @RequestBody SubjectExamScheduleUpsertRequest request
     ) {
         SubjectExamScheduleResponse response = subjectService.upsertExamSchedule(principal.getPublicId(), subjectId, request);
@@ -147,7 +147,7 @@ public class SubjectController {
     @DeleteMapping("/{subjectId}/exam-schedule")
     public ResponseEntity<ApiResponse<Void>> deleteSubjectExamSchedule(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String subjectId
+            @PathVariable("subjectId") String subjectId
     ) {
         subjectService.deleteExamSchedule(principal.getPublicId(), subjectId);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK));

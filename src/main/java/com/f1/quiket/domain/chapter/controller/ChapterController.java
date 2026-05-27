@@ -32,7 +32,7 @@ public class ChapterController {
     @PatchMapping("/{chapterId}/name")
     public ResponseEntity<ApiResponse<ChapterResponse>> updateChapterName(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String chapterId,
+            @PathVariable("chapterId") String chapterId,
             @Valid @RequestBody ChapterNameUpdateRequest request
     ) {
         ChapterResponse response = chapterService.updateChapterName(principal.getPublicId(), chapterId, request.getName());
