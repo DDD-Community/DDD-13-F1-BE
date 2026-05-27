@@ -1,7 +1,8 @@
 package com.f1.quiket.domain.subject.controller;
 
+import com.f1.quiket.domain.quiz.dto.QuizScopeResponse;
+import com.f1.quiket.domain.quiz.service.QuizScopeService;
 import com.f1.quiket.domain.subject.dto.SubjectCreateRequest;
-import com.f1.quiket.domain.subject.dto.QuizScopeResponse;
 import com.f1.quiket.domain.subject.dto.SubjectDetailResponse;
 import com.f1.quiket.domain.subject.dto.SubjectDetailUpdateRequest;
 import com.f1.quiket.domain.subject.dto.SubjectExamScheduleResponse;
@@ -34,10 +35,11 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/subjects")
+@RequestMapping("/api/v1/subjects")
 public class SubjectController {
 
     private final SubjectService subjectService;
+    private final QuizScopeService quizScopeService;
 
     /**
      * 내 과목 목록 조회
@@ -84,7 +86,7 @@ public class SubjectController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable String subjectId
     ) {
-        QuizScopeResponse response = subjectService.getQuizScope(principal.getPublicId(), subjectId);
+        QuizScopeResponse response = quizScopeService.getQuizScope(principal.getUserId(), subjectId);
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
     }
 
