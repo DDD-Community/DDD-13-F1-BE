@@ -42,23 +42,27 @@ class LectureMaterialAiProcessorTest {
                 .thenReturn("""
                         {
                           "parts": [
-                            {"partNumber": 1, "name": "데이터 모델링 개념", "content": "데이터 모델링 기본 개념 정리"}
+                            {"partNumber": 1, "name": "데이터 모델링 개념", "startLine": 1, "endLine": 2}
                           ]
                         }
                         """);
+        String sourceText = """
+                데이터 모델링은 현실 세계의 데이터를 추상화한다.
+                엔티티와 관계를 정의한다.""";
 
         LectureMaterialAiProcessResult result = lectureMaterialAiProcessor.process(
                 LectureMaterialAiProcessRequest.builder()
                         .uploadType(StudyMaterialUploadType.TEXT)
                         .partSplitMethod(PartSplitMethod.AUTO)
                         .chapterName("1장 데이터 모델링")
-                        .text("데이터 모델링은 현실 세계의 데이터를 추상화한다.")
+                        .text(sourceText)
                         .build()
         );
 
         assertThat(result.getProvider()).isEqualTo("groq");
         assertThat(result.getParts()).hasSize(1);
         assertThat(result.getParts().get(0).getName()).isEqualTo("데이터 모델링 개념");
+        assertThat(result.getParts().get(0).getContent()).isEqualTo(sourceText);
         verify(studyMaterialAiGateway).generateFromText(any(), any());
         verify(studyMaterialAiGateway, never()).generateFromImages(any(), any(), any());
         verify(studyMaterialAiGateway, never()).generateFromPdf(any(), any(), any());
@@ -78,7 +82,7 @@ class LectureMaterialAiProcessorTest {
                         .build());
         when(studyMaterialAiGateway.generateFromText(any(), any()))
                 .thenReturn("""
-                        {"parts":[{"partNumber":1,"name":"텍스트 기반 파트","content":"본문"}]}
+                        {"parts":[{"partNumber":1,"name":"텍스트 기반 파트","startLine":1,"endLine":1}]}
                         """);
 
         LectureMaterialAiProcessResult result = lectureMaterialAiProcessor.process(
@@ -92,8 +96,90 @@ class LectureMaterialAiProcessorTest {
 
         assertThat(result.getProvider()).isEqualTo("groq");
         assertThat(result.getExtractedText()).isEqualTo("텍스트 레이어 본문");
+        assertThat(result.getParts().get(0).getContent()).isEqualTo("텍스트 레이어 본문");
         verify(studyMaterialAiGateway).generateFromText(any(), any());
         verify(studyMaterialAiGateway, never()).generateFromPdf(any(), any(), any());
+    }
+
+    @Test
+    void process_text_splits_original_text_by_groq_line_ranges() {
+        when(studyMaterialAiGateway.generateFromText(any(), any()))
+                .thenReturn("""
+                        {"parts":[
+                          {"partNumber":1,"name":"개념","startLine":1,"endLine":2},
+                          {"partNumber":2,"name":"예시","startLine":3,"endLine":3}
+                        ]}
+                        """);
+        String sourceText = """
+                개념 1
+                개념 2
+                예시 1""";
+
+        LectureMaterialAiProcessResult result = lectureMaterialAiProcessor.process(
+                LectureMaterialAiProcessRequest.builder()
+                        .uploadType(StudyMaterialUploadType.TEXT)
+                        .partSplitMethod(PartSplitMethod.AUTO)
+                        .chapterName("1장")
+                        .text(sourceText)
+                        .build()
+        );
+
+        assertThat(result.getParts()).extracting("content")
+                .containsExactly("개념 1\n개념 2\n", "예시 1");
+    }
+
+    @Test
+    void process_text_adds_unclassified_part_when_groq_middle_range_is_missing() {
+        when(studyMaterialAiGateway.generateFromText(any(), any()))
+                .thenReturn("""
+                        {"parts":[
+                          {"partNumber":1,"name":"개념","startLine":1,"endLine":1},
+                          {"partNumber":2,"name":"예시","startLine":3,"endLine":3}
+                        ]}
+                        """);
+        String sourceText = """
+                개념
+                누락
+                예시""";
+
+        LectureMaterialAiProcessResult result = lectureMaterialAiProcessor.process(
+                LectureMaterialAiProcessRequest.builder()
+                        .uploadType(StudyMaterialUploadType.TEXT)
+                        .partSplitMethod(PartSplitMethod.AUTO)
+                        .chapterName("1장")
+                        .text(sourceText)
+                        .build()
+        );
+
+        assertThat(result.getParts()).extracting("name")
+                .containsExactly("개념", "미분류", "예시");
+        assertThat(result.getParts()).extracting("content")
+                .containsExactly("개념\n", "누락\n", "예시");
+    }
+
+    @Test
+    void process_text_adds_unclassified_part_when_groq_tail_range_is_missing() {
+        when(studyMaterialAiGateway.generateFromText(any(), any()))
+                .thenReturn("""
+                        {"parts":[{"partNumber":1,"name":"개념","startLine":1,"endLine":1}]}
+                        """);
+        String sourceText = """
+                개념
+                마지막""";
+
+        LectureMaterialAiProcessResult result = lectureMaterialAiProcessor.process(
+                LectureMaterialAiProcessRequest.builder()
+                        .uploadType(StudyMaterialUploadType.TEXT)
+                        .partSplitMethod(PartSplitMethod.AUTO)
+                        .chapterName("1장")
+                        .text(sourceText)
+                        .build()
+        );
+
+        assertThat(result.getParts()).extracting("name")
+                .containsExactly("개념", "미분류");
+        assertThat(result.getParts()).extracting("content")
+                .containsExactly("개념\n", "마지막");
     }
 
     @Test

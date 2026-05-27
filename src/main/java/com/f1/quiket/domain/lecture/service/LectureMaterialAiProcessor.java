@@ -14,10 +14,12 @@ import com.f1.quiket.domain.material.port.StudyMaterialPdfTextExtractor;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -28,7 +30,10 @@ import org.springframework.util.StringUtils;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class LectureMaterialAiProcessor {
+
+    private static final String UNCLASSIFIED_PART_NAME = "미분류";
 
     private final StudyMaterialAiGateway studyMaterialAiGateway;
     private final StudyMaterialPdfTextExtractor studyMaterialPdfTextExtractor;
@@ -86,7 +91,7 @@ public class LectureMaterialAiProcessor {
             return LectureMaterialAiProcessResult.builder()
                     .provider("groq")
                     .extractedText(text)
-                    .parts(parseParts(aiResponse))
+                    .parts(parseGroqParts(aiResponse, text))
                     .build();
         }
 
@@ -117,7 +122,7 @@ public class LectureMaterialAiProcessor {
         return LectureMaterialAiProcessResult.builder()
                 .provider("groq")
                 .extractedText(request.getText())
-                .parts(parseParts(aiResponse))
+                .parts(parseGroqParts(aiResponse, request.getText()))
                 .build();
     }
 
@@ -168,6 +173,163 @@ public class LectureMaterialAiProcessor {
     }
 
     /**
+     * Groq 라인 범위 응답 파싱 및 원문 분리
+     */
+    private List<LecturePartDraft> parseGroqParts(String aiResponse, String sourceText) {
+        try {
+            String normalized = normalizeJson(aiResponse);
+            LecturePartsPayload payload = objectMapper.readValue(normalized, LecturePartsPayload.class);
+            List<LineSpan> lineSpans = lineSpans(sourceText);
+            if (payload.getParts() == null || payload.getParts().isEmpty()) {
+                log.warn("Groq 파트 범위 응답 없음, 전체 원문 미분류 처리 totalLineCount={}", lineSpans.size());
+                return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
+            }
+
+            List<LecturePartPayload> sortedParts = payload.getParts().stream()
+                    .filter(this::isValidGroqPartPayload)
+                    .sorted(Comparator.comparing(LecturePartPayload::getPartNumber))
+                    .toList();
+            if (sortedParts.size() != payload.getParts().size()) {
+                log.warn(
+                        "Groq 파트 범위 응답 형식 일부 무시 requestedParts={}, validParts={}",
+                        payload.getParts().size(),
+                        sortedParts.size()
+                );
+            }
+            if (sortedParts.isEmpty()) {
+                log.warn("Groq 유효 파트 범위 없음, 전체 원문 미분류 처리 totalLineCount={}", lineSpans.size());
+                return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
+            }
+
+            List<LecturePartDraft> parts = new ArrayList<>();
+            int nextSourceLine = 1;
+            int nextPartNumber = 1;
+            for (LecturePartPayload part : sortedParts) {
+                int startLine = Math.max(1, part.getStartLine());
+                int endLine = Math.min(lineSpans.size(), part.getEndLine());
+                if (startLine > lineSpans.size() || endLine < 1) {
+                    log.warn(
+                            "Groq 파트 범위 원문 밖 위치 무시 partNumber={}, startLine={}, endLine={}, totalLineCount={}",
+                            part.getPartNumber(),
+                            part.getStartLine(),
+                            part.getEndLine(),
+                            lineSpans.size()
+                    );
+                    continue;
+                }
+                if (startLine > nextSourceLine) {
+                    log.warn(
+                            "Groq 파트 누락 범위 미분류 처리 missingStartLine={}, missingEndLine={}",
+                            nextSourceLine,
+                            startLine - 1
+                    );
+                    parts.add(unclassifiedPart(nextPartNumber++, sourceText, lineSpans, nextSourceLine, startLine - 1));
+                }
+                if (startLine < nextSourceLine) {
+                    log.warn(
+                            "Groq 파트 중복 범위 보정 partNumber={}, originalStartLine={}, adjustedStartLine={}",
+                            part.getPartNumber(),
+                            startLine,
+                            nextSourceLine
+                    );
+                    startLine = nextSourceLine;
+                }
+                if (endLine < startLine) {
+                    log.warn(
+                            "Groq 파트 범위 중복으로 무시 partNumber={}, startLine={}, endLine={}",
+                            part.getPartNumber(),
+                            startLine,
+                            endLine
+                    );
+                    continue;
+                }
+
+                LineSpan start = lineSpans.get(startLine - 1);
+                LineSpan end = lineSpans.get(endLine - 1);
+                parts.add(LecturePartDraft.builder()
+                        .partNumber(nextPartNumber++)
+                        .name(resolvePartName(part))
+                        .content(sourceText.substring(start.startIndex(), end.endIndex()))
+                        .build());
+                nextSourceLine = endLine + 1;
+            }
+
+            if (nextSourceLine <= lineSpans.size()) {
+                log.warn(
+                        "Groq 마지막 누락 범위 미분류 처리 missingStartLine={}, missingEndLine={}",
+                        nextSourceLine,
+                        lineSpans.size()
+                );
+                parts.add(unclassifiedPart(nextPartNumber, sourceText, lineSpans, nextSourceLine, lineSpans.size()));
+            }
+            return parts;
+        } catch (JsonProcessingException e) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파싱에 실패했습니다.", e);
+        }
+    }
+
+    private boolean isValidGroqPartPayload(LecturePartPayload part) {
+        return part != null
+                && part.getPartNumber() != null
+                && StringUtils.hasText(resolvePartName(part))
+                && part.getStartLine() != null
+                && part.getEndLine() != null
+                && part.getEndLine() >= part.getStartLine();
+    }
+
+    private String resolvePartName(LecturePartPayload part) {
+        String resolvedName = StringUtils.hasText(part.getName()) ? part.getName() : part.getPartName();
+        return resolvedName == null ? "" : resolvedName.trim();
+    }
+
+    private LecturePartDraft unclassifiedPart(
+            int partNumber,
+            String sourceText,
+            List<LineSpan> lineSpans,
+            int startLine,
+            int endLine
+    ) {
+        LineSpan start = lineSpans.get(startLine - 1);
+        LineSpan end = lineSpans.get(endLine - 1);
+        return LecturePartDraft.builder()
+                .partNumber(partNumber)
+                .name(UNCLASSIFIED_PART_NAME)
+                .content(sourceText.substring(start.startIndex(), end.endIndex()))
+                .build();
+    }
+
+    /**
+     * 원문 라인별 문자 범위 계산
+     */
+    private List<LineSpan> lineSpans(String sourceText) {
+        if (!StringUtils.hasText(sourceText)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "분리할 원문 텍스트가 비어 있습니다.");
+        }
+
+        List<LineSpan> spans = new ArrayList<>();
+        int start = 0;
+        while (start < sourceText.length()) {
+            int end = nextLineEnd(sourceText, start);
+            spans.add(new LineSpan(start, end));
+            start = end;
+        }
+        return spans;
+    }
+
+    private int nextLineEnd(String sourceText, int start) {
+        for (int i = start; i < sourceText.length(); i++) {
+            char current = sourceText.charAt(i);
+            if (current == '\n') {
+                return i + 1;
+            }
+            if (current == '\r') {
+                return i + 1 < sourceText.length() && sourceText.charAt(i + 1) == '\n' ? i + 2 : i + 1;
+            }
+        }
+        return sourceText.length();
+    }
+
+    /**
      * AI JSON 응답 정규화
      */
     private String normalizeJson(String aiResponse) {
@@ -206,5 +368,10 @@ public class LectureMaterialAiProcessor {
         private String name;
         private String partName;
         private String content;
+        private Integer startLine;
+        private Integer endLine;
+    }
+
+    private record LineSpan(int startIndex, int endIndex) {
     }
 }
