@@ -10,7 +10,10 @@ import com.f1.quiket.domain.material.port.StudyMaterialAiGateway;
 import com.f1.quiket.domain.material.port.StudyMaterialPdfTextExtractor;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -21,6 +24,7 @@ import org.springframework.util.StringUtils;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class StudyMaterialTextExtractor {
 
     private final StudyMaterialAiGateway studyMaterialAiGateway;
@@ -56,15 +60,34 @@ public class StudyMaterialTextExtractor {
      */
     private StudyMaterialTextExtractionResult extractImage(StudyMaterialTextExtractionRequest request) {
         StudyMaterialAiPrompt prompt = promptBuilder.buildOcrPrompt();
-        // Gemini 기반 이미지 OCR
-        String extractedText = studyMaterialAiGateway.generateFromImages(
-                prompt.systemMessage(),
-                prompt.userMessage(),
-                request.getFiles()
-        );
+        List<String> extractedTexts = new ArrayList<>();
+        List<Integer> failedDisplayOrders = new ArrayList<>();
+        for (int i = 0; i < request.getFiles().size(); i++) {
+            StudyMaterialFile imageFile = request.getFiles().get(i);
+            try {
+                // Gemini 기반 이미지 OCR
+                String extractedText = studyMaterialAiGateway.generateFromImages(
+                        prompt.systemMessage(),
+                        prompt.userMessage(),
+                        List.of(imageFile)
+                );
+                if (!StringUtils.hasText(extractedText)) {
+                    failedDisplayOrders.add(i + 1);
+                    continue;
+                }
+                extractedTexts.add(extractedText.trim());
+            } catch (Exception e) {
+                log.warn("Image OCR failed. displayOrder={}, fileName={}, reason={}",
+                        i + 1,
+                        imageFile.getFileName(),
+                        e.getMessage());
+                failedDisplayOrders.add(i + 1);
+            }
+        }
         return StudyMaterialTextExtractionResult.builder()
                 .provider("gemini")
-                .extractedText(extractedText.trim())
+                .extractedText(String.join("\n\n", extractedTexts))
+                .failedDisplayOrders(failedDisplayOrders)
                 .build();
     }
 

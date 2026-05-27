@@ -85,6 +85,13 @@ public class LectureUpload extends BaseEntity {
     }
 
     /**
+     * 추출 원문 저장
+     */
+    public void storeRawText(String rawText) {
+        this.rawText = rawText;
+    }
+
+    /**
      * 처리 완료 상태 변경
      */
     public void markCompleted(String rawText) {
