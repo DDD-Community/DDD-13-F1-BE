@@ -31,7 +31,8 @@ class LectureMaterialAiProcessorTest {
         studyMaterialPdfTextExtractor = Mockito.mock(StudyMaterialPdfTextExtractor.class);
         lectureMaterialAiProcessor = new LectureMaterialAiProcessor(
                 studyMaterialAiGateway,
-                studyMaterialPdfTextExtractor
+                studyMaterialPdfTextExtractor,
+                new LectureMaterialAiPromptBuilder()
         );
     }
 

@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.material.processor;
 
 import com.f1.quiket.domain.material.dto.StudyMaterialFile;
+import com.f1.quiket.domain.material.dto.StudyMaterialAiPrompt;
 import com.f1.quiket.domain.material.dto.StudyMaterialPdfTextExtractionResult;
 import com.f1.quiket.domain.material.dto.StudyMaterialTextExtractionRequest;
 import com.f1.quiket.domain.material.dto.StudyMaterialTextExtractionResult;
@@ -22,20 +23,9 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class StudyMaterialTextExtractor {
 
-    private static final String OCR_SYSTEM_MESSAGE = """
-            너는 Quiket 학습 자료 OCR 엔진이다.
-            반드시 추출된 텍스트만 반환한다.
-            설명, 마크다운, 코드블록은 절대 포함하지 않는다.
-            """;
-
-    private static final String OCR_USER_MESSAGE = """
-            업로드 파일의 모든 학습 텍스트를 읽기 순서대로 추출한다.
-            표와 목록은 의미가 유지되도록 줄바꿈으로 정리한다.
-            파트 분류, 제목 생성, 요약은 수행하지 않는다.
-            """;
-
     private final StudyMaterialAiGateway studyMaterialAiGateway;
     private final StudyMaterialPdfTextExtractor studyMaterialPdfTextExtractor;
+    private final StudyMaterialTextExtractionPromptBuilder promptBuilder;
 
     /**
      * 입력 타입별 학습 자료 텍스트 추출
@@ -65,10 +55,11 @@ public class StudyMaterialTextExtractor {
      * 이미지 OCR 텍스트 추출
      */
     private StudyMaterialTextExtractionResult extractImage(StudyMaterialTextExtractionRequest request) {
+        StudyMaterialAiPrompt prompt = promptBuilder.buildOcrPrompt();
         // Gemini 기반 이미지 OCR
         String extractedText = studyMaterialAiGateway.generateFromImages(
-                OCR_SYSTEM_MESSAGE,
-                OCR_USER_MESSAGE,
+                prompt.systemMessage(),
+                prompt.userMessage(),
                 request.getFiles()
         );
         return StudyMaterialTextExtractionResult.builder()
@@ -91,10 +82,11 @@ public class StudyMaterialTextExtractor {
                     .build();
         }
 
+        StudyMaterialAiPrompt prompt = promptBuilder.buildOcrPrompt();
         // 스캔 PDF는 Gemini OCR 사용
         String extractedText = studyMaterialAiGateway.generateFromPdf(
-                OCR_SYSTEM_MESSAGE,
-                OCR_USER_MESSAGE,
+                prompt.systemMessage(),
+                prompt.userMessage(),
                 pdfFile
         );
         return StudyMaterialTextExtractionResult.builder()

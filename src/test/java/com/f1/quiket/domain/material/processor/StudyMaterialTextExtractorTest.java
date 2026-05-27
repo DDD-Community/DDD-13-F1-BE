@@ -30,7 +30,8 @@ class StudyMaterialTextExtractorTest {
         studyMaterialPdfTextExtractor = Mockito.mock(StudyMaterialPdfTextExtractor.class);
         studyMaterialTextExtractor = new StudyMaterialTextExtractor(
                 studyMaterialAiGateway,
-                studyMaterialPdfTextExtractor
+                studyMaterialPdfTextExtractor,
+                new StudyMaterialTextExtractionPromptBuilder()
         );
     }
 
