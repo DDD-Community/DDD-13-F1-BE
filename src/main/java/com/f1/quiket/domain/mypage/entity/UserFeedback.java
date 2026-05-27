@@ -73,6 +73,7 @@ public class UserFeedback {
         feedback.appVersion = request.getAppVersion();
         feedback.osVersion = request.getOsVersion();
         feedback.deviceModel = request.getDeviceModel();
+        feedback.deletedAt = null;
         return feedback;
     }
 }
