@@ -104,6 +104,9 @@ public class QuizResult {
     @Column(name = "updated_at", nullable = false)
     LocalDateTime updatedAt;
 
+    @Column(name = "deleted_at")
+    LocalDateTime deletedAt;
+
     public static QuizResult create(
             String publicId,
             Long playSessionId,
