@@ -10,6 +10,7 @@ import com.f1.quiket.infra.groq.dto.GroqCompletionRequest;
 import com.f1.quiket.infra.groq.dto.GroqCompletionResponse;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * 텍스트 기반 JSON 응답 생성 요청 처리
  */
 @Component
+@Slf4j
 public class GroqClient {
 
     private final RestClient restClient;
@@ -45,15 +47,20 @@ public class GroqClient {
     public GroqCompletionResponse generate(GroqCompletionRequest request) {
         validateConfigured();
         try {
+            Map<String, Object> requestBody = requestBody(request);
+            String uri = chatCompletionUri();
+            log.debug("Groq API request uri={}, body={}", uri, toJsonForLog(requestBody));
+
             // Groq OpenAI 호환 chat completions 호출
             String responseBody = restClient.post()
-                    .uri(chatCompletionUri())
+                    .uri(uri)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
                     .header("Authorization", "Bearer " + properties.getApiKey())
-                    .body(requestBody(request))
+                    .body(requestBody)
                     .retrieve()
                     .body(String.class);
+            log.debug("Groq API response body={}", responseBody);
             return GroqCompletionResponse.builder().content(parseResponse(responseBody)).build();
         } catch (CustomException e) {
             throw e;
@@ -107,5 +114,9 @@ public class GroqClient {
             throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq 응답 본문이 비어 있습니다.");
         }
         return contentNode.asText();
+    }
+
+    private String toJsonForLog(Object value) throws JsonProcessingException {
+        return objectMapper.writeValueAsString(value);
     }
 }

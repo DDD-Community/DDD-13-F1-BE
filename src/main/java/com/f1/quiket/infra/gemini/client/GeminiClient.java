@@ -14,6 +14,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * 이미지와 PDF 기반 OCR 요청 처리
  */
 @Component
+@Slf4j
 public class GeminiClient {
 
     private final RestClient restClient;
@@ -49,14 +51,19 @@ public class GeminiClient {
     public GeminiCompletionResponse generate(GeminiCompletionRequest request, List<GeminiBinaryData> binaryData) {
         validateConfigured();
         try {
+            Map<String, Object> requestBody = buildRequestBody(request, binaryData);
+            String uri = generateUri();
+            log.debug("Gemini API request uri={}, body={}", maskApiKey(uri), toJsonForLog(requestBody));
+
             // Gemini generateContent 호출
             String responseBody = restClient.post()
-                    .uri(generateUri())
+                    .uri(uri)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
-                    .body(buildRequestBody(request, binaryData))
+                    .body(requestBody)
                     .retrieve()
                     .body(String.class);
+            log.debug("Gemini API response body={}", responseBody);
             return GeminiCompletionResponse.builder().content(parseResponse(responseBody)).build();
         } catch (CustomException e) {
             throw e;
@@ -129,5 +136,13 @@ public class GeminiClient {
             throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 응답 본문이 비어 있습니다.");
         }
         return textNode.asText();
+    }
+
+    private String toJsonForLog(Object value) throws JsonProcessingException {
+        return objectMapper.writeValueAsString(value);
+    }
+
+    private String maskApiKey(String uri) {
+        return uri.replaceAll("([?&]key=)[^&]+", "$1***");
     }
 }
