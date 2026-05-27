@@ -7,7 +7,7 @@ import com.f1.quiket.global.response.ErrorCode;
 import com.f1.quiket.infra.kakao.config.KakaoOAuthProperties;
 import com.f1.quiket.infra.kakao.dto.KakaoUserInfo;
 import java.io.IOException;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -19,7 +19,6 @@ import org.springframework.web.client.RestClientResponseException;
  * Kakao 사용자 정보 API 클라이언트
  */
 @Component
-@RequiredArgsConstructor
 public class KakaoApiClient {
 
     private static final String AUTHORIZATION = "Authorization";
@@ -28,6 +27,12 @@ public class KakaoApiClient {
     private final RestClient kakaoRestClient;
     private final KakaoOAuthProperties kakaoOAuthProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public KakaoApiClient(@Qualifier("kakaoRestClient") RestClient kakaoRestClient,
+                          KakaoOAuthProperties kakaoOAuthProperties) {
+        this.kakaoRestClient = kakaoRestClient;
+        this.kakaoOAuthProperties = kakaoOAuthProperties;
+    }
 
     public KakaoUserInfo getUserInfo(String kakaoAccessToken) {
         try {
