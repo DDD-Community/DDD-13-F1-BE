@@ -18,7 +18,7 @@ import lombok.experimental.FieldDefaults;
 /**
  * 강의 업로드 처리 정보 엔티티
  *
- * 업로드 접수 상태, 추출 원문, 실패 사유를 보관
+ * 업로드 접수 상태, 추출 원문 보관
  */
 @Entity
 @Table(
@@ -58,9 +58,6 @@ public class LectureUpload extends BaseEntity {
     @Column(name = "raw_text")
     String rawText;
 
-    @Column(name = "fail_reason", length = 500)
-    String failReason;
-
     /**
      * 강의 업로드 접수 정보 생성
      */
@@ -85,7 +82,6 @@ public class LectureUpload extends BaseEntity {
      */
     public void markProcessing() {
         this.status = LectureUploadStatus.PROCESSING.getValue();
-        this.failReason = null;
     }
 
     /**
@@ -94,14 +90,12 @@ public class LectureUpload extends BaseEntity {
     public void markCompleted(String rawText) {
         this.status = LectureUploadStatus.COMPLETED.getValue();
         this.rawText = rawText;
-        this.failReason = null;
     }
 
     /**
      * 처리 실패 상태 변경
      */
-    public void markFailed(String failReason) {
+    public void markFailed() {
         this.status = LectureUploadStatus.FAILED.getValue();
-        this.failReason = failReason;
     }
 }

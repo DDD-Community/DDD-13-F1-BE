@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.lecture.dto;
 
 import com.f1.quiket.domain.chapter.entity.Chapter;
+import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
 import com.f1.quiket.domain.lecture.entity.LectureUploadStatus;
 import com.f1.quiket.domain.part.entity.Part;
@@ -31,6 +32,7 @@ public class LectureUploadStatusResponse {
      */
     public static LectureUploadStatusResponse of(
             LectureUpload upload,
+            LectureProcessingJob processingJob,
             Subject subject,
             Chapter chapter,
             List<Part> parts
@@ -45,7 +47,7 @@ public class LectureUploadStatusResponse {
                 .parts(parts.stream()
                         .map(part -> PartSummary.of(part, chapter))
                         .toList())
-                .failReason(upload.getFailReason())
+                .failReason(processingJob == null ? null : processingJob.getFailReason())
                 .build();
     }
 

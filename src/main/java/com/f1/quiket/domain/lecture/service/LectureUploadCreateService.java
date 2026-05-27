@@ -10,10 +10,12 @@ import com.f1.quiket.domain.lecture.dto.LectureTextUploadRequest;
 import com.f1.quiket.domain.lecture.dto.LectureUploadAcceptedResponse;
 import com.f1.quiket.domain.lecture.dto.PartSplitMethod;
 import com.f1.quiket.domain.lecture.dto.PartSplitPlanRequest;
+import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
 import com.f1.quiket.domain.lecture.entity.LectureUploadFile;
 import com.f1.quiket.domain.lecture.entity.PartSplitPlan;
 import com.f1.quiket.domain.lecture.event.LectureUploadProcessingRequestedEvent;
+import com.f1.quiket.domain.lecture.repository.LectureProcessingJobRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadFileRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadRepository;
 import com.f1.quiket.domain.lecture.repository.PartSplitPlanRepository;
@@ -48,11 +50,13 @@ public class LectureUploadCreateService {
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
     private static final int MIN_TEXT_LENGTH = 100;
     private static final int MAX_TEXT_LENGTH = 30000;
+    private static final int ESTIMATED_SECONDS = 30;
 
     private final SubjectRepository subjectRepository;
     private final ChapterRepository chapterRepository;
     private final LectureUploadRepository lectureUploadRepository;
     private final LectureUploadFileRepository lectureUploadFileRepository;
+    private final LectureProcessingJobRepository lectureProcessingJobRepository;
     private final PartSplitPlanRepository partSplitPlanRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -76,6 +80,7 @@ public class LectureUploadCreateService {
         LectureUpload upload = lectureUploadRepository.save(
                 LectureUpload.create(chapter.getId(), userId, uploadType, partSplitMethod)
         );
+        saveProcessingJob(upload.getId(), userId);
         savePartSplitPlans(upload.getId(), plans);
 
         eventPublisher.publishEvent(new LectureUploadProcessingRequestedEvent(
@@ -127,6 +132,7 @@ public class LectureUploadCreateService {
         LectureUpload upload = lectureUploadRepository.save(
                 LectureUpload.create(chapter.getId(), userId, uploadType, partSplitMethod)
         );
+        saveProcessingJob(upload.getId(), userId);
         saveUploadFiles(upload, uploadType, files);
         savePartSplitPlans(upload.getId(), plans);
 
@@ -342,5 +348,9 @@ public class LectureUploadCreateService {
                         plan.getIntendedName()
                 ))
                 .toList());
+    }
+
+    private void saveProcessingJob(Long lectureUploadId, Long userId) {
+        lectureProcessingJobRepository.save(LectureProcessingJob.create(lectureUploadId, userId, ESTIMATED_SECONDS));
     }
 }

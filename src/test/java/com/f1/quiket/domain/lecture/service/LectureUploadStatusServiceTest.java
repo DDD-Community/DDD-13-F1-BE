@@ -8,7 +8,9 @@ import com.f1.quiket.domain.chapter.entity.Chapter;
 import com.f1.quiket.domain.chapter.repository.ChapterRepository;
 import com.f1.quiket.domain.lecture.dto.LectureUploadStatusResponse;
 import com.f1.quiket.domain.lecture.dto.PartSplitMethod;
+import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
+import com.f1.quiket.domain.lecture.repository.LectureProcessingJobRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadRepository;
 import com.f1.quiket.domain.material.dto.StudyMaterialUploadType;
 import com.f1.quiket.domain.part.entity.Part;
@@ -24,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class LectureUploadStatusServiceTest {
 
     private LectureUploadRepository lectureUploadRepository;
+    private LectureProcessingJobRepository lectureProcessingJobRepository;
     private ChapterRepository chapterRepository;
     private SubjectRepository subjectRepository;
     private PartRepository partRepository;
@@ -32,11 +35,13 @@ class LectureUploadStatusServiceTest {
     @BeforeEach
     void setUp() {
         lectureUploadRepository = mock(LectureUploadRepository.class);
+        lectureProcessingJobRepository = mock(LectureProcessingJobRepository.class);
         chapterRepository = mock(ChapterRepository.class);
         subjectRepository = mock(SubjectRepository.class);
         partRepository = mock(PartRepository.class);
         service = new LectureUploadStatusService(
                 lectureUploadRepository,
+                lectureProcessingJobRepository,
                 chapterRepository,
                 subjectRepository,
                 partRepository
@@ -64,6 +69,7 @@ class LectureUploadStatusServiceTest {
         when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(subject.getId(), 1L)).thenReturn(Optional.of(subject));
         when(partRepository.findAllByLectureUploadIdAndUserIdAndDeletedAtIsNullOrderByPartNumberAsc(upload.getId(), 1L))
                 .thenReturn(List.of(part));
+        when(lectureProcessingJobRepository.findByLectureUploadId(upload.getId())).thenReturn(Optional.empty());
 
         LectureUploadStatusResponse response = service.getStatus(1L, "upload-public-id");
 
@@ -71,5 +77,34 @@ class LectureUploadStatusServiceTest {
         assertThat(response.getProgressPct()).isEqualTo(100);
         assertThat(response.getParts()).hasSize(1);
         assertThat(response.getParts().get(0).getId()).isEqualTo("part-public-id");
+    }
+
+    @Test
+    void getStatus_returns_fail_reason_from_processing_job() {
+        Subject subject = Subject.create(1L, "데이터베이스", "exam");
+        ReflectionTestUtils.setField(subject, "id", 10L);
+        ReflectionTestUtils.setField(subject, "publicId", "subject-public-id");
+        Chapter chapter = Chapter.create(subject.getId(), 1L, "1장", 1);
+        ReflectionTestUtils.setField(chapter, "id", 20L);
+        ReflectionTestUtils.setField(chapter, "publicId", "chapter-public-id");
+        LectureUpload upload = LectureUpload.create(chapter.getId(), 1L, StudyMaterialUploadType.TEXT, PartSplitMethod.AUTO);
+        ReflectionTestUtils.setField(upload, "id", 30L);
+        ReflectionTestUtils.setField(upload, "publicId", "upload-public-id");
+        upload.markFailed();
+        LectureProcessingJob processingJob = LectureProcessingJob.create(upload.getId(), 1L, 30);
+        processingJob.markFailed("processing_failed", "AI 응답 파트 형식이 올바르지 않습니다.");
+
+        when(lectureUploadRepository.findByPublicIdAndUserIdAndDeletedAtIsNull("upload-public-id", 1L))
+                .thenReturn(Optional.of(upload));
+        when(chapterRepository.findById(chapter.getId())).thenReturn(Optional.of(chapter));
+        when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(subject.getId(), 1L)).thenReturn(Optional.of(subject));
+        when(partRepository.findAllByLectureUploadIdAndUserIdAndDeletedAtIsNullOrderByPartNumberAsc(upload.getId(), 1L))
+                .thenReturn(List.of());
+        when(lectureProcessingJobRepository.findByLectureUploadId(upload.getId())).thenReturn(Optional.of(processingJob));
+
+        LectureUploadStatusResponse response = service.getStatus(1L, "upload-public-id");
+
+        assertThat(response.getStatus()).isEqualTo("failed");
+        assertThat(response.getFailReason()).isEqualTo("AI 응답 파트 형식이 올바르지 않습니다.");
     }
 }

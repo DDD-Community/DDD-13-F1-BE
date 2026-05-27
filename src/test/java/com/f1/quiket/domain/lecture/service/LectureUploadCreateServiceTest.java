@@ -14,6 +14,7 @@ import com.f1.quiket.domain.lecture.dto.LectureUploadAcceptedResponse;
 import com.f1.quiket.domain.lecture.dto.PartSplitPlanRequest;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
 import com.f1.quiket.domain.lecture.event.LectureUploadProcessingRequestedEvent;
+import com.f1.quiket.domain.lecture.repository.LectureProcessingJobRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadFileRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadRepository;
 import com.f1.quiket.domain.lecture.repository.PartSplitPlanRepository;
@@ -36,6 +37,7 @@ class LectureUploadCreateServiceTest {
     private ChapterRepository chapterRepository;
     private LectureUploadRepository lectureUploadRepository;
     private LectureUploadFileRepository lectureUploadFileRepository;
+    private LectureProcessingJobRepository lectureProcessingJobRepository;
     private PartSplitPlanRepository partSplitPlanRepository;
     private ApplicationEventPublisher eventPublisher;
     private LectureUploadCreateService service;
@@ -46,6 +48,7 @@ class LectureUploadCreateServiceTest {
         chapterRepository = mock(ChapterRepository.class);
         lectureUploadRepository = mock(LectureUploadRepository.class);
         lectureUploadFileRepository = mock(LectureUploadFileRepository.class);
+        lectureProcessingJobRepository = mock(LectureProcessingJobRepository.class);
         partSplitPlanRepository = mock(PartSplitPlanRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         service = new LectureUploadCreateService(
@@ -53,6 +56,7 @@ class LectureUploadCreateServiceTest {
                 chapterRepository,
                 lectureUploadRepository,
                 lectureUploadFileRepository,
+                lectureProcessingJobRepository,
                 partSplitPlanRepository,
                 eventPublisher
         );
@@ -79,6 +83,7 @@ class LectureUploadCreateServiceTest {
         LectureUploadAcceptedResponse response = service.createTextUpload(1L, textRequest());
 
         assertThat(response.getLectureUploadId()).isEqualTo("upload-public-id");
+        verify(lectureProcessingJobRepository).save(any());
         verify(partSplitPlanRepository).saveAll(any());
         ArgumentCaptor<LectureUploadProcessingRequestedEvent> eventCaptor =
                 ArgumentCaptor.forClass(LectureUploadProcessingRequestedEvent.class);

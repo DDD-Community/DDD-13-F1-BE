@@ -3,9 +3,11 @@ package com.f1.quiket.domain.lecture.service;
 import com.f1.quiket.domain.lecture.dto.LectureMaterialAiProcessRequest;
 import com.f1.quiket.domain.lecture.dto.LectureMaterialAiProcessResult;
 import com.f1.quiket.domain.lecture.dto.LecturePartDraft;
+import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
 import com.f1.quiket.domain.lecture.entity.LectureUploadFile;
 import com.f1.quiket.domain.lecture.event.LectureUploadProcessingRequestedEvent;
+import com.f1.quiket.domain.lecture.repository.LectureProcessingJobRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadFileRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadRepository;
 import com.f1.quiket.domain.material.dto.StudyMaterialUploadType;
@@ -35,9 +37,11 @@ import org.springframework.util.StringUtils;
 public class LectureUploadProcessingService {
 
     private static final int MAX_PART_CONTENT_LENGTH = 30000;
+    private static final int ESTIMATED_SECONDS = 30;
 
     private final LectureUploadRepository lectureUploadRepository;
     private final LectureUploadFileRepository lectureUploadFileRepository;
+    private final LectureProcessingJobRepository lectureProcessingJobRepository;
     private final PartRepository partRepository;
     private final LectureMaterialAiProcessor lectureMaterialAiProcessor;
     private final PlatformTransactionManager transactionManager;
@@ -86,6 +90,7 @@ public class LectureUploadProcessingService {
             LectureUpload upload = getUpload(lectureUploadId);
             // lecture_uploads.status=processing
             upload.markProcessing();
+            getOrCreateJob(upload).markInProgress();
         });
     }
 
@@ -104,6 +109,7 @@ public class LectureUploadProcessingService {
 
             // lecture_uploads.status=completed
             upload.markCompleted(rawText);
+            getOrCreateJob(upload).markCompleted();
         });
     }
 
@@ -163,7 +169,8 @@ public class LectureUploadProcessingService {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             LectureUpload upload = getUpload(event.lectureUploadId());
             // OCR 전체 실패/AI 실패 처리
-            upload.markFailed(failReason);
+            upload.markFailed();
+            getOrCreateJob(upload).markFailed("processing_failed", failReason);
             if (event.uploadType() == StudyMaterialUploadType.IMAGE) {
                 lectureUploadFileRepository.findAllByLectureUploadIdAndDeletedAtIsNullOrderByDisplayOrderAsc(upload.getId())
                         .forEach(LectureUploadFile::markOcrFailed);
@@ -174,6 +181,13 @@ public class LectureUploadProcessingService {
     private LectureUpload getUpload(Long lectureUploadId) {
         return lectureUploadRepository.findById(lectureUploadId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+    }
+
+    private LectureProcessingJob getOrCreateJob(LectureUpload upload) {
+        return lectureProcessingJobRepository.findByLectureUploadId(upload.getId())
+                .orElseGet(() -> lectureProcessingJobRepository.save(
+                        LectureProcessingJob.create(upload.getId(), upload.getUserId(), ESTIMATED_SECONDS)
+                ));
     }
 
     private String failMessage(Exception e) {

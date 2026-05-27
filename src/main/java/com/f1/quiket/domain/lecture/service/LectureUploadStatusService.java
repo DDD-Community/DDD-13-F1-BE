@@ -3,7 +3,9 @@ package com.f1.quiket.domain.lecture.service;
 import com.f1.quiket.domain.chapter.entity.Chapter;
 import com.f1.quiket.domain.chapter.repository.ChapterRepository;
 import com.f1.quiket.domain.lecture.dto.LectureUploadStatusResponse;
+import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
+import com.f1.quiket.domain.lecture.repository.LectureProcessingJobRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadRepository;
 import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.part.repository.PartRepository;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class LectureUploadStatusService {
 
     private final LectureUploadRepository lectureUploadRepository;
+    private final LectureProcessingJobRepository lectureProcessingJobRepository;
     private final ChapterRepository chapterRepository;
     private final SubjectRepository subjectRepository;
     private final PartRepository partRepository;
@@ -52,7 +55,9 @@ public class LectureUploadStatusService {
                 upload.getId(),
                 userId
         );
+        LectureProcessingJob processingJob = lectureProcessingJobRepository.findByLectureUploadId(upload.getId())
+                .orElse(null);
 
-        return LectureUploadStatusResponse.of(upload, subject, chapter, parts);
+        return LectureUploadStatusResponse.of(upload, processingJob, subject, chapter, parts);
     }
 }
