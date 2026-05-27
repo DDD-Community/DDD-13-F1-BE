@@ -81,7 +81,7 @@ groq:
     base-url: ${GROQ_BASE_URL:https://api.groq.com}
     completions-path: ${GROQ_COMPLETIONS_PATH:/openai/v1/chat/completions}
     api-key: ${GROQ_API_KEY:}
-    model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+    model: ${GROQ_MODEL:meta-llama/llama-4-scout-17b-16e-instruct}
     temperature: ${GROQ_TEMPERATURE:0.2}
     connect-timeout-seconds: ${GROQ_CONNECT_TIMEOUT_SECONDS:10}
     read-timeout-seconds: ${GROQ_READ_TIMEOUT_SECONDS:120}

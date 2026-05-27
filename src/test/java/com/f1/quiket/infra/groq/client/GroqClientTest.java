@@ -79,7 +79,7 @@ class GroqClientTest {
         GroqProperties properties = new GroqProperties();
         properties.setBaseUrl("https://api.groq.com");
         properties.setApiKey("groq-key");
-        properties.setModel("llama-3.3-70b-versatile");
+        properties.setModel("llama-4-scout-17b-16e-instruct");
         properties.setTemperature(0.2);
         return properties;
     }

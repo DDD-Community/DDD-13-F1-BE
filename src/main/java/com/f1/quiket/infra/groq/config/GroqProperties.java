@@ -18,7 +18,7 @@ public class GroqProperties {
     private String baseUrl = "https://api.groq.com";
     private String completionsPath = "/openai/v1/chat/completions";
     private String apiKey;
-    private String model = "llama-3.3-70b-versatile";
+    private String model = "llama-4-scout-17b-16e-instruct";
     private Double temperature = 0.2;
     private Integer connectTimeoutSeconds = 10;
     private Integer readTimeoutSeconds = 120;
