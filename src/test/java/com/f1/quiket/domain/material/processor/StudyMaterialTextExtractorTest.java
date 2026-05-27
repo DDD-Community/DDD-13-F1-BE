@@ -124,4 +124,36 @@ class StudyMaterialTextExtractorTest {
         assertThat(result.getExtractedText()).isEqualTo("이미지 OCR 본문");
         verify(studyMaterialAiGateway).generateFromImages(any(), any(), any());
     }
+
+    @Test
+    void extract_image_keeps_success_text_and_records_failed_display_order() {
+        StudyMaterialFile successImage = StudyMaterialFile.builder()
+                .fileName("slide1.png")
+                .contentType("image/png")
+                .bytes("image1".getBytes())
+                .build();
+        StudyMaterialFile failedImage = StudyMaterialFile.builder()
+                .fileName("slide2.png")
+                .contentType("image/png")
+                .bytes("image2".getBytes())
+                .build();
+        when(studyMaterialAiGateway.generateFromImages(any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    List<StudyMaterialFile> files = invocation.getArgument(2);
+                    if (files.get(0) == failedImage) {
+                        throw new RuntimeException("ocr failed");
+                    }
+                    return "첫 번째 이미지 OCR 본문";
+                });
+
+        StudyMaterialTextExtractionResult result = studyMaterialTextExtractor.extract(
+                StudyMaterialTextExtractionRequest.builder()
+                        .uploadType(StudyMaterialUploadType.IMAGE)
+                        .files(List.of(successImage, failedImage))
+                        .build()
+        );
+
+        assertThat(result.getExtractedText()).isEqualTo("첫 번째 이미지 OCR 본문");
+        assertThat(result.getFailedDisplayOrders()).containsExactly(2);
+    }
 }

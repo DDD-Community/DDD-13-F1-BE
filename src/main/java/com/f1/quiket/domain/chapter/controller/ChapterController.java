@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/chapters")
+@RequestMapping("/api/v1/chapters")
 public class ChapterController {
 
     private final ChapterService chapterService;
@@ -32,7 +32,7 @@ public class ChapterController {
     @PatchMapping("/{chapterId}/name")
     public ResponseEntity<ApiResponse<ChapterResponse>> updateChapterName(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String chapterId,
+            @PathVariable("chapterId") String chapterId,
             @Valid @RequestBody ChapterNameUpdateRequest request
     ) {
         ChapterResponse response = chapterService.updateChapterName(principal.getPublicId(), chapterId, request.getName());

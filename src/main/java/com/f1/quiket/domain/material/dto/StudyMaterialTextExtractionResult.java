@@ -1,5 +1,6 @@
 package com.f1.quiket.domain.material.dto;
 
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -13,4 +14,5 @@ import lombok.Getter;
 public class StudyMaterialTextExtractionResult {
     private final String provider;
     private final String extractedText;
+    private final List<Integer> failedDisplayOrders;
 }

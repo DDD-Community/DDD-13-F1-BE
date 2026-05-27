@@ -84,4 +84,12 @@ public class Part extends BaseEntity {
         part.contentDeleted = false;
         return part;
     }
+
+    /**
+     * 파트명과 본문 변경
+     */
+    public void updateContent(String name, String content) {
+        this.name = name;
+        this.content = content;
+    }
 }
