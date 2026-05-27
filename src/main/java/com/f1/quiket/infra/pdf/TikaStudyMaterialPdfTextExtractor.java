@@ -12,16 +12,25 @@ import org.apache.tika.exception.TikaException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+/**
+ * Tika 기반 PDF 텍스트 추출기
+ *
+ * PDF 텍스트 레이어 존재 여부 판별
+ */
 @Component
 public class TikaStudyMaterialPdfTextExtractor implements StudyMaterialPdfTextExtractor {
 
     private final Tika tika = new Tika();
 
+    /**
+     * Tika 기반 PDF 텍스트 추출
+     */
     @Override
     public StudyMaterialPdfTextExtractionResult extract(StudyMaterialFile pdfFile) {
         try (ByteArrayInputStream inputStream = new ByteArrayInputStream(pdfFile.getBytes())) {
             String extractedText = tika.parseToString(inputStream);
             String normalized = extractedText == null ? "" : extractedText.trim();
+            // 추출 텍스트 기반 텍스트 레이어 판별
             boolean hasTextLayer = hasMeaningfulText(normalized);
             return StudyMaterialPdfTextExtractionResult.builder()
                     .hasTextLayer(hasTextLayer)
@@ -32,6 +41,9 @@ public class TikaStudyMaterialPdfTextExtractor implements StudyMaterialPdfTextEx
         }
     }
 
+    /**
+     * 의미 있는 텍스트 존재 여부
+     */
     private boolean hasMeaningfulText(String text) {
         if (!StringUtils.hasText(text)) {
             return false;

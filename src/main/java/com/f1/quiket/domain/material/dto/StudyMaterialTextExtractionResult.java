@@ -4,7 +4,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * 강의 자료 텍스트 추출 결과 DTO
+ * 학습 자료 텍스트 추출 결과 DTO
+ *
+ * 추출 제공자와 추출 텍스트 전달
  */
 @Getter
 @Builder

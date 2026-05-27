@@ -11,6 +11,11 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+/**
+ * 학습 자료 AI 처리 포트 구현체
+ *
+ * 도메인 요청을 Gemini와 Groq 클라이언트 호출로 변환
+ */
 @Component
 public class InfraStudyMaterialAiGateway implements StudyMaterialAiGateway {
 
@@ -24,8 +29,12 @@ public class InfraStudyMaterialAiGateway implements StudyMaterialAiGateway {
         this.groqClient = groqClient;
     }
 
+    /**
+     * 이미지 파일 기반 AI 텍스트 생성 위임
+     */
     @Override
     public String generateFromImages(String systemMessage, String userMessage, List<StudyMaterialFile> imageFiles) {
+        // Gemini inlineData 요청 데이터 변환
         List<GeminiBinaryData> binaryData = imageFiles.stream()
                 .map(file -> GeminiBinaryData.builder()
                         .mimeType(resolveMimeType(file.getContentType(), "image/jpeg"))
@@ -42,8 +51,12 @@ public class InfraStudyMaterialAiGateway implements StudyMaterialAiGateway {
                 .getContent();
     }
 
+    /**
+     * PDF 파일 기반 AI 텍스트 생성 위임
+     */
     @Override
     public String generateFromPdf(String systemMessage, String userMessage, StudyMaterialFile pdfFile) {
+        // Gemini PDF inlineData 요청 데이터 변환
         return geminiClient.generate(
                         GeminiCompletionRequest.builder()
                                 .systemMessage(systemMessage)
@@ -57,8 +70,12 @@ public class InfraStudyMaterialAiGateway implements StudyMaterialAiGateway {
                 .getContent();
     }
 
+    /**
+     * 텍스트 기반 AI 텍스트 생성 위임
+     */
     @Override
     public String generateFromText(String systemMessage, String userMessage) {
+        // Groq 텍스트 요청 위임
         return groqClient.generate(
                         GroqCompletionRequest.builder()
                                 .systemMessage(systemMessage)
@@ -68,6 +85,9 @@ public class InfraStudyMaterialAiGateway implements StudyMaterialAiGateway {
                 .getContent();
     }
 
+    /**
+     * 콘텐츠 타입 기본값 보정
+     */
     private String resolveMimeType(String contentType, String defaultType) {
         return StringUtils.hasText(contentType) ? contentType : defaultType;
     }

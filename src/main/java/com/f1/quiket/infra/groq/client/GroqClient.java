@@ -18,6 +18,11 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/**
+ * Groq chat completions API 클라이언트
+ *
+ * 텍스트 기반 JSON 응답 생성 요청 처리
+ */
 @Component
 public class GroqClient {
 
@@ -34,9 +39,13 @@ public class GroqClient {
         this.objectMapper = new ObjectMapper();
     }
 
+    /**
+     * Groq 채팅 완료 요청
+     */
     public GroqCompletionResponse generate(GroqCompletionRequest request) {
         validateConfigured();
         try {
+            // Groq OpenAI 호환 chat completions 호출
             String responseBody = restClient.post()
                     .uri(chatCompletionUri())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -53,12 +62,18 @@ public class GroqClient {
         }
     }
 
+    /**
+     * Groq 설정값 검증
+     */
     private void validateConfigured() {
         if (!properties.isConfigured()) {
             throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq 설정값이 준비되지 않았습니다.");
         }
     }
 
+    /**
+     * Groq chat completions URI 생성
+     */
     private String chatCompletionUri() {
         String baseUrl = properties.getBaseUrl().replaceAll("/+$", "");
         return UriComponentsBuilder.fromUriString(baseUrl)
@@ -67,6 +82,9 @@ public class GroqClient {
                 .toUriString();
     }
 
+    /**
+     * Groq 요청 본문 생성
+     */
     private Map<String, Object> requestBody(GroqCompletionRequest request) {
         return Map.of(
                 "model", properties.getModel(),
@@ -79,6 +97,9 @@ public class GroqClient {
         );
     }
 
+    /**
+     * Groq 응답 텍스트 파싱
+     */
     private String parseResponse(String responseBody) throws JsonProcessingException {
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode contentNode = root.path("choices").path(0).path("message").path("content");

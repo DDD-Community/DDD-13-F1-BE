@@ -4,7 +4,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * 강의 자료 파일 DTO
+ * 학습 자료 파일 DTO
+ *
+ * AI와 PDF 파서에 전달할 파일 메타데이터와 바이트 보관
  */
 @Getter
 @Builder

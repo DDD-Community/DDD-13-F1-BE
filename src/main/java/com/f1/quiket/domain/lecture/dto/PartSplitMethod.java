@@ -5,6 +5,8 @@ import lombok.Getter;
 
 /**
  * 파트 분류 방식
+ *
+ * 자동 분류와 수동 분류 입력값 표현
  */
 @Getter
 public enum PartSplitMethod {
@@ -17,6 +19,9 @@ public enum PartSplitMethod {
         this.value = value;
     }
 
+    /**
+     * 문자열 기반 파트 분류 방식 변환
+     */
     public static PartSplitMethod from(String value) {
         return Arrays.stream(values())
                 .filter(type -> type.value.equalsIgnoreCase(value))

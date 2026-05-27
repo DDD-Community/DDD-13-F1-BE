@@ -6,7 +6,6 @@ import com.f1.quiket.domain.lecture.dto.LectureMaterialAiProcessRequest;
 import com.f1.quiket.domain.lecture.dto.LectureMaterialAiProcessResult;
 import com.f1.quiket.domain.lecture.dto.LecturePartDraft;
 import com.f1.quiket.domain.lecture.dto.LecturePartSplitPlan;
-import com.f1.quiket.domain.lecture.dto.PartSplitMethod;
 import com.f1.quiket.domain.material.dto.StudyMaterialFile;
 import com.f1.quiket.domain.material.dto.StudyMaterialPdfTextExtractionResult;
 import com.f1.quiket.domain.material.dto.StudyMaterialUploadType;
@@ -26,6 +25,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * 강의 자료 AI 처리 오케스트레이터
+ *
+ * 강의 업로드 자료의 OCR, 텍스트 추출, 파트 분류 흐름 조합
  */
 @Component
 @RequiredArgsConstructor
@@ -41,9 +42,13 @@ public class LectureMaterialAiProcessor {
     private final StudyMaterialPdfTextExtractor studyMaterialPdfTextExtractor;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * 업로드 타입별 강의 자료 AI 처리
+     */
     public LectureMaterialAiProcessResult process(LectureMaterialAiProcessRequest request) {
         validateRequest(request);
 
+        // 업로드 타입별 AI 처리 분기
         return switch (request.getUploadType()) {
             case IMAGE -> processImage(request);
             case PDF -> processPdf(request);
@@ -51,7 +56,11 @@ public class LectureMaterialAiProcessor {
         };
     }
 
+    /**
+     * 이미지 OCR 및 파트 분류 처리
+     */
     private LectureMaterialAiProcessResult processImage(LectureMaterialAiProcessRequest request) {
+        // Gemini 기반 이미지 OCR 및 파트 분류
         String aiResponse = studyMaterialAiGateway.generateFromImages(
                 SYSTEM_MESSAGE,
                 buildGeminiPrompt(request, null),
@@ -65,10 +74,14 @@ public class LectureMaterialAiProcessor {
                 .build();
     }
 
+    /**
+     * PDF 텍스트 레이어 판별 후 AI 처리
+     */
     private LectureMaterialAiProcessResult processPdf(LectureMaterialAiProcessRequest request) {
         StudyMaterialFile pdfFile = request.getFiles().get(0);
         StudyMaterialPdfTextExtractionResult extractionResult = studyMaterialPdfTextExtractor.extract(pdfFile);
 
+        // 텍스트 레이어 PDF는 추출 텍스트 기반 Groq 분류
         if (extractionResult.isHasTextLayer()) {
             String text = extractionResult.getExtractedText();
             String aiResponse = studyMaterialAiGateway.generateFromText(
@@ -82,6 +95,7 @@ public class LectureMaterialAiProcessor {
                     .build();
         }
 
+        // 스캔 PDF는 Gemini OCR 및 파트 분류
         String aiResponse = studyMaterialAiGateway.generateFromPdf(
                 SYSTEM_MESSAGE,
                 buildGeminiPrompt(request, null),
@@ -94,7 +108,11 @@ public class LectureMaterialAiProcessor {
                 .build();
     }
 
+    /**
+     * 직접 입력 텍스트 기반 파트 분류 처리
+     */
     private LectureMaterialAiProcessResult processText(LectureMaterialAiProcessRequest request) {
+        // 입력 텍스트 기반 Groq 파트 분류
         String aiResponse = studyMaterialAiGateway.generateFromText(
                 SYSTEM_MESSAGE,
                 buildGroqPrompt(request, request.getText())
@@ -106,6 +124,9 @@ public class LectureMaterialAiProcessor {
                 .build();
     }
 
+    /**
+     * AI 처리 요청값 검증
+     */
     private void validateRequest(LectureMaterialAiProcessRequest request) {
         if (request == null || request.getUploadType() == null || request.getPartSplitMethod() == null) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "강의 자료 AI 처리 요청값이 올바르지 않습니다.");
@@ -119,6 +140,9 @@ public class LectureMaterialAiProcessor {
         }
     }
 
+    /**
+     * Groq 텍스트 분류 프롬프트 생성
+     */
     private String buildGroqPrompt(LectureMaterialAiProcessRequest request, String sourceText) {
         return """
                 [입력]
@@ -147,6 +171,9 @@ public class LectureMaterialAiProcessor {
         );
     }
 
+    /**
+     * Gemini OCR 및 분류 프롬프트 생성
+     */
     private String buildGeminiPrompt(LectureMaterialAiProcessRequest request, String sourceText) {
         return """
                 [작업]
@@ -178,10 +205,14 @@ public class LectureMaterialAiProcessor {
         );
     }
 
+    /**
+     * 수동 파트 분류 계획 프롬프트 컨텍스트 생성
+     */
     private String partSplitPlanContext(List<LecturePartSplitPlan> plans) {
         if (plans == null || plans.isEmpty()) {
             return "- 계획 없음";
         }
+        // 파트 번호 순서 기반 계획 정렬
         return plans.stream()
                 .sorted(Comparator.comparing(LecturePartSplitPlan::getPartNumber))
                 .map(plan -> "- partNumber: %d, intendedName: %s".formatted(
@@ -191,6 +222,9 @@ public class LectureMaterialAiProcessor {
                 .collect(Collectors.joining("\n"));
     }
 
+    /**
+     * AI 파트 분류 응답 파싱
+     */
     private List<LecturePartDraft> parseParts(String aiResponse) {
         try {
             String normalized = normalizeJson(aiResponse);
@@ -201,6 +235,7 @@ public class LectureMaterialAiProcessor {
 
             List<LecturePartDraft> parts = new ArrayList<>();
             for (LecturePartPayload part : payload.getParts()) {
+                // name/partName 호환 응답 처리
                 String resolvedName = StringUtils.hasText(part.getName()) ? part.getName() : part.getPartName();
                 if (part.getPartNumber() == null || !StringUtils.hasText(resolvedName)) {
                     throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파트 형식이 올바르지 않습니다.");
@@ -217,11 +252,15 @@ public class LectureMaterialAiProcessor {
         }
     }
 
+    /**
+     * AI JSON 응답 정규화
+     */
     private String normalizeJson(String aiResponse) {
         if (!StringUtils.hasText(aiResponse)) {
             throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답이 비어 있습니다.");
         }
         String trimmed = aiResponse.trim();
+        // 마크다운 코드블록 응답 제거
         if (trimmed.startsWith("```")) {
             int start = trimmed.indexOf('\n');
             int end = trimmed.lastIndexOf("```");
@@ -232,6 +271,9 @@ public class LectureMaterialAiProcessor {
         return trimmed;
     }
 
+    /**
+     * 빈 문자열 기본값 처리
+     */
     private String valueOrDefault(String value, String defaultValue) {
         return StringUtils.hasText(value) ? value : defaultValue;
     }

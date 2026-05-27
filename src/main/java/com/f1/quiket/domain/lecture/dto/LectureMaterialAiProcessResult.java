@@ -6,6 +6,8 @@ import lombok.Getter;
 
 /**
  * 강의 자료 AI 처리 결과 DTO
+ *
+ * AI 제공자, 추출 텍스트, 파트 초안 목록 전달
  */
 @Getter
 @Builder

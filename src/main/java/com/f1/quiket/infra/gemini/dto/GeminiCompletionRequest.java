@@ -4,7 +4,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * 공통 텍스트 요청 DTO
+ * Gemini 콘텐츠 생성 요청 DTO
+ *
+ * 시스템 메시지와 사용자 메시지 전달
  */
 @Getter
 @Builder

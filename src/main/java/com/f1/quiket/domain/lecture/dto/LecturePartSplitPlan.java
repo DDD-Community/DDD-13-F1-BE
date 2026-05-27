@@ -5,6 +5,8 @@ import lombok.Getter;
 
 /**
  * 파트 분류 계획 DTO
+ *
+ * 수동 분류 시 파트 번호와 의도한 파트명 전달
  */
 @Getter
 @Builder

@@ -4,7 +4,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * 공통 텍스트 응답 DTO
+ * Gemini 콘텐츠 생성 응답 DTO
+ *
+ * 응답 텍스트 전달
  */
 @Getter
 @Builder

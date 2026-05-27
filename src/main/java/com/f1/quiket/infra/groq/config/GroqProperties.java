@@ -5,6 +5,11 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.StringUtils;
 
+/**
+ * Groq API 설정값
+ *
+ * 호출 URL, 인증키, 모델, 타임아웃 관리
+ */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "ai.groq")
@@ -17,6 +22,9 @@ public class GroqProperties {
     private Integer connectTimeoutSeconds = 10;
     private Integer readTimeoutSeconds = 120;
 
+    /**
+     * Groq 필수 설정값 존재 여부
+     */
     public boolean isConfigured() {
         return StringUtils.hasText(baseUrl)
                 && StringUtils.hasText(apiKey)

@@ -8,6 +8,8 @@ import lombok.Getter;
 
 /**
  * 강의 자료 AI 처리 요청 DTO
+ *
+ * 업로드 입력값과 파트 분류 조건 전달
  */
 @Getter
 @Builder

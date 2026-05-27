@@ -22,6 +22,11 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/**
+ * Gemini generateContent API 클라이언트
+ *
+ * 이미지와 PDF 기반 OCR 요청 처리
+ */
 @Component
 public class GeminiClient {
 
@@ -38,9 +43,13 @@ public class GeminiClient {
         this.objectMapper = new ObjectMapper();
     }
 
+    /**
+     * Gemini 콘텐츠 생성 요청
+     */
     public GeminiCompletionResponse generate(GeminiCompletionRequest request, List<GeminiBinaryData> binaryData) {
         validateConfigured();
         try {
+            // Gemini generateContent 호출
             String responseBody = restClient.post()
                     .uri(generateUri())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -56,12 +65,18 @@ public class GeminiClient {
         }
     }
 
+    /**
+     * Gemini 설정값 검증
+     */
     private void validateConfigured() {
         if (!properties.isConfigured()) {
             throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 설정값이 준비되지 않았습니다.");
         }
     }
 
+    /**
+     * Gemini generateContent URI 생성
+     */
     private String generateUri() {
         String baseUrl = properties.getBaseUrl().replaceAll("/+$", "");
         return UriComponentsBuilder.fromUriString(baseUrl)
@@ -71,6 +86,9 @@ public class GeminiClient {
                 .toUriString();
     }
 
+    /**
+     * Gemini 요청 본문 생성
+     */
     private Map<String, Object> buildRequestBody(GeminiCompletionRequest request, List<GeminiBinaryData> binaryData) {
         List<Map<String, Object>> parts = new ArrayList<>();
         if (StringUtils.hasText(request.getSystemMessage())) {
@@ -78,6 +96,7 @@ public class GeminiClient {
         }
         parts.add(Map.of("text", request.getUserMessage()));
 
+        // 이미지/PDF 바이너리 inlineData 변환
         if (binaryData != null) {
             for (GeminiBinaryData file : binaryData) {
                 parts.add(Map.of(
@@ -99,6 +118,9 @@ public class GeminiClient {
         );
     }
 
+    /**
+     * Gemini 응답 텍스트 파싱
+     */
     private String parseResponse(String responseBody) throws JsonProcessingException {
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");

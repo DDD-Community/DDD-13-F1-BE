@@ -5,7 +5,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * 강의 자료 텍스트 추출 요청 DTO
+ * 학습 자료 텍스트 추출 요청 DTO
+ *
+ * 업로드 타입별 텍스트 원문 또는 파일 목록 전달
  */
 @Getter
 @Builder

@@ -5,6 +5,8 @@ import lombok.Getter;
 
 /**
  * 학습 자료 입력 타입
+ *
+ * PDF, 이미지, 직접 입력 텍스트 업로드 방식 표현
  */
 @Getter
 public enum StudyMaterialUploadType {
@@ -18,6 +20,9 @@ public enum StudyMaterialUploadType {
         this.value = value;
     }
 
+    /**
+     * 문자열 기반 학습 자료 입력 타입 변환
+     */
     public static StudyMaterialUploadType from(String value) {
         return Arrays.stream(values())
                 .filter(type -> type.value.equalsIgnoreCase(value))
