@@ -6,6 +6,7 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -46,6 +47,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, message));
+    }
+
+    /**
+     * 요청 본문 파싱 실패 (깨진 JSON, 타입 불일치, 날짜/enum 역직렬화 실패 등)
+     * 클라이언트 입력 오류이므로 500이 아닌 400으로 응답한다.
+     * 내부 파싱 상세는 민감 정보 노출 방지를 위해 메시지에 포함하지 않는다.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<?>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        log.warn("Malformed request body: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, "요청 본문의 형식이 올바르지 않습니다."));
     }
 
     /**
