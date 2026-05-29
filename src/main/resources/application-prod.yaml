@@ -68,7 +68,6 @@ azure:
 quiket:
   jwt:
     secret: ${QUIKET_JWT_SECRET}
-    enabled: false  # Swagger UI 비활성화
   quiz:
     generation:
       worker:
