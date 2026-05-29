@@ -2,6 +2,7 @@ package com.f1.quiket.domain.home.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -11,6 +12,8 @@ import com.f1.quiket.domain.chapter.repository.ChapterRepository;
 import com.f1.quiket.domain.home.dto.HomeDataResponse;
 import com.f1.quiket.domain.home.dto.RecentActivityPageResponse;
 import com.f1.quiket.domain.home.dto.RecentActivityType;
+import com.f1.quiket.domain.home.repository.SubjectCountProjection;
+import com.f1.quiket.domain.home.repository.SubjectLastActivityProjection;
 import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.part.repository.PartRepository;
 import com.f1.quiket.domain.quiz.entity.QuizPlaySession;
@@ -27,8 +30,11 @@ import com.f1.quiket.domain.user.entity.User;
 import com.f1.quiket.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -141,15 +147,104 @@ class HomeServiceTest {
 
     private void mockCommonHomeData(User user, List<Subject> subjects, List<Chapter> chapters, List<Part> parts, List<SubjectExamSchedule> schedules, List<QuizSession> quizSessions, List<QuizPlaySession> playSessions, List<QuizResult> quizResults) {
         when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
-        when(subjectRepository.findAllByUserIdAndDeletedAtIsNull(user.getId())).thenReturn(subjects);
-        when(chapterRepository.findAllByUserIdAndDeletedAtIsNull(user.getId())).thenReturn(chapters);
-        when(partRepository.findAllByUserIdAndDeletedAtIsNull(user.getId())).thenReturn(parts);
+        when(subjectRepository.findHomeSummarySubjects(eq(user.getId()), anyInt())).thenReturn(subjects);
+        when(subjectRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(any(), eq(user.getId()))).thenReturn(subjects);
+        when(chapterRepository.countBySubjectIds(eq(user.getId()), any())).thenReturn(countProjections(chapters, Chapter::getSubjectId));
+        when(partRepository.countBySubjectIds(eq(user.getId()), any())).thenReturn(countProjections(parts, Part::getSubjectId));
         when(subjectExamScheduleRepository.findAllBySubjectIdInAndDeletedAtIsNull(any())).thenReturn(schedules);
         when(subjectExamScheduleRepository.findByUserIdAndDeletedAtIsNullAndExamDateGreaterThanEqualOrderByExamDateAscCreatedAtDesc(eq(user.getId()), any(LocalDate.class), any()))
                 .thenReturn(List.of());
-        when(quizSessionRepository.findAllByUserIdAndDeletedAtIsNull(user.getId())).thenReturn(quizSessions);
-        when(quizPlaySessionRepository.findAllByUserId(user.getId())).thenReturn(playSessions);
-        when(quizResultRepository.findAllByUserId(user.getId())).thenReturn(quizResults);
+        when(quizSessionRepository.findReadyActivities(eq(user.getId()), eq("completed"), any()))
+                .thenReturn(readyQuizSessions(quizSessions, playSessions));
+        when(quizSessionRepository.countReadyActivities(user.getId(), "completed"))
+                .thenReturn((long) readyQuizSessions(quizSessions, playSessions).size());
+        when(quizSessionRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(any(), eq(user.getId()))).thenReturn(quizSessions);
+        when(quizSessionRepository.findLastActivityBySubjectIds(eq(user.getId()), any()))
+                .thenReturn(lastActivityProjections(quizSessions, QuizSession::getSubjectId, QuizSession::getCreatedAt));
+        when(quizPlaySessionRepository.findByUserIdAndStatusAndDeletedAtIsNullOrderByUpdatedAtDesc(eq(user.getId()), eq("in_progress"), any()))
+                .thenReturn(playSessions.stream()
+                        .filter(playSession -> "in_progress".equals(playSession.getStatus()))
+                        .sorted(Comparator.comparing(QuizPlaySession::getUpdatedAt).reversed())
+                        .toList());
+        when(quizPlaySessionRepository.countByUserIdAndStatusAndDeletedAtIsNull(user.getId(), "in_progress"))
+                .thenReturn(playSessions.stream()
+                        .filter(playSession -> "in_progress".equals(playSession.getStatus()))
+                        .count());
+        when(quizPlaySessionRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(any(), eq(user.getId()))).thenReturn(playSessions);
+        when(quizPlaySessionRepository.findLastActivityBySubjectIds(eq(user.getId()), any()))
+                .thenReturn(lastActivityProjections(playSessions, QuizPlaySession::getSubjectId, QuizPlaySession::getUpdatedAt));
+        when(quizResultRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(eq(user.getId()), any()))
+                .thenReturn(quizResults.stream()
+                        .sorted(Comparator.comparing(QuizResult::getCreatedAt).reversed())
+                        .toList());
+        when(quizResultRepository.countByUserIdAndDeletedAtIsNull(user.getId())).thenReturn((long) quizResults.size());
+        when(quizResultRepository.findLastActivityBySubjectIds(eq(user.getId()), any()))
+                .thenReturn(lastActivityProjections(quizResults, QuizResult::getSubjectId, QuizResult::getCreatedAt));
+    }
+
+    private List<QuizSession> readyQuizSessions(List<QuizSession> quizSessions, List<QuizPlaySession> playSessions) {
+        List<Long> startedQuizSessionIds = playSessions.stream()
+                .map(QuizPlaySession::getQuizSessionId)
+                .toList();
+        return quizSessions.stream()
+                .filter(session -> "completed".equals(session.getStatus()))
+                .filter(session -> !startedQuizSessionIds.contains(session.getId()))
+                .sorted(Comparator.comparing(QuizSession::getCompletedAt).reversed())
+                .toList();
+    }
+
+    private <T> List<SubjectCountProjection> countProjections(List<T> values, Function<T, Long> subjectIdExtractor) {
+        return values.stream()
+                .collect(Collectors.groupingBy(subjectIdExtractor, Collectors.counting()))
+                .entrySet()
+                .stream()
+                .map(entry -> subjectCountProjection(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    private SubjectCountProjection subjectCountProjection(Long subjectId, Long itemCount) {
+        return new SubjectCountProjection() {
+            @Override
+            public Long getSubjectId() {
+                return subjectId;
+            }
+
+            @Override
+            public Long getItemCount() {
+                return itemCount;
+            }
+        };
+    }
+
+    private <T> List<SubjectLastActivityProjection> lastActivityProjections(
+            List<T> values,
+            Function<T, Long> subjectIdExtractor,
+            Function<T, LocalDateTime> lastActivityAtExtractor
+    ) {
+        return values.stream()
+                .collect(Collectors.groupingBy(
+                        subjectIdExtractor,
+                        Collectors.mapping(lastActivityAtExtractor, Collectors.maxBy(LocalDateTime::compareTo))
+                ))
+                .entrySet()
+                .stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .map(entry -> subjectLastActivityProjection(entry.getKey(), entry.getValue().get()))
+                .toList();
+    }
+
+    private SubjectLastActivityProjection subjectLastActivityProjection(Long subjectId, LocalDateTime lastActivityAt) {
+        return new SubjectLastActivityProjection() {
+            @Override
+            public Long getSubjectId() {
+                return subjectId;
+            }
+
+            @Override
+            public LocalDateTime getLastActivityAt() {
+                return lastActivityAt;
+            }
+        };
     }
 
     private User user() {

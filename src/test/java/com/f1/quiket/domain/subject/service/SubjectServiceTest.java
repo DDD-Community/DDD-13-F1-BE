@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -105,7 +106,7 @@ class SubjectServiceTest {
 
         when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
         when(subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subject.getPublicId(), user.getId())).thenReturn(Optional.of(subject));
-        when(subjectExamScheduleRepository.findBySubjectId(subject.getId())).thenReturn(Optional.empty());
+        when(subjectExamScheduleRepository.findBySubjectIdIncludingDeleted(subject.getId())).thenReturn(Optional.empty());
         when(subjectExamScheduleRepository.save(any(SubjectExamSchedule.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -119,6 +120,30 @@ class SubjectServiceTest {
         assertThat(response.getSubjectId()).isEqualTo(subject.getPublicId());
         assertThat(response.getExamName()).isEqualTo(subject.getName());
         assertThat(response.getExamDate()).isEqualTo(request.getExamDate());
+    }
+
+    @Test
+    void upsertExamSchedule_restores_deleted_schedule_without_new_insert() {
+        User user = user(1L, "user-public-id");
+        Subject subject = subject(10L, "subject-public-id", user.getId(), "데이터베이스");
+        SubjectExamSchedule schedule = schedule(100L, "schedule-public-id", subject.getId(), user.getId(), "중간고사", LocalDate.now().plusDays(1));
+        schedule.delete();
+
+        SubjectExamScheduleUpsertRequest request = new SubjectExamScheduleUpsertRequest();
+        ReflectionTestUtils.setField(request, "examName", "기말고사");
+        ReflectionTestUtils.setField(request, "examDate", LocalDate.now().plusDays(7));
+
+        when(userRepository.findByPublicIdAndDeletedAtIsNull(user.getPublicId())).thenReturn(Optional.of(user));
+        when(subjectRepository.findByPublicIdAndUserIdAndDeletedAtIsNull(subject.getPublicId(), user.getId())).thenReturn(Optional.of(subject));
+        when(subjectExamScheduleRepository.findBySubjectIdIncludingDeleted(subject.getId())).thenReturn(Optional.of(schedule));
+
+        SubjectExamScheduleResponse response = subjectService.upsertExamSchedule(user.getPublicId(), subject.getPublicId(), request);
+
+        verify(subjectExamScheduleRepository, never()).save(any(SubjectExamSchedule.class));
+        assertThat(schedule.getDeletedAt()).isNull();
+        assertThat(schedule.getExamName()).isEqualTo("기말고사");
+        assertThat(schedule.getExamDate()).isEqualTo(request.getExamDate());
+        assertThat(response.getId()).isEqualTo(schedule.getPublicId());
     }
 
     @Test

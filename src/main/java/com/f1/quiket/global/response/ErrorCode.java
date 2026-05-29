@@ -17,8 +17,10 @@ public enum ErrorCode {
     FORBIDDEN(403, "C006", "접근 권한이 없습니다."),
     NOT_FOUND(404, "C003", "요청한 리소스를 찾을 수 없습니다."),
     METHOD_NOT_ALLOWED(405, "C004", "허용되지 않은 HTTP 메서드입니다."),
+    NOT_ACCEPTABLE(406, "C013", "응답 가능한 표현 형식이 없습니다."),
     CONFLICT(409, "C007", "이미 존재하는 리소스입니다."),
     FILE_SIZE_EXCEEDED(413, "C011", "파일 크기는 50MB 이하만 업로드 가능합니다"),
+    UNSUPPORTED_MEDIA_TYPE(415, "C012", "지원하지 않는 미디어 타입입니다."),
     UNPROCESSABLE_ENTITY(422, "C008", "처리할 수 없는 엔티티입니다."),
 
     // Auth Errors

@@ -645,7 +645,7 @@ CREATE TABLE quiz_generation_jobs (
 -- → 중복 제출 차단은 client_session_id로, 조인은 id로
 CREATE TABLE quiz_play_sessions (
     id                      BIGINT          NOT NULL AUTO_INCREMENT          COMMENT 'PK: 서버 풀이 세션 식별자',
-    client_session_id       VARCHAR(36)     NOT NULL                         COMMENT '클라이언트 발급 풀이 세션 ID (중복 제출 차단 키)',
+    client_session_id       VARCHAR(128)    NOT NULL                         COMMENT '클라이언트 발급 풀이 세션 ID (중복 제출 차단 키)',
     quiz_session_id         BIGINT          NOT NULL                         COMMENT '퀴즈 세션(설정+문항) ID',
     user_id                 BIGINT          NOT NULL                         COMMENT '사용자 ID (역정규화)',
     subject_id              BIGINT          NOT NULL                         COMMENT '과목 ID (역정규화)',

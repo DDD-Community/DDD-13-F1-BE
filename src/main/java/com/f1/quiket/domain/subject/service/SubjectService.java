@@ -185,7 +185,7 @@ public class SubjectService {
     public SubjectExamScheduleResponse upsertExamSchedule(String userPublicId, String subjectPublicId, SubjectExamScheduleUpsertRequest request) {
         User user = findUser(userPublicId);
         Subject subject = findSubject(subjectPublicId, user.getId());
-        SubjectExamSchedule schedule = subjectExamScheduleRepository.findBySubjectId(subject.getId())
+        SubjectExamSchedule schedule = subjectExamScheduleRepository.findBySubjectIdIncludingDeleted(subject.getId())
                 .map(existingSchedule -> {
                     existingSchedule.update(normalizeBlank(request.getExamName()), request.getExamDate());
                     return existingSchedule;
