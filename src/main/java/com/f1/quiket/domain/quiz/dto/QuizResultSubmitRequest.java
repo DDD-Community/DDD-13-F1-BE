@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 public class QuizResultSubmitRequest {
 
     @NotBlank(message = "풀이 세션 ID는 필수입니다")
-    @Size(max = 36, message = "풀이 세션 ID는 36자 이하여야 합니다")
+    @Size(max = 128, message = "풀이 세션 ID는 128자 이하여야 합니다")
     private String clientSessionId;
 
     @NotBlank(message = "퀴즈 세션 ID는 필수입니다")
@@ -27,7 +27,7 @@ public class QuizResultSubmitRequest {
     @Pattern(regexp = "first|retry_all|retry_wrong", message = "풀이 유형이 올바르지 않습니다")
     private String playType;
 
-    @Size(max = 36, message = "부모 풀이 세션 ID는 36자 이하여야 합니다")
+    @Size(max = 128, message = "부모 풀이 세션 ID는 128자 이하여야 합니다")
     private String parentPlaySessionId;
 
     @NotNull(message = "풀이 시간은 필수입니다")

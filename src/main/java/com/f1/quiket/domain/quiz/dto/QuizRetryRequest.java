@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 public class QuizRetryRequest {
 
     @NotBlank(message = "풀이 세션 ID는 필수입니다")
-    @Size(max = 36, message = "풀이 세션 ID는 36자 이하여야 합니다")
+    @Size(max = 128, message = "풀이 세션 ID는 128자 이하여야 합니다")
     private String clientSessionId;
 
     private Boolean questionShuffled;

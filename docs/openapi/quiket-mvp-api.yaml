@@ -1960,6 +1960,7 @@ components:
       description: 풀이 세션 ID. 서버 publicId 또는 클라이언트 발급 clientSessionId
       schema:
         type: string
+        maxLength: 128
         example: android-play-session-uuid
 
   responses:
@@ -3873,12 +3874,13 @@ components:
       properties:
         clientSessionId:
           type: string
-          maxLength: 36
+          maxLength: 128
           example: android-play-session-uuid
         playType:
           $ref: '#/components/schemas/QuizPlayType'
         parentPlaySessionId:
           type: string
+          maxLength: 128
           nullable: true
           example: parent-play-session-uuid
         questionShuffled:
@@ -3913,9 +3915,11 @@ components:
       properties:
         playSessionId:
           type: string
+          maxLength: 128
           example: android-play-session-uuid
         clientSessionId:
           type: string
+          maxLength: 128
           example: android-play-session-uuid
         quizSessionId:
           type: string
@@ -3943,7 +3947,7 @@ components:
       properties:
         clientSessionId:
           type: string
-          maxLength: 36
+          maxLength: 128
           example: android-play-session-uuid
         quizSessionId:
           type: string
@@ -3953,6 +3957,7 @@ components:
           $ref: '#/components/schemas/QuizPlayType'
         parentPlaySessionId:
           type: string
+          maxLength: 128
           nullable: true
           example: parent-play-session-uuid
         elapsedMs:
@@ -4041,6 +4046,7 @@ components:
           example: 018f8c2e-9999-7b11-b2d1-774f4c1c2222
         playSessionId:
           type: string
+          maxLength: 128
           example: android-play-session-uuid
         quizSessionId:
           type: string
@@ -4103,6 +4109,7 @@ components:
               properties:
                 playSessionId:
                   type: string
+                  maxLength: 128
                   example: android-play-session-uuid
                 items:
                   type: array
@@ -4171,7 +4178,7 @@ components:
       properties:
         clientSessionId:
           type: string
-          maxLength: 36
+          maxLength: 128
           example: android-retry-session-uuid
         questionShuffled:
           type: boolean
