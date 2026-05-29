@@ -1,6 +1,5 @@
 package com.f1.quiket.domain.home.service;
 
-import com.f1.quiket.domain.chapter.entity.Chapter;
 import com.f1.quiket.domain.chapter.repository.ChapterRepository;
 import com.f1.quiket.domain.home.dto.HomeDataResponse;
 import com.f1.quiket.domain.home.dto.HomeHeroResponse;
@@ -10,7 +9,8 @@ import com.f1.quiket.domain.home.dto.RecentActivityResponse;
 import com.f1.quiket.domain.home.dto.RecentActivityType;
 import com.f1.quiket.domain.home.dto.SubjectExamScheduleResponse;
 import com.f1.quiket.domain.home.dto.SubjectSummaryResponse;
-import com.f1.quiket.domain.part.entity.Part;
+import com.f1.quiket.domain.home.repository.SubjectCountProjection;
+import com.f1.quiket.domain.home.repository.SubjectLastActivityProjection;
 import com.f1.quiket.domain.part.repository.PartRepository;
 import com.f1.quiket.domain.quiz.entity.QuizPlaySession;
 import com.f1.quiket.domain.quiz.entity.QuizResult;
@@ -28,8 +28,10 @@ import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,8 +74,9 @@ public class HomeService {
      */
     public HomeDataResponse getHome(String publicId) {
         User user = findUser(publicId);
-        HomeReadModel readModel = loadHomeReadModel(user.getId());
-        List<RecentActivityResponse> allRecentActivities = buildRecentActivities(readModel);
+        HomeSubjectReadModel subjectReadModel = loadHomeSubjectReadModel(user.getId());
+        RecentActivityReadModel activityReadModel = loadRecentActivityReadModel(user.getId(), 0, HOME_RECENT_ACTIVITY_SIZE);
+        List<RecentActivityResponse> allRecentActivities = buildRecentActivities(activityReadModel);
         List<RecentActivityResponse> recentActivities = sliceRecentActivities(
                 allRecentActivities,
                 0,
@@ -83,8 +86,8 @@ public class HomeService {
         return HomeDataResponse.builder()
                 .user(HomeUserSummaryResponse.from(user))
                 .hero(HomeHeroResponse.from(findActiveQuiz(allRecentActivities)))
-                .dDayCards(findDDayScheduleResponses(readModel))
-                .subjects(findSubjectSummaryResponses(readModel))
+                .dDayCards(findDDayScheduleResponses(user.getId()))
+                .subjects(findSubjectSummaryResponses(subjectReadModel))
                 .recentActivities(recentActivities)
                 .build();
     }
@@ -96,11 +99,11 @@ public class HomeService {
         User user = findUser(publicId);
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = normalizeSize(size);
-        HomeReadModel readModel = loadHomeReadModel(user.getId());
+        RecentActivityReadModel readModel = loadRecentActivityReadModel(user.getId(), normalizedPage, normalizedSize);
         List<RecentActivityResponse> activities = buildRecentActivities(readModel);
         List<RecentActivityResponse> content = sliceRecentActivities(activities, normalizedPage, normalizedSize);
 
-        return RecentActivityPageResponse.of(content, normalizedPage, normalizedSize, activities.size());
+        return RecentActivityPageResponse.of(content, normalizedPage, normalizedSize, readModel.totalElements());
     }
 
     /**
@@ -112,18 +115,59 @@ public class HomeService {
     }
 
     /**
-     * 홈 조회 모델 로딩
+     * 홈 과목 조회 모델 로딩
      */
-    private HomeReadModel loadHomeReadModel(Long userId) {
-        List<Subject> subjects = subjectRepository.findAllByUserIdAndDeletedAtIsNull(userId);
-        List<Chapter> chapters = chapterRepository.findAllByUserIdAndDeletedAtIsNull(userId);
-        List<Part> parts = partRepository.findAllByUserIdAndDeletedAtIsNull(userId);
+    private HomeSubjectReadModel loadHomeSubjectReadModel(Long userId) {
+        List<Subject> subjects = subjectRepository.findHomeSummarySubjects(userId, HOME_SUBJECT_SIZE);
+        List<Long> subjectIds = subjects.stream()
+                .map(Subject::getId)
+                .toList();
         List<SubjectExamSchedule> schedules = loadSubjectSchedules(userId, subjects);
-        List<QuizSession> quizSessions = quizSessionRepository.findAllByUserIdAndDeletedAtIsNull(userId);
-        List<QuizPlaySession> playSessions = quizPlaySessionRepository.findAllByUserId(userId);
-        List<QuizResult> quizResults = quizResultRepository.findAllByUserId(userId);
 
-        return new HomeReadModel(userId, subjects, chapters, parts, schedules, quizSessions, playSessions, quizResults);
+        return new HomeSubjectReadModel(
+                userId,
+                subjects,
+                schedules,
+                loadChapterCountMap(userId, subjectIds),
+                loadPartCountMap(userId, subjectIds),
+                loadLastActivityAtMap(userId, subjectIds)
+        );
+    }
+
+    /**
+     * 최근활동 조회 모델 로딩
+     */
+    private RecentActivityReadModel loadRecentActivityReadModel(Long userId, int page, int size) {
+        int fetchSize = calculateActivityFetchSize(page, size);
+        PageRequest activityLimit = PageRequest.of(0, fetchSize);
+
+        List<QuizSession> readyQuizSessions = quizSessionRepository.findReadyActivities(
+                userId,
+                QUIZ_SESSION_COMPLETED,
+                activityLimit
+        );
+        List<QuizPlaySession> inProgressPlaySessions =
+                quizPlaySessionRepository.findByUserIdAndStatusAndDeletedAtIsNullOrderByUpdatedAtDesc(
+                        userId,
+                        PLAY_SESSION_IN_PROGRESS,
+                        activityLimit
+                );
+        List<QuizResult> completedQuizResults =
+                quizResultRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, activityLimit);
+
+        long totalElements = quizSessionRepository.countReadyActivities(userId, QUIZ_SESSION_COMPLETED)
+                + quizPlaySessionRepository.countByUserIdAndStatusAndDeletedAtIsNull(userId, PLAY_SESSION_IN_PROGRESS)
+                + quizResultRepository.countByUserIdAndDeletedAtIsNull(userId);
+
+        return new RecentActivityReadModel(
+                readyQuizSessions,
+                inProgressPlaySessions,
+                completedQuizResults,
+                loadSubjectMap(userId, readyQuizSessions, inProgressPlaySessions, completedQuizResults),
+                loadQuizSessionMap(userId, readyQuizSessions, inProgressPlaySessions, completedQuizResults),
+                loadPlaySessionMap(userId, inProgressPlaySessions, completedQuizResults),
+                totalElements
+        );
     }
 
     /**
@@ -140,6 +184,139 @@ public class HomeService {
                 // 사용자 소유 일정만 사용
                 .filter(schedule -> userId.equals(schedule.getUserId()))
                 .toList();
+    }
+
+    /**
+     * 최근활동 소스별 조회 크기 산출
+     */
+    private int calculateActivityFetchSize(int page, int size) {
+        long requestedSize = ((long) page + 1) * size;
+        return (int) Math.min(requestedSize, Integer.MAX_VALUE);
+    }
+
+    /**
+     * 과목별 챕터 개수 로딩
+     */
+    private Map<Long, Long> loadChapterCountMap(Long userId, List<Long> subjectIds) {
+        if (subjectIds.isEmpty()) {
+            return Map.of();
+        }
+        return toCountMap(chapterRepository.countBySubjectIds(userId, subjectIds));
+    }
+
+    /**
+     * 과목별 파트 개수 로딩
+     */
+    private Map<Long, Long> loadPartCountMap(Long userId, List<Long> subjectIds) {
+        if (subjectIds.isEmpty()) {
+            return Map.of();
+        }
+        return toCountMap(partRepository.countBySubjectIds(userId, subjectIds));
+    }
+
+    /**
+     * 과목별 개수 맵 변환
+     */
+    private Map<Long, Long> toCountMap(List<SubjectCountProjection> values) {
+        return values.stream()
+                .collect(Collectors.toMap(SubjectCountProjection::getSubjectId, SubjectCountProjection::getItemCount));
+    }
+
+    /**
+     * 과목별 마지막 활동 시각 로딩
+     */
+    private Map<Long, LocalDateTime> loadLastActivityAtMap(Long userId, List<Long> subjectIds) {
+        if (subjectIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, LocalDateTime> lastActivityMap = new HashMap<>();
+        mergeLastActivityAt(lastActivityMap, quizSessionRepository.findLastActivityBySubjectIds(userId, subjectIds));
+        mergeLastActivityAt(lastActivityMap, quizPlaySessionRepository.findLastActivityBySubjectIds(userId, subjectIds));
+        mergeLastActivityAt(lastActivityMap, quizResultRepository.findLastActivityBySubjectIds(userId, subjectIds));
+        return lastActivityMap;
+    }
+
+    /**
+     * 마지막 활동 시각 병합
+     */
+    private void mergeLastActivityAt(
+            Map<Long, LocalDateTime> target,
+            List<SubjectLastActivityProjection> values
+    ) {
+        values.forEach(value -> {
+            LocalDateTime lastActivityAt = value.getLastActivityAt();
+            if (lastActivityAt == null) {
+                return;
+            }
+            target.merge(value.getSubjectId(), lastActivityAt, (previous, current) ->
+                    previous.isAfter(current) ? previous : current
+            );
+        });
+    }
+
+    /**
+     * 최근활동 과목 맵 로딩
+     */
+    private Map<Long, Subject> loadSubjectMap(
+            Long userId,
+            List<QuizSession> readyQuizSessions,
+            List<QuizPlaySession> inProgressPlaySessions,
+            List<QuizResult> completedQuizResults
+    ) {
+        Set<Long> subjectIds = new HashSet<>();
+        readyQuizSessions.forEach(session -> subjectIds.add(session.getSubjectId()));
+        inProgressPlaySessions.forEach(session -> subjectIds.add(session.getSubjectId()));
+        completedQuizResults.forEach(result -> subjectIds.add(result.getSubjectId()));
+
+        if (subjectIds.isEmpty()) {
+            return Map.of();
+        }
+        return subjectRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(subjectIds, userId).stream()
+                .collect(Collectors.toMap(Subject::getId, Function.identity()));
+    }
+
+    /**
+     * 최근활동 퀴즈 세션 맵 로딩
+     */
+    private Map<Long, QuizSession> loadQuizSessionMap(
+            Long userId,
+            List<QuizSession> readyQuizSessions,
+            List<QuizPlaySession> inProgressPlaySessions,
+            List<QuizResult> completedQuizResults
+    ) {
+        Map<Long, QuizSession> quizSessionMap = readyQuizSessions.stream()
+                .collect(Collectors.toMap(QuizSession::getId, Function.identity()));
+        Set<Long> quizSessionIds = new HashSet<>();
+        inProgressPlaySessions.forEach(session -> quizSessionIds.add(session.getQuizSessionId()));
+        completedQuizResults.forEach(result -> quizSessionIds.add(result.getQuizSessionId()));
+        quizSessionIds.removeAll(quizSessionMap.keySet());
+
+        if (quizSessionIds.isEmpty()) {
+            return quizSessionMap;
+        }
+        quizSessionRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(quizSessionIds, userId)
+                .forEach(session -> quizSessionMap.put(session.getId(), session));
+        return quizSessionMap;
+    }
+
+    /**
+     * 최근활동 풀이 세션 맵 로딩
+     */
+    private Map<Long, QuizPlaySession> loadPlaySessionMap(
+            Long userId,
+            List<QuizPlaySession> inProgressPlaySessions,
+            List<QuizResult> completedQuizResults
+    ) {
+        Set<Long> playSessionIds = completedQuizResults.stream()
+                .map(QuizResult::getPlaySessionId)
+                .collect(Collectors.toSet());
+
+        List<QuizPlaySession> playSessions = new ArrayList<>(inProgressPlaySessions);
+        if (!playSessionIds.isEmpty()) {
+            playSessions.addAll(quizPlaySessionRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(playSessionIds, userId));
+        }
+        return playSessions.stream()
+                .collect(Collectors.toMap(QuizPlaySession::getId, Function.identity(), (left, right) -> left));
     }
 
     /**
@@ -165,19 +342,15 @@ public class HomeService {
     /**
      * 최근활동 응답 목록 생성
      */
-    private List<RecentActivityResponse> buildRecentActivities(HomeReadModel readModel) {
-        // V2: 여러 도메인 활동을 정확히 페이징하기 위한 읽기 모델 전환 필요
-        List<RecentActivityResponse> activities = new java.util.ArrayList<>();
+    private List<RecentActivityResponse> buildRecentActivities(RecentActivityReadModel readModel) {
+        List<RecentActivityResponse> activities = new ArrayList<>();
         Map<Long, Subject> subjectMap = readModel.subjectMap();
         Map<Long, QuizSession> quizSessionMap = readModel.quizSessionMap();
         Map<Long, QuizPlaySession> playSessionMap = readModel.playSessionMap();
-        Set<Long> startedQuizSessionIds = readModel.playSessions().stream()
-                .map(QuizPlaySession::getQuizSessionId)
-                .collect(Collectors.toSet());
 
-        activities.addAll(buildReadyQuizActivities(readModel.quizSessions(), startedQuizSessionIds, subjectMap));
-        activities.addAll(buildInProgressQuizActivities(readModel.playSessions(), quizSessionMap, subjectMap));
-        activities.addAll(buildCompletedQuizActivities(readModel.quizResults(), quizSessionMap, playSessionMap, subjectMap));
+        activities.addAll(buildReadyQuizActivities(readModel.readyQuizSessions(), subjectMap));
+        activities.addAll(buildInProgressQuizActivities(readModel.inProgressPlaySessions(), quizSessionMap, subjectMap));
+        activities.addAll(buildCompletedQuizActivities(readModel.completedQuizResults(), quizSessionMap, playSessionMap, subjectMap));
 
         return activities.stream()
                 .sorted(Comparator.comparing(RecentActivityResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
@@ -189,13 +362,9 @@ public class HomeService {
      */
     private List<RecentActivityResponse> buildReadyQuizActivities(
             List<QuizSession> quizSessions,
-            Set<Long> startedQuizSessionIds,
             Map<Long, Subject> subjectMap
     ) {
         return quizSessions.stream()
-                // 생성 완료 후 아직 풀이를 시작하지 않은 퀴즈
-                .filter(session -> QUIZ_SESSION_COMPLETED.equals(session.getStatus()))
-                .filter(session -> !startedQuizSessionIds.contains(session.getId()))
                 .map(session -> toReadyQuizActivity(session, subjectMap.get(session.getSubjectId())))
                 .flatMap(Optional::stream)
                 .toList();
@@ -244,15 +413,21 @@ public class HomeService {
     /**
      * D-Day 응답 목록 조회
      */
-    private List<SubjectExamScheduleResponse> findDDayScheduleResponses(HomeReadModel readModel) {
-        return subjectExamScheduleRepository
+    private List<SubjectExamScheduleResponse> findDDayScheduleResponses(Long userId) {
+        List<SubjectExamSchedule> schedules = subjectExamScheduleRepository
                 .findByUserIdAndDeletedAtIsNullAndExamDateGreaterThanEqualOrderByExamDateAscCreatedAtDesc(
-                        readModel.userId(),
+                        userId,
                         LocalDate.now(),
                         PageRequest.of(0, HOME_D_DAY_SIZE)
-                )
-                .stream()
-                .map(schedule -> toSubjectExamScheduleResponse(schedule, readModel.subjectMap().get(schedule.getSubjectId())))
+                );
+        Map<Long, Subject> subjectMap = loadSubjectMapByIds(
+                userId,
+                schedules.stream()
+                        .map(SubjectExamSchedule::getSubjectId)
+                        .collect(Collectors.toSet())
+        );
+        return schedules.stream()
+                .map(schedule -> toSubjectExamScheduleResponse(schedule, subjectMap.get(schedule.getSubjectId())))
                 .flatMap(Optional::stream)
                 .toList();
     }
@@ -260,62 +435,29 @@ public class HomeService {
     /**
      * 과목 요약 응답 목록 조회
      */
-    private List<SubjectSummaryResponse> findSubjectSummaryResponses(HomeReadModel readModel) {
-        Map<Long, Long> chapterCountMap = countBySubjectId(readModel.chapters(), Chapter::getSubjectId);
-        Map<Long, Long> partCountMap = countBySubjectId(readModel.parts(), Part::getSubjectId);
+    private List<SubjectSummaryResponse> findSubjectSummaryResponses(HomeSubjectReadModel readModel) {
         Map<Long, SubjectExamSchedule> scheduleMap = readModel.scheduleMap();
 
         return readModel.subjects().stream()
-                .sorted(Comparator
-                        .comparing((Subject subject) -> resolveLastActivityAt(subject.getId(), readModel), Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(Subject::getCreatedAt, Comparator.reverseOrder()))
-                .limit(HOME_SUBJECT_SIZE)
                 .map(subject -> toSubjectSummaryResponse(
                         subject,
-                        chapterCountMap.getOrDefault(subject.getId(), 0L),
-                        partCountMap.getOrDefault(subject.getId(), 0L),
-                        resolveLastActivityAt(subject.getId(), readModel),
+                        readModel.chapterCountMap().getOrDefault(subject.getId(), 0L),
+                        readModel.partCountMap().getOrDefault(subject.getId(), 0L),
+                        readModel.lastActivityMap().get(subject.getId()),
                         scheduleMap.get(subject.getId())
                 ))
                 .toList();
     }
 
     /**
-     * 과목별 개수 집계
+     * 과목 맵 로딩
      */
-    private <T> Map<Long, Long> countBySubjectId(Collection<T> values, Function<T, Long> subjectIdExtractor) {
-        return values.stream()
-                .collect(Collectors.groupingBy(subjectIdExtractor, Collectors.counting()));
-    }
-
-    /**
-     * 과목 마지막 활동 시각 산출
-     */
-    private LocalDateTime resolveLastActivityAt(Long subjectId, HomeReadModel readModel) {
-        return java.util.stream.Stream.of(
-                        latest(readModel.quizSessions(), subjectId, QuizSession::getSubjectId, QuizSession::getCreatedAt),
-                        latest(readModel.playSessions(), subjectId, QuizPlaySession::getSubjectId, QuizPlaySession::getUpdatedAt),
-                        latest(readModel.quizResults(), subjectId, QuizResult::getSubjectId, QuizResult::getCreatedAt)
-                )
-                .flatMap(Optional::stream)
-                .max(LocalDateTime::compareTo)
-                .orElse(null);
-    }
-
-    /**
-     * 과목별 최신 시각 조회
-     */
-    private <T> Optional<LocalDateTime> latest(
-            Collection<T> values,
-            Long subjectId,
-            Function<T, Long> subjectIdExtractor,
-            Function<T, LocalDateTime> dateTimeExtractor
-    ) {
-        return values.stream()
-                // 동일 과목 데이터만 집계
-                .filter(value -> subjectId.equals(subjectIdExtractor.apply(value)))
-                .map(dateTimeExtractor)
-                .max(LocalDateTime::compareTo);
+    private Map<Long, Subject> loadSubjectMapByIds(Long userId, Set<Long> subjectIds) {
+        if (subjectIds.isEmpty()) {
+            return Map.of();
+        }
+        return subjectRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(subjectIds, userId).stream()
+                .collect(Collectors.toMap(Subject::getId, Function.identity()));
     }
 
     /**
@@ -473,26 +615,16 @@ public class HomeService {
     }
 
     /**
-     * 홈 조합용 조회 모델
+     * 홈 과목 조합용 조회 모델
      */
-    private record HomeReadModel(
+    private record HomeSubjectReadModel(
             Long userId,
             List<Subject> subjects,
-            List<Chapter> chapters,
-            List<Part> parts,
             List<SubjectExamSchedule> schedules,
-            List<QuizSession> quizSessions,
-            List<QuizPlaySession> playSessions,
-            List<QuizResult> quizResults
+            Map<Long, Long> chapterCountMap,
+            Map<Long, Long> partCountMap,
+            Map<Long, LocalDateTime> lastActivityMap
     ) {
-
-        /**
-         * 과목 맵 생성
-         */
-        private Map<Long, Subject> subjectMap() {
-            return subjects.stream()
-                    .collect(Collectors.toMap(Subject::getId, Function.identity()));
-        }
 
         /**
          * 일정 맵 생성
@@ -501,21 +633,19 @@ public class HomeService {
             return schedules.stream()
                     .collect(Collectors.toMap(SubjectExamSchedule::getSubjectId, Function.identity()));
         }
+    }
 
-        /**
-         * 퀴즈 세션 맵 생성
-         */
-        private Map<Long, QuizSession> quizSessionMap() {
-            return quizSessions.stream()
-                    .collect(Collectors.toMap(QuizSession::getId, Function.identity()));
-        }
-
-        /**
-         * 풀이 세션 맵 생성
-         */
-        private Map<Long, QuizPlaySession> playSessionMap() {
-            return playSessions.stream()
-                    .collect(Collectors.toMap(QuizPlaySession::getId, Function.identity()));
-        }
+    /**
+     * 최근활동 조합용 조회 모델
+     */
+    private record RecentActivityReadModel(
+            List<QuizSession> readyQuizSessions,
+            List<QuizPlaySession> inProgressPlaySessions,
+            List<QuizResult> completedQuizResults,
+            Map<Long, Subject> subjectMap,
+            Map<Long, QuizSession> quizSessionMap,
+            Map<Long, QuizPlaySession> playSessionMap,
+            long totalElements
+    ) {
     }
 }
