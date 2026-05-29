@@ -52,7 +52,7 @@ public class QuizPlaySession {
     @Column(name = "id")
     Long id;
 
-    @Column(name = "client_session_id", length = 36, nullable = false)
+    @Column(name = "client_session_id", length = 128, nullable = false)
     String clientSessionId;
 
     @Column(name = "quiz_session_id", nullable = false)
