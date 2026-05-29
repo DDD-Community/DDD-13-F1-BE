@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.chapter.repository;
 
 import com.f1.quiket.domain.chapter.entity.Chapter;
+import com.f1.quiket.domain.home.repository.SubjectCountProjection;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
@@ -34,6 +35,23 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
      * 과목별 챕터 목록 조회
      */
     List<Chapter> findAllBySubjectIdInAndDeletedAtIsNull(Collection<Long> subjectIds);
+
+    /**
+     * 과목별 챕터 개수 집계
+     */
+    @Query("""
+            select c.subjectId as subjectId,
+                   count(c) as itemCount
+            from Chapter c
+            where c.userId = :userId
+              and c.deletedAt is null
+              and c.subjectId in :subjectIds
+            group by c.subjectId
+            """)
+    List<SubjectCountProjection> countBySubjectIds(
+            @Param("userId") Long userId,
+            @Param("subjectIds") Collection<Long> subjectIds
+    );
 
     /**
      * 공개 식별자 기반 사용자 챕터 조회

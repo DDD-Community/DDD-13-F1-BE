@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.part.repository;
 
 import com.f1.quiket.domain.part.entity.Part;
+import com.f1.quiket.domain.home.repository.SubjectCountProjection;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,23 @@ public interface PartRepository extends JpaRepository<Part, Long> {
      * 과목별 파트 목록 조회
      */
     List<Part> findAllBySubjectIdInAndDeletedAtIsNull(Collection<Long> subjectIds);
+
+    /**
+     * 과목별 파트 개수 집계
+     */
+    @Query("""
+            select p.subjectId as subjectId,
+                   count(p) as itemCount
+            from Part p
+            where p.userId = :userId
+              and p.deletedAt is null
+              and p.subjectId in :subjectIds
+            group by p.subjectId
+            """)
+    List<SubjectCountProjection> countBySubjectIds(
+            @Param("userId") Long userId,
+            @Param("subjectIds") Collection<Long> subjectIds
+    );
     List<Part> findAllBySubjectIdAndUserIdAndDeletedAtIsNullOrderByChapterIdAscPartNumberAscCreatedAtAsc(
             Long subjectId,
             Long userId
