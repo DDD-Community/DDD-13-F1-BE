@@ -2,14 +2,15 @@ package com.f1.quiket.global.error;
 
 import com.f1.quiket.global.response.ApiResponse;
 import com.f1.quiket.global.response.ErrorCode;
-import lombok.extern.slf4j.Slf4j;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 /**
@@ -36,7 +37,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<?>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
-        
+
         String message = Optional.ofNullable(e.getBindingResult().getFieldError())
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .orElse("입력값이 올바르지 않습니다.");
@@ -56,6 +57,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(ApiResponse.fail(ErrorCode.METHOD_NOT_ALLOWED));
+    }
+
+    /**
+     * multipart 파일 용량 초과
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<?>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
+        log.warn("Multipart upload size exceeded: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.FILE_SIZE_EXCEEDED.getStatus())
+                .body(ApiResponse.fail(ErrorCode.FILE_SIZE_EXCEEDED));
     }
 
     /**
