@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
+import com.f1.quiket.domain.quiz.dto.QuizReviewResponse;
 import com.f1.quiket.domain.quiz.entity.Question;
 import com.f1.quiket.domain.quiz.entity.QuestionAnswer;
 import com.f1.quiket.domain.quiz.entity.QuestionOption;
@@ -117,6 +118,50 @@ class QuizResultQueryServiceTest {
         assertThat(response.getReviewItems().get(0).getSelectedOptionId()).isEqualTo(String.valueOf(correctOption.getId()));
         assertThat(response.getReviewItems().get(0).getAnswerValue()).isEqualTo("1");
         assertThat(response.getReviewItems().get(0).getCorrectServer()).isTrue();
+    }
+
+    @Test
+    void getQuizReview_filters_items_and_validates_filter() {
+        Long userId = 1L;
+        User user = user(userId, 20, 400, 3);
+        Subject subject = subject(10L, "subject-public-id", userId, "데이터베이스");
+        QuizSession quizSession = quizSession(500L, "quiz-session-public-id", userId, subject.getId());
+        QuizPlaySession playSession = playSession(700L, "client-session-id", quizSession.getId(), userId, subject.getId());
+        Question question = question(900L, "question-public-id", quizSession.getId(), userId, subject.getId(), 1);
+        QuestionOption correctOption = option(1000L, question.getId(), 1, "정답", true);
+        QuestionOption wrongOption = option(1001L, question.getId(), 2, "오답", false);
+        QuestionAnswer answer = answer(2000L, question.getId(), "1");
+        // 정답 1문항만 푼 결과
+        QuizPlayAnswer playAnswer = playAnswer(playSession.getId(), question.getId(), userId, correctOption.getId(), true, false);
+        QuizResult result = result(3000L, "result-public-id", playSession, quizSession, subject, 1, 1, 0, 0, 100);
+
+        when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.of(user));
+        when(quizResultRepository.findByPublicIdAndUserId(result.getPublicId(), userId)).thenReturn(Optional.of(result));
+        when(quizPlaySessionRepository.findByIdAndUserId(playSession.getId(), userId)).thenReturn(Optional.of(playSession));
+        when(quizSessionRepository.findByIdAndUserIdAndDeletedAtIsNull(quizSession.getId(), userId)).thenReturn(Optional.of(quizSession));
+        when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(subject.getId(), userId)).thenReturn(Optional.of(subject));
+        when(questionRepository.findAllByQuizSessionIdAndUserIdOrderByDisplayOrderAscIdAsc(quizSession.getId(), userId)).thenReturn(List.of(question));
+        when(questionOptionRepository.findAllByQuestionIdInOrderByQuestionIdAscOptionNumberAsc(List.of(question.getId()))).thenReturn(List.of(correctOption, wrongOption));
+        when(questionAnswerRepository.findAllByQuestionIdIn(List.of(question.getId()))).thenReturn(List.of(answer));
+        when(quizPlayAnswerRepository.findAllByPlaySessionId(playSession.getId())).thenReturn(List.of(playAnswer));
+
+        // all: 전체 1문항
+        QuizReviewResponse all = quizResultQueryService.getQuizReview(userId, result.getPublicId(), "all");
+        assertThat(all.getPlaySessionId()).isEqualTo(playSession.getClientSessionId());
+        assertThat(all.getItems()).hasSize(1);
+
+        // correct: 정답 1문항
+        assertThat(quizResultQueryService.getQuizReview(userId, result.getPublicId(), "correct").getItems()).hasSize(1);
+        // wrong: 오답 0문항
+        assertThat(quizResultQueryService.getQuizReview(userId, result.getPublicId(), "wrong").getItems()).isEmpty();
+        // null/blank filter → all 취급
+        assertThat(quizResultQueryService.getQuizReview(userId, result.getPublicId(), null).getItems()).hasSize(1);
+
+        // 잘못된 filter → 400
+        assertThatThrownBy(() -> quizResultQueryService.getQuizReview(userId, result.getPublicId(), "unknown"))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.QUIZ_OPTION_INVALID);
     }
 
     @Test
