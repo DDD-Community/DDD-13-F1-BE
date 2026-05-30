@@ -5,6 +5,7 @@ import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitOutcome;
 import com.f1.quiket.domain.quiz.dto.QuizResultSubmitRequest;
 import com.f1.quiket.domain.quiz.dto.QuizRetryRequest;
+import com.f1.quiket.domain.quiz.dto.QuizReviewResponse;
 import com.f1.quiket.domain.quiz.service.QuizResultQueryService;
 import com.f1.quiket.domain.quiz.service.QuizResultRetryAllService;
 import com.f1.quiket.domain.quiz.service.QuizResultRetryWrongService;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -61,6 +63,23 @@ public class QuizResultController {
             @PathVariable("resultId") String resultPublicId
     ) {
         QuizResultResponse response = quizResultQueryService.getQuizResult(principal.getUserId(), resultPublicId);
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
+    }
+
+    /**
+     * 문제별 해설 조회 (RESULT-002, filter: all/correct/wrong)
+     */
+    @GetMapping("/{resultId}/review")
+    public ResponseEntity<ApiResponse<QuizReviewResponse>> getQuizResultReview(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("resultId") String resultPublicId,
+            @RequestParam(value = "filter", required = false, defaultValue = "all") String filter
+    ) {
+        QuizReviewResponse response = quizResultQueryService.getQuizReview(
+                principal.getUserId(),
+                resultPublicId,
+                filter
+        );
         return ResponseEntity.ok(ApiResponse.success(SuccessCode.OK, response));
     }
 

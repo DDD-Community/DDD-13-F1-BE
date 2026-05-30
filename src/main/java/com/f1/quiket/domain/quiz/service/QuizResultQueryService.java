@@ -1,6 +1,8 @@
 package com.f1.quiket.domain.quiz.service;
 
 import com.f1.quiket.domain.quiz.dto.QuizResultResponse;
+import com.f1.quiket.domain.quiz.dto.QuizReviewItemResponse;
+import com.f1.quiket.domain.quiz.dto.QuizReviewResponse;
 import com.f1.quiket.domain.quiz.entity.Question;
 import com.f1.quiket.domain.quiz.entity.QuestionAnswer;
 import com.f1.quiket.domain.quiz.entity.QuestionOption;
@@ -75,6 +77,31 @@ public class QuizResultQueryService {
                 answersByQuestionId,
                 playAnswers
         );
+    }
+
+    /**
+     * 문제별 해설(리뷰) 조회 — RESULT-002. filter(all/correct/wrong)로 문항을 거른다.
+     * 결과 상세 조립을 재사용하고 해설 화면에 필요한 항목만 추려 응답한다.
+     */
+    public QuizReviewResponse getQuizReview(Long userId, String resultPublicId, String filter) {
+        QuizResultResponse result = getQuizResult(userId, resultPublicId);
+        List<QuizReviewItemResponse> items = filterReviewItems(result.getReviewItems(), filter);
+        return QuizReviewResponse.of(result.getPlaySessionId(), items);
+    }
+
+    private List<QuizReviewItemResponse> filterReviewItems(List<QuizReviewItemResponse> items, String filter) {
+        String normalized = (filter == null || filter.isBlank()) ? "all" : filter.toLowerCase();
+        return switch (normalized) {
+            case "all" -> items;
+            case "correct" -> items.stream()
+                    .filter(item -> Boolean.TRUE.equals(item.getCorrectServer()))
+                    .toList();
+            // 틀린 문제 = 오답 + 미선택(skip). 서버 채점이 정답이 아닌 모든 문항.
+            case "wrong" -> items.stream()
+                    .filter(item -> !Boolean.TRUE.equals(item.getCorrectServer()))
+                    .toList();
+            default -> throw new CustomException(ErrorCode.QUIZ_OPTION_INVALID, "지원하지 않는 해설 필터입니다.");
+        };
     }
 
     private User findUser(Long userId) {
