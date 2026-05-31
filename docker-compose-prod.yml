@@ -8,7 +8,7 @@ services:
     env_file:
       - .env
     volumes:
-      # 로그 영속화: 컨테이너 내부 로그 디렉토리를 호스트에 bind mount.
-      # 재배포(컨테이너 재생성) 후에도 호스트 ./logs 에서 이전 로그를 조회할 수 있다.
-      # (logback prod 프로파일의 LOG_DIR=/var/log/quicket 와 일치)
+      # 로그 영속화 - 컨테이너 내부 로그 디렉토리 호스트 bind mount
+      # 재배포 후에도 호스트 ./logs 에서 이전 로그 조회 가능
+      # logback prod LOG_DIR(/var/log/quicket)과 동일 경로
       - ./logs:/var/log/quicket
