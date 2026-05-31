@@ -39,7 +39,7 @@ class PasswordResetTokenCleanupSchedulerTest {
 
     @Test
     void expirePendingPasswordResetTokens_isolates_exception() {
-        // 정리 실패가 스케줄러를 멈추지 않도록 예외를 격리한다(ERROR 로그만).
+        // 정리 실패 시 예외 격리로 스케줄러 중단 방지(ERROR 로그만)
         when(passwordResetService.expirePendingPasswordResetTokens()).thenThrow(new RuntimeException("db down"));
 
         assertThatCode(() -> scheduler.expirePendingPasswordResetTokens()).doesNotThrowAnyException();
