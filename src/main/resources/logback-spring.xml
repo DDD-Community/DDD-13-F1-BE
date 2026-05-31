@@ -19,9 +19,9 @@
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${LOG_DIR}/%d{yyyy-MM}/application.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>90</maxHistory>
-            <!-- 로그 아카이브 총량 상한. 90일(maxHistory)과 함께 동작하며, 둘 중 먼저
-                 충족되는 조건으로 오래된 아카이브부터 삭제하여 디스크 폭주를 방지한다.
-                 프리티어 EBS 30GB 기준 약 10% (로그 폭주 방어 + 보관 여유). -->
+            <!-- 로그 아카이브 총량 상한 - maxHistory(90일)와 둘 중 먼저 충족되는 조건으로
+                 오래된 아카이브부터 삭제, 디스크 폭주 방어
+                 프리티어 EBS 30GB 기준 약 10% -->
             <totalSizeCap>3GB</totalSizeCap>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
