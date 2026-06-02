@@ -24,10 +24,10 @@ public class PasswordResetTokenCleanupScheduler {
         try {
             int expired = passwordResetService.expirePendingPasswordResetTokens();
             if (expired > 0) {
-                log.info("만료된 비밀번호 재설정 토큰 {}건을 정리했습니다.", expired);
+                log.info("Expired password reset tokens cleaned up: count={}", expired);
             }
         } catch (Exception e) {
-            log.error("비밀번호 재설정 토큰 만료 정리에 실패했습니다.", e);
+            log.error("Failed to clean up expired password reset tokens", e);
         }
     }
 }

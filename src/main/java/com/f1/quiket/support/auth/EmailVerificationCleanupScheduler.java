@@ -24,10 +24,10 @@ public class EmailVerificationCleanupScheduler {
         try {
             int expired = localAuthService.expirePendingEmailVerifications();
             if (expired > 0) {
-                log.info("만료된 이메일 인증 {}건을 정리했습니다.", expired);
+                log.info("Expired email verifications cleaned up: count={}", expired);
             }
         } catch (Exception e) {
-            log.error("이메일 인증 만료 정리에 실패했습니다.", e);
+            log.error("Failed to clean up expired email verifications", e);
         }
     }
 }
