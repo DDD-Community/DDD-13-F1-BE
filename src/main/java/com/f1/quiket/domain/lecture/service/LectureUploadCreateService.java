@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LectureUploadCreateService {
 
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
@@ -63,6 +65,8 @@ public class LectureUploadCreateService {
 
     /**
      * 텍스트 직접 입력 업로드 접수
+     *
+     * chapterName이 null이면 임시명("새 챕터")으로 챕터 생성 후 AI 처리 완료 시 자동 업데이트
      *
      * @param userId 인증 사용자 내부 식별자
      * @param request 텍스트 업로드 요청
@@ -88,7 +92,8 @@ public class LectureUploadCreateService {
                 chapter.getId(),
                 subject.getId(),
                 userId,
-                chapter.getName(),
+                // chapterName이 null이면 AI가 처리 중 자동 생성 (event에 null 전달)
+                request.getChapterName(),
                 uploadType,
                 partSplitMethod,
                 request.getText(),
@@ -102,9 +107,11 @@ public class LectureUploadCreateService {
     /**
      * PDF 또는 이미지 파일 업로드 접수
      *
+     * chapterName이 null이면 임시명("새 챕터")으로 챕터 생성 후 AI 처리 완료 시 자동 업데이트
+     *
      * @param userId 인증 사용자 내부 식별자
      * @param subjectPublicId 과목 공개 식별자
-     * @param chapterName 생성할 챕터명
+     * @param chapterName 생성할 챕터명 (null이면 AI 자동 생성)
      * @param uploadTypeValue 업로드 타입 문자열
      * @param partSplitMethodValue 파트 분류 방식 문자열
      * @param multipartFiles 업로드 파일 목록
@@ -123,7 +130,6 @@ public class LectureUploadCreateService {
     ) {
         StudyMaterialUploadType uploadType = parseUploadType(uploadTypeValue);
         PartSplitMethod partSplitMethod = parsePartSplitMethod(partSplitMethodValue);
-        validateChapterName(chapterName);
         List<StudyMaterialFile> files = validateAndReadFiles(uploadType, multipartFiles);
         List<LecturePartSplitPlan> plans = validateAndConvertPlans(partSplitMethod, parsePlansJson(partSplitPlansJson));
 
@@ -141,7 +147,8 @@ public class LectureUploadCreateService {
                 chapter.getId(),
                 subject.getId(),
                 userId,
-                chapter.getName(),
+                // chapterName이 null이면 AI가 처리 중 자동 생성 (event에 null 전달)
+                chapterName,
                 uploadType,
                 partSplitMethod,
                 null,
@@ -162,9 +169,14 @@ public class LectureUploadCreateService {
     }
 
     private Chapter createChapter(Subject subject, Long userId, String chapterName) {
-        validateChapterName(chapterName);
+        // 제공된 챕터명 유효성 검증 (null이면 AI 생성 예정이므로 통과)
+        if (chapterName != null && (chapterName.isBlank() || chapterName.length() > 30)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "chapterName은 1~30자로 입력해주세요.");
+        }
+        // chapterName 미제공 시 임시 챕터명으로 생성 → AI 처리 완료 후 업데이트
+        String name = StringUtils.hasText(chapterName) ? chapterName.trim() : "새 챕터";
         int nextDisplayOrder = chapterRepository.findMaxDisplayOrderBySubjectId(subject.getId()) + 1;
-        return chapterRepository.save(Chapter.create(subject.getId(), userId, chapterName.trim(), nextDisplayOrder));
+        return chapterRepository.save(Chapter.create(subject.getId(), userId, name, nextDisplayOrder));
     }
 
     private StudyMaterialUploadType parseUploadType(String value) {
@@ -192,12 +204,6 @@ public class LectureUploadCreateService {
         }
         if (text.length() > MAX_TEXT_LENGTH) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "text는 30,000자 이하로 입력해주세요.");
-        }
-    }
-
-    private void validateChapterName(String chapterName) {
-        if (!StringUtils.hasText(chapterName) || chapterName.trim().length() > 30) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "chapterName은 1~30자로 입력해주세요.");
         }
     }
 
@@ -242,12 +248,27 @@ public class LectureUploadCreateService {
         // 파일 형식 검증
         if (uploadType == StudyMaterialUploadType.PDF
                 && !("application/pdf".equals(contentType) || filename.endsWith(".pdf"))) {
+            logUnsupportedFileType(uploadType, filename, contentType);
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "지원하지 않는 파일 형식이에요");
         }
         if (uploadType == StudyMaterialUploadType.IMAGE
                 && !(isSupportedImageContentType(contentType) || isSupportedImageFileName(filename))) {
+            logUnsupportedFileType(uploadType, filename, contentType);
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "JPG, PNG 형식만 지원해요");
         }
+    }
+
+    private void logUnsupportedFileType(
+            StudyMaterialUploadType uploadType,
+            String filename,
+            String contentType
+    ) {
+        log.warn(
+                "Unsupported lecture upload file type. requestedUploadType={}, fileName={}, contentType={}",
+                uploadType,
+                filename,
+                contentType
+        );
     }
 
     private boolean isSupportedImageContentType(String contentType) {
