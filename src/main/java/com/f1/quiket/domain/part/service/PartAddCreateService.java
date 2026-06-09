@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PartAddCreateService {
 
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024L * 1024L;
@@ -238,12 +240,27 @@ public class PartAddCreateService {
         // 파일 형식 검증
         if (uploadType == StudyMaterialUploadType.PDF
                 && !("application/pdf".equals(contentType) || filename.endsWith(".pdf"))) {
+            logUnsupportedFileType(uploadType, filename, contentType);
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "지원하지 않는 파일 형식이에요");
         }
         if (uploadType == StudyMaterialUploadType.IMAGE
                 && !(isSupportedImageContentType(contentType) || isSupportedImageFileName(filename))) {
+            logUnsupportedFileType(uploadType, filename, contentType);
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "JPG, PNG 형식만 지원해요");
         }
+    }
+
+    private void logUnsupportedFileType(
+            StudyMaterialUploadType uploadType,
+            String filename,
+            String contentType
+    ) {
+        log.warn(
+                "Unsupported part upload file type. requestedUploadType={}, fileName={}, contentType={}",
+                uploadType,
+                filename,
+                contentType
+        );
     }
 
     private boolean isSupportedImageContentType(String contentType) {

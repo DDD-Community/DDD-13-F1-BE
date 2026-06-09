@@ -62,7 +62,7 @@ public class LectureUploadController {
      *
      * @param principal 인증 사용자
      * @param subjectId 과목 공개 식별자
-     * @param chapterName 생성할 챕터명
+     * @param chapterName 생성할 챕터명 (선택 - null이면 AI 자동 생성)
      * @param uploadType pdf 또는 image
      * @param partSplitMethod auto 또는 manual
      * @param files 업로드 파일 목록
@@ -73,7 +73,7 @@ public class LectureUploadController {
     public ResponseEntity<ApiResponse<LectureUploadAcceptedResponse>> createFileUpload(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam("subjectId") String subjectId,
-            @RequestParam("chapterName") String chapterName,
+            @RequestParam(value = "chapterName", required = false) String chapterName,
             @RequestParam("uploadType") String uploadType,
             @RequestParam("partSplitMethod") String partSplitMethod,
             @RequestParam("files") List<MultipartFile> files,
