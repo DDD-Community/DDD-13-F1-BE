@@ -13,7 +13,8 @@ import lombok.Getter;
 /**
  * 강의 업로드 상태 조회 응답 DTO
  *
- * 처리 상태, 진행률, 생성 파트 목록, 실패 사유 전달
+ * 처리 상태, 진행률, 챕터명, 생성 파트 목록, 실패 사유 전달
+ * chapterName은 AI 처리 완료 후 갱신된 최종값을 반환 (처리 중에는 임시명 "새 챕터")
  */
 @Getter
 @Builder
@@ -21,6 +22,11 @@ public class LectureUploadStatusResponse {
     private final String lectureUploadId;
     private final String subjectId;
     private final String chapterId;
+    /**
+     * 챕터명
+     * AI 처리 완료 전: 임시명("새 챕터"), 완료 후: AI 생성 또는 사용자 입력 챕터명
+     */
+    private final String chapterName;
     private final String status;
     private final Integer estimatedSeconds;
     private final Integer progressPct;
@@ -41,6 +47,7 @@ public class LectureUploadStatusResponse {
                 .lectureUploadId(upload.getPublicId())
                 .subjectId(subject.getPublicId())
                 .chapterId(chapter.getPublicId())
+                .chapterName(chapter.getName())
                 .status(upload.getStatus())
                 .estimatedSeconds(30)
                 .progressPct(progressPct(upload))

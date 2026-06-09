@@ -10,6 +10,7 @@ import lombok.Getter;
  * 강의 업로드 접수 응답 DTO
  *
  * 외부 공개 식별자와 최초 처리 상태 전달
+ * 챕터명은 AI 처리 완료 후 status API(/lecture-uploads/{id}/status)에서 확인
  */
 @Getter
 @Builder
