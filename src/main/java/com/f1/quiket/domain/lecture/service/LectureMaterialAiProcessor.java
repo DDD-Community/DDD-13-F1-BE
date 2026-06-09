@@ -56,6 +56,7 @@ public class LectureMaterialAiProcessor {
 
     /**
      * 이미지 OCR 및 파트 분류 처리
+     * chapterName 미지정 시 AI 응답에서 생성된 챕터명 추출
      */
     private LectureMaterialAiProcessResult processImage(LectureMaterialAiProcessRequest request) {
         StudyMaterialAiPrompt prompt = promptBuilder.buildGeminiPrompt(request, null);
@@ -65,16 +66,18 @@ public class LectureMaterialAiProcessor {
                 prompt.userMessage(),
                 request.getFiles()
         );
-        List<LecturePartDraft> parts = parseParts(aiResponse);
+        LecturePartsPayload payload = parsePayload(aiResponse);
         return LectureMaterialAiProcessResult.builder()
                 .provider("gemini")
                 .extractedText(null)
-                .parts(parts)
+                .parts(parseParts(payload))
+                .generatedChapterName(resolveGeneratedChapterName(request, payload))
                 .build();
     }
 
     /**
      * PDF 텍스트 레이어 판별 후 AI 처리
+     * chapterName 미지정 시 AI 응답에서 생성된 챕터명 추출
      */
     private LectureMaterialAiProcessResult processPdf(LectureMaterialAiProcessRequest request) {
         StudyMaterialFile pdfFile = request.getFiles().get(0);
@@ -88,10 +91,12 @@ public class LectureMaterialAiProcessor {
                     prompt.systemMessage(),
                     prompt.userMessage()
             );
+            LecturePartsPayload payload = parsePayload(aiResponse);
             return LectureMaterialAiProcessResult.builder()
                     .provider("groq")
                     .extractedText(text)
-                    .parts(parseGroqParts(aiResponse, text))
+                    .parts(parseGroqParts(payload, text))
+                    .generatedChapterName(resolveGeneratedChapterName(request, payload))
                     .build();
         }
 
@@ -102,15 +107,18 @@ public class LectureMaterialAiProcessor {
                 prompt.userMessage(),
                 pdfFile
         );
+        LecturePartsPayload payload = parsePayload(aiResponse);
         return LectureMaterialAiProcessResult.builder()
                 .provider("gemini")
                 .extractedText(extractionResult.getExtractedText())
-                .parts(parseParts(aiResponse))
+                .parts(parseParts(payload))
+                .generatedChapterName(resolveGeneratedChapterName(request, payload))
                 .build();
     }
 
     /**
      * 직접 입력 텍스트 기반 파트 분류 처리
+     * chapterName 미지정 시 AI 응답에서 생성된 챕터명 추출
      */
     private LectureMaterialAiProcessResult processText(LectureMaterialAiProcessRequest request) {
         StudyMaterialAiPrompt prompt = promptBuilder.buildGroqPrompt(request, request.getText());
@@ -119,11 +127,33 @@ public class LectureMaterialAiProcessor {
                 prompt.systemMessage(),
                 prompt.userMessage()
         );
+        LecturePartsPayload payload = parsePayload(aiResponse);
         return LectureMaterialAiProcessResult.builder()
                 .provider("groq")
                 .extractedText(request.getText())
-                .parts(parseGroqParts(aiResponse, request.getText()))
+                .parts(parseGroqParts(payload, request.getText()))
+                .generatedChapterName(resolveGeneratedChapterName(request, payload))
                 .build();
+    }
+
+    /**
+     * chapterName 미지정 요청에서 AI가 생성한 챕터명 추출
+     *
+     * 사용자가 이미 챕터명을 제공했거나 AI 응답에 챕터명이 없으면 null 반환
+     * 유효하지 않은 챕터명(31자 이상)도 null로 처리하여 폴백("새 챕터") 유지
+     */
+    private String resolveGeneratedChapterName(LectureMaterialAiProcessRequest request, LecturePartsPayload payload) {
+        // 사용자가 챕터명을 직접 제공한 경우 AI 생성 불필요
+        if (StringUtils.hasText(request.getChapterName())) {
+            return null;
+        }
+        String generatedName = payload.getChapterName();
+        // 30자 초과 응답은 유효하지 않으므로 null 처리 (폴백 "새 챕터" 유지)
+        if (!StringUtils.hasText(generatedName) || generatedName.trim().length() > 30) {
+            log.warn("AI 챕터명 생성 실패 또는 유효하지 않은 챕터명. 폴백 유지. generatedName={}", generatedName);
+            return null;
+        }
+        return generatedName.trim();
     }
 
     /**
@@ -143,44 +173,52 @@ public class LectureMaterialAiProcessor {
     }
 
     /**
-     * AI 파트 분류 응답 파싱
+     * AI 응답 JSON 역직렬화
+     *
+     * normalizeJson 후 LecturePartsPayload로 변환
+     * 이후 parseParts 또는 parseGroqParts에서 파트 목록으로 추출
      */
-    private List<LecturePartDraft> parseParts(String aiResponse) {
+    private LecturePartsPayload parsePayload(String aiResponse) {
         try {
             String normalized = normalizeJson(aiResponse);
-            LecturePartsPayload payload = objectMapper.readValue(normalized, LecturePartsPayload.class);
-            if (payload.getParts() == null || payload.getParts().isEmpty()) {
-                throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답에 파트 정보가 없습니다.");
-            }
-
-            List<LecturePartDraft> parts = new ArrayList<>();
-            for (LecturePartPayload part : payload.getParts()) {
-                // name/partName 호환 응답 처리
-                String resolvedName = StringUtils.hasText(part.getName()) ? part.getName() : part.getPartName();
-                if (part.getPartNumber() == null || !StringUtils.hasText(resolvedName)) {
-                    throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파트 형식이 올바르지 않습니다.");
-                }
-                parts.add(LecturePartDraft.builder()
-                        .partNumber(part.getPartNumber())
-                        .name(resolvedName.trim())
-                        .content(valueOrDefault(part.getContent(), "").trim())
-                        .build());
-            }
-            return parts;
+            return objectMapper.readValue(normalized, LecturePartsPayload.class);
         } catch (JsonProcessingException e) {
             throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파싱에 실패했습니다.", e);
         }
     }
 
     /**
-     * Groq 라인 범위 응답 파싱 및 원문 분리
+     * Gemini 파트 분류 응답 파싱 (content 포함)
      */
-    private List<LecturePartDraft> parseGroqParts(String aiResponse, String sourceText) {
-        try {
-            String normalized = normalizeJson(aiResponse);
-            LecturePartsPayload payload = objectMapper.readValue(normalized, LecturePartsPayload.class);
-            List<LineSpan> lineSpans = lineSpans(sourceText);
-            if (payload.getParts() == null || payload.getParts().isEmpty()) {
+    private List<LecturePartDraft> parseParts(LecturePartsPayload payload) {
+        if (payload.getParts() == null || payload.getParts().isEmpty()) {
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답에 파트 정보가 없습니다.");
+        }
+
+        List<LecturePartDraft> parts = new ArrayList<>();
+        for (LecturePartPayload part : payload.getParts()) {
+            // name/partName 호환 응답 처리
+            String resolvedName = StringUtils.hasText(part.getName()) ? part.getName() : part.getPartName();
+            if (part.getPartNumber() == null || !StringUtils.hasText(resolvedName)) {
+                throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파트 형식이 올바르지 않습니다.");
+            }
+            parts.add(LecturePartDraft.builder()
+                    .partNumber(part.getPartNumber())
+                    .name(resolvedName.trim())
+                    .content(valueOrDefault(part.getContent(), "").trim())
+                    .build());
+        }
+        return parts;
+    }
+
+    /**
+     * Groq 라인 범위 응답 파싱 및 원문 분리
+     *
+     * JSON 파싱은 parsePayload에서 완료된 상태로 진입
+     */
+    private List<LecturePartDraft> parseGroqParts(LecturePartsPayload payload, String sourceText) {
+        List<LineSpan> lineSpans = lineSpans(sourceText);
+        if (payload.getParts() == null || payload.getParts().isEmpty()) {
                 log.warn("Groq 파트 범위 응답 없음, 전체 원문 미분류 처리 totalLineCount={}", lineSpans.size());
                 return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
             }
@@ -267,9 +305,6 @@ public class LectureMaterialAiProcessor {
                 addUnclassifiedPart(parts, nextPartNumber, sourceText, lineSpans, nextSourceLine, lineSpans.size());
             }
             return parts;
-        } catch (JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파싱에 실패했습니다.", e);
-        }
     }
 
     private boolean isValidGroqPartPayload(LecturePartPayload part) {
@@ -387,6 +422,8 @@ public class LectureMaterialAiProcessor {
     @Getter
     @Setter
     private static class LecturePartsPayload {
+        /** chapterName 미지정 시 AI가 강의 내용 기반으로 생성한 챕터명 */
+        private String chapterName;
         private List<LecturePartPayload> parts;
     }
 

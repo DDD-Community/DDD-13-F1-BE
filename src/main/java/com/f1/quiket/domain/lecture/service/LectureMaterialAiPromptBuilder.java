@@ -13,34 +13,62 @@ import org.springframework.util.StringUtils;
  * 강의 자료 AI 프롬프트 생성기
  *
  * OCR 및 파트 분류용 시스템 메시지와 사용자 메시지 생성
+ * chapterName이 null이면 AI에게 챕터명 자동 생성을 함께 요청
  */
 @Component
 public class LectureMaterialAiPromptBuilder {
 
     /**
      * Groq 텍스트 분류 프롬프트 생성
+     *
+     * @param request chapterName이 null이면 챕터명 생성 지시 포함
      */
     public StudyMaterialAiPrompt buildGroqPrompt(LectureMaterialAiProcessRequest request, String sourceText) {
-        return new StudyMaterialAiPrompt(systemMessage(), groqUserMessage(request, sourceText));
+        return new StudyMaterialAiPrompt(systemMessage(needsChapterName(request)), groqUserMessage(request, sourceText));
     }
 
     /**
      * Gemini OCR 및 분류 프롬프트 생성
+     *
+     * @param request chapterName이 null이면 챕터명 생성 지시 포함
      */
     public StudyMaterialAiPrompt buildGeminiPrompt(LectureMaterialAiProcessRequest request, String sourceText) {
-        return new StudyMaterialAiPrompt(systemMessage(), geminiUserMessage(request, sourceText));
+        return new StudyMaterialAiPrompt(systemMessage(needsChapterName(request)), geminiUserMessage(request, sourceText));
     }
 
-    private String systemMessage() {
-        return """
+    /**
+     * chapterName이 null이면 AI 챕터명 생성이 필요한 요청으로 판단
+     */
+    private boolean needsChapterName(LectureMaterialAiProcessRequest request) {
+        return !StringUtils.hasText(request.getChapterName());
+    }
+
+    /**
+     * @param generateChapterName true이면 챕터명 생성 지시 추가
+     */
+    private String systemMessage(boolean generateChapterName) {
+        String base = """
                 너는 Quiket 강의 자료 파트 분류 엔진이다.
                 역할은 입력 자료를 파트 단위로 나누는 것이며 요약 엔진이 아니다.
                 반드시 JSON만 반환한다.
                 코드블록, 마크다운, 설명 문장은 절대 포함하지 않는다.
                 """;
+        if (generateChapterName) {
+            // chapterName 미지정 시 강의 내용 기반 챕터명 자동 생성 지시
+            return base + "챕터명이 미지정된 경우 강의 내용을 대표하는 챕터명을 JSON 최상위 chapterName 필드에 반드시 포함한다. chapterName은 1자 이상 30자 이하의 한국어 또는 영어 명사형으로 작성한다.\n";
+        }
+        return base;
     }
 
     private String groqUserMessage(LectureMaterialAiProcessRequest request, String sourceText) {
+        // chapterName 미지정 시 반환 형식에 chapterName 필드 포함 요구
+        String returnFormat = needsChapterName(request)
+                ? """
+                - 반환 형식: {"chapterName":"...","parts":[{"partNumber":1,"name":"...","startLine":1,"endLine":10}]}
+                - chapterName은 강의 내용을 대표하는 1~30자 명사형 챕터명"""
+                : """
+                - 반환 형식: {"parts":[{"partNumber":1,"name":"...","startLine":1,"endLine":10}]}""";
+
         return """
                 [입력]
                 - 챕터명: %s
@@ -53,7 +81,7 @@ public class LectureMaterialAiPromptBuilder {
                 %s
 
                 [반환 규칙]
-                - 반환 형식: {"parts":[{"partNumber":1,"name":"...","startLine":1,"endLine":10}]}
+                %s
                 - partNumber는 1부터 시작하는 오름차순 정수
                 - name은 1자 이상 30자 이하
                 - startLine과 endLine은 해당 파트에 속한 원문 줄 번호 범위
@@ -71,11 +99,20 @@ public class LectureMaterialAiPromptBuilder {
                 valueOrDefault(request.getChapterName(), "미지정"),
                 request.getPartSplitMethod().getValue(),
                 partSplitPlanContext(request.getPartSplitPlans()),
-                lineNumberedText(sourceText)
+                lineNumberedText(sourceText),
+                returnFormat
         );
     }
 
     private String geminiUserMessage(LectureMaterialAiProcessRequest request, String sourceText) {
+        // chapterName 미지정 시 반환 형식에 chapterName 필드 포함 요구
+        String returnFormat = needsChapterName(request)
+                ? """
+                - 반환 형식: {"chapterName":"...","parts":[{"partNumber":1,"name":"...","content":"..."}]}
+                - chapterName은 강의 내용을 대표하는 1~30자 명사형 챕터명"""
+                : """
+                - 반환 형식: {"parts":[{"partNumber":1,"name":"...","content":"..."}]}""";
+
         return """
                 [작업]
                 업로드 파일에서 텍스트를 추출(OCR 포함)한 뒤 파트를 분류한다.
@@ -91,7 +128,7 @@ public class LectureMaterialAiPromptBuilder {
                 %s
 
                 [반환 규칙]
-                - 반환 형식: {"parts":[{"partNumber":1,"name":"...","content":"..."}]}
+                %s
                 - partNumber는 1부터 시작하는 오름차순 정수
                 - name은 1자 이상 30자 이하
                 - content는 해당 파트에 속한 OCR 추출 원문 전체
@@ -106,7 +143,8 @@ public class LectureMaterialAiPromptBuilder {
                 valueOrDefault(request.getChapterName(), "미지정"),
                 request.getPartSplitMethod().getValue(),
                 partSplitPlanContext(request.getPartSplitPlans()),
-                valueOrDefault(sourceText, "")
+                valueOrDefault(sourceText, ""),
+                returnFormat
         );
     }
 
