@@ -7,6 +7,8 @@ import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
 import com.f1.quiket.domain.lecture.entity.LectureUploadFile;
 import com.f1.quiket.domain.lecture.event.LectureUploadProcessingRequestedEvent;
+import com.f1.quiket.domain.chapter.entity.Chapter;
+import com.f1.quiket.domain.chapter.repository.ChapterRepository;
 import com.f1.quiket.domain.lecture.repository.LectureProcessingJobRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadFileRepository;
 import com.f1.quiket.domain.lecture.repository.LectureUploadRepository;
@@ -43,6 +45,7 @@ public class LectureUploadProcessingService {
     private final LectureUploadFileRepository lectureUploadFileRepository;
     private final LectureProcessingJobRepository lectureProcessingJobRepository;
     private final PartRepository partRepository;
+    private final ChapterRepository chapterRepository;
     private final LectureMaterialAiProcessor lectureMaterialAiProcessor;
     private final PlatformTransactionManager transactionManager;
 
@@ -101,6 +104,9 @@ public class LectureUploadProcessingService {
             List<Part> parts = createParts(event, upload, result.getParts());
             partRepository.saveAll(parts);
 
+            // chapterName 미지정 요청에서 AI가 챕터명을 생성한 경우 chapter 엔티티 업데이트
+            updateChapterNameIfGenerated(event, result);
+
             if (event.uploadType() == StudyMaterialUploadType.IMAGE) {
                 // 이미지 OCR 성공 상태 반영
                 lectureUploadFileRepository.findAllByLectureUploadIdAndDeletedAtIsNullOrderByDisplayOrderAsc(upload.getId())
@@ -111,6 +117,33 @@ public class LectureUploadProcessingService {
             upload.markCompleted(rawText);
             getOrCreateJob(upload).markCompleted();
         });
+    }
+
+    /**
+     * chapterName 미지정 요청에서 AI 생성 챕터명으로 chapter.name 갱신
+     *
+     * 사용자가 챕터명을 제공했거나 AI가 챕터명을 생성하지 못한 경우 임시명("새 챕터") 유지
+     *
+     * @param event AI 처리 요청 이벤트 (chapterName이 null이면 AI 생성 대상)
+     * @param result AI 처리 결과 (generatedChapterName이 null이면 폴백 유지)
+     */
+    private void updateChapterNameIfGenerated(
+            LectureUploadProcessingRequestedEvent event,
+            LectureMaterialAiProcessResult result
+    ) {
+        if (StringUtils.hasText(event.chapterName())) {
+            // 사용자가 챕터명을 직접 입력한 경우 업데이트 불필요
+            return;
+        }
+        if (!StringUtils.hasText(result.getGeneratedChapterName())) {
+            // AI 챕터명 생성 실패 시 임시명("새 챕터") 유지
+            log.warn("AI 챕터명 미생성, 임시 챕터명 유지. chapterId={}", event.chapterId());
+            return;
+        }
+        Chapter chapter = chapterRepository.findById(event.chapterId())
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        chapter.updateName(result.getGeneratedChapterName());
+        log.info("AI 챕터명 업데이트 완료. chapterId={}, generatedName={}", event.chapterId(), result.getGeneratedChapterName());
     }
 
     private List<Part> createParts(
