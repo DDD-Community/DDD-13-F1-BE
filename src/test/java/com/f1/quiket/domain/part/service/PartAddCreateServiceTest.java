@@ -7,6 +7,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.f1.quiket.domain.chapter.entity.Chapter;
 import com.f1.quiket.domain.chapter.repository.ChapterRepository;
 import com.f1.quiket.domain.lecture.dto.LectureUploadAcceptedResponse;
@@ -25,6 +29,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -101,6 +106,10 @@ class PartAddCreateServiceTest {
 
     @Test
     void create_file_part_rejects_non_pdf_file_when_upload_type_pdf() {
+        Logger logger = (Logger) LoggerFactory.getLogger(PartAddCreateService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
         MockMultipartFile file = new MockMultipartFile(
                 "files",
                 "lecture.txt",
@@ -117,6 +126,18 @@ class PartAddCreateServiceTest {
         ))
                 .isInstanceOf(CustomException.class)
                 .hasMessage("지원하지 않는 파일 형식이에요");
+
+        assertThat(appender.list)
+                .anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getFormattedMessage())
+                            .contains(
+                                    "requestedUploadType=PDF",
+                                    "fileName=lecture.txt",
+                                    "contentType=text/plain"
+                            );
+                });
+        logger.detachAppender(appender);
     }
 
     private PartTextAddRequest textRequest() {
