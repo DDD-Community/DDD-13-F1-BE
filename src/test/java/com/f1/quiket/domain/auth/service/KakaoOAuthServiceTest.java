@@ -3,8 +3,10 @@ package com.f1.quiket.domain.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -143,31 +145,50 @@ class KakaoOAuthServiceTest {
     }
 
     @Test
-    void login_fails_when_kakao_email_is_missing() {
-        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token");
+    void login_creates_email_less_user_when_kakao_email_is_missing() {
+        KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token", true);
         when(kakaoApiClient.getUserInfo("kakao-access-token"))
                 .thenReturn(new KakaoUserInfo("123456789", null, null, null, "카카오"));
         when(userAuthIdentityRepository.findByProviderAndProviderSubjectAndDeletedAtIsNull("kakao", "123456789"))
                 .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userAuthIdentityRepository.save(any(UserAuthIdentity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(authTokenService.issueTokens(any(User.class), any(AuthTokenRequestContext.class)))
+                .thenAnswer(invocation -> tokenResponse(invocation.getArgument(0), List.of()));
 
-        assertThatThrownBy(() -> kakaoOAuthService.login(request, tokenRequestContext()))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.AUTH_OAUTH_EMAIL_REQUIRED);
+        KakaoOAuthLoginResult result = kakaoOAuthService.login(request, tokenRequestContext());
+
+        assertThat(result.getStatus()).isEqualTo(KakaoOAuthLoginStatus.SIGNUP_LOGIN);
+        assertThat(result.getTokenResponse().getUser().getEmail()).isNull();
+        assertThat(result.getTokenResponse().getUser().isEmailVerified()).isFalse();
+        // 이메일 미보유 시 계정 연동 조회 미수행
+        verify(userRepository, never()).findByEmailAndDeletedAtIsNull(anyString());
+
+        ArgumentCaptor<UserAuthIdentity> identityCaptor = ArgumentCaptor.forClass(UserAuthIdentity.class);
+        verify(userAuthIdentityRepository).save(identityCaptor.capture());
+        assertThat(identityCaptor.getValue().getProviderSubject()).isEqualTo("123456789");
     }
 
     @Test
-    void login_fails_when_kakao_email_flags_are_missing() {
+    void login_creates_email_less_user_when_kakao_email_is_not_verified() {
         KakaoLoginRequest request = kakaoLoginRequest("kakao-access-token", true);
         when(kakaoApiClient.getUserInfo("kakao-access-token"))
                 .thenReturn(new KakaoUserInfo("123456789", "user@example.com", null, null, "카카오"));
         when(userAuthIdentityRepository.findByProviderAndProviderSubjectAndDeletedAtIsNull("kakao", "123456789"))
                 .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userAuthIdentityRepository.save(any(UserAuthIdentity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(authTokenService.issueTokens(any(User.class), any(AuthTokenRequestContext.class)))
+                .thenAnswer(invocation -> tokenResponse(invocation.getArgument(0), List.of()));
 
-        assertThatThrownBy(() -> kakaoOAuthService.login(request, tokenRequestContext()))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.AUTH_OAUTH_EMAIL_REQUIRED);
+        KakaoOAuthLoginResult result = kakaoOAuthService.login(request, tokenRequestContext());
+
+        assertThat(result.getStatus()).isEqualTo(KakaoOAuthLoginStatus.SIGNUP_LOGIN);
+        // 미검증 카카오 이메일은 저장·연동 대상 제외
+        assertThat(result.getTokenResponse().getUser().getEmail()).isNull();
+        verify(userRepository, never()).findByEmailAndDeletedAtIsNull(anyString());
     }
 
     @Test
@@ -241,6 +262,28 @@ class KakaoOAuthServiceTest {
 
         assertThat(response.getUser().getEmail()).isEqualTo("new@example.com");
         assertThat(response.getUser().getNickname()).isEqualTo("도토리");
+        verify(temporaryTokenStore).deleteSignup("signup-token");
+    }
+
+    @Test
+    void completeNickname_creates_email_less_user_from_signup_token() {
+        KakaoNicknameRequest request = kakaoNicknameRequest("signup-token", "도토리");
+        when(temporaryTokenStore.findSignup("signup-token"))
+                .thenReturn(Optional.of(new KakaoOAuthSignupTokenPayload("123456789", null, null)));
+        when(userAuthIdentityRepository.findByProviderAndProviderSubjectAndDeletedAtIsNull("kakao", "123456789"))
+                .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userAuthIdentityRepository.save(any(UserAuthIdentity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(authTokenService.issueTokens(any(User.class), any(AuthTokenRequestContext.class)))
+                .thenAnswer(invocation -> tokenResponse(invocation.getArgument(0), List.of()));
+
+        AuthTokenResponse response = kakaoOAuthService.completeNickname(request, tokenRequestContext());
+
+        assertThat(response.getUser().getEmail()).isNull();
+        assertThat(response.getUser().isEmailVerified()).isFalse();
+        assertThat(response.getUser().getNickname()).isEqualTo("도토리");
+        verify(userRepository, never()).existsByEmail(anyString());
         verify(temporaryTokenStore).deleteSignup("signup-token");
     }
 

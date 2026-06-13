@@ -6,7 +6,7 @@
 CREATE TABLE users (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'PK: 내부 사용자 식별자',
     public_id CHAR(36) NOT NULL COMMENT '외부 노출용 UUID v7',
-    email VARCHAR(255) NOT NULL COMMENT '사용자 이메일',
+    email VARCHAR(255) NULL COMMENT '사용자 이메일, 소셜 전용 계정은 NULL',
     nickname VARCHAR(36) NOT NULL COMMENT '사용자 닉네임',
     status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '계정 상태',
     is_email_verified TINYINT(1) NOT NULL DEFAULT 0 COMMENT '이메일 인증 여부',

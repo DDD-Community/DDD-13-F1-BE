@@ -2071,6 +2071,8 @@ components:
         email:
           type: string
           format: email
+          nullable: true
+          description: 사용자 이메일, 이메일 미제공 소셜 전용 계정은 null
           example: user@example.com
 
     EmailVerificationConfirmRequest:
