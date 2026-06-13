@@ -52,7 +52,6 @@ public class KakaoOAuthService {
             return loginWithExistingKakaoIdentity(kakaoIdentity, context);
         }
 
-        validateUsableKakaoEmail(kakaoUserInfo);
         return loginWithNewKakaoIdentity(kakaoUserInfo, request.getAgreedToTerms(), context);
     }
 
@@ -119,7 +118,7 @@ public class KakaoOAuthService {
         ).isPresent()) {
             throw new CustomException(ErrorCode.AUTH_OAUTH_PROVIDER_ALREADY_LINKED);
         }
-        if (userRepository.existsByEmail(payload.email())) {
+        if (StringUtils.hasText(payload.email()) && userRepository.existsByEmail(payload.email())) {
             throw new CustomException(ErrorCode.AUTH_EMAIL_ALREADY_EXISTS);
         }
 
@@ -148,16 +147,19 @@ public class KakaoOAuthService {
             Boolean agreedToTerms,
             AuthTokenRequestContext context
     ) {
-        User existingUser = userRepository.findByEmailAndDeletedAtIsNull(kakaoUserInfo.email())
-                .orElse(null);
-        if (existingUser != null) {
-            String linkToken = temporaryTokenStore.saveLink(
-                    new KakaoOAuthLinkTokenPayload(kakaoUserInfo.providerSubject(), kakaoUserInfo.email()),
-                    KAKAO_TEMP_TOKEN_TTL_SECONDS
-            );
-            return KakaoOAuthLoginResult.accountLinkRequired(
-                    KakaoAccountLinkRequiredResponse.of(kakaoUserInfo.email(), linkToken, KAKAO_TEMP_TOKEN_TTL_SECONDS)
-            );
+        String email = resolveUsableEmail(kakaoUserInfo);
+
+        if (email != null) {
+            User existingUser = userRepository.findByEmailAndDeletedAtIsNull(email).orElse(null);
+            if (existingUser != null) {
+                String linkToken = temporaryTokenStore.saveLink(
+                        new KakaoOAuthLinkTokenPayload(kakaoUserInfo.providerSubject(), email),
+                        KAKAO_TEMP_TOKEN_TTL_SECONDS
+                );
+                return KakaoOAuthLoginResult.accountLinkRequired(
+                        KakaoAccountLinkRequiredResponse.of(email, linkToken, KAKAO_TEMP_TOKEN_TTL_SECONDS)
+                );
+            }
         }
 
         validateTermsAgreed(agreedToTerms);
@@ -166,7 +168,7 @@ public class KakaoOAuthService {
             String signupToken = temporaryTokenStore.saveSignup(
                     new KakaoOAuthSignupTokenPayload(
                             kakaoUserInfo.providerSubject(),
-                            kakaoUserInfo.email(),
+                            email,
                             suggestedNickname
                     ),
                     KAKAO_TEMP_TOKEN_TTL_SECONDS
@@ -178,7 +180,7 @@ public class KakaoOAuthService {
 
         return KakaoOAuthLoginResult.signupLogin(createKakaoUserAndIssueTokens(
                 kakaoUserInfo.providerSubject(),
-                kakaoUserInfo.email(),
+                email,
                 kakaoUserInfo.nickname(),
                 context
         ));
@@ -191,7 +193,9 @@ public class KakaoOAuthService {
             AuthTokenRequestContext context
     ) {
         User user = User.create(UuidV7Generator.generate(), email, nickname);
-        user.verifyEmail();
+        if (StringUtils.hasText(email)) {
+            user.verifyEmail();
+        }
         User savedUser = userRepository.save(user);
 
         UserAuthIdentity kakaoIdentity = UserAuthIdentity.createOAuth(
@@ -206,10 +210,9 @@ public class KakaoOAuthService {
         return authTokenService.issueTokens(savedUser, context);
     }
 
-    private void validateUsableKakaoEmail(KakaoUserInfo kakaoUserInfo) {
-        if (!kakaoUserInfo.hasUsableEmail()) {
-            throw new CustomException(ErrorCode.AUTH_OAUTH_EMAIL_REQUIRED);
-        }
+    private String resolveUsableEmail(KakaoUserInfo kakaoUserInfo) {
+        // 제공 동의된 검증 이메일만 저장·연동 대상, 그 외 소셜 전용 계정 처리 위해 null 반환
+        return kakaoUserInfo.hasUsableEmail() ? kakaoUserInfo.email() : null;
     }
 
     private void validateTermsAgreed(Boolean agreedToTerms) {
