@@ -183,7 +183,8 @@ public class LectureMaterialAiProcessor {
             String normalized = normalizeJson(aiResponse);
             return objectMapper.readValue(normalized, LecturePartsPayload.class);
         } catch (JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파싱에 실패했습니다.", e);
+            log.warn("AI response JSON parsing failed. response={}", aiResponse, e);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, e);
         }
     }
 
@@ -191,8 +192,13 @@ public class LectureMaterialAiProcessor {
      * Gemini 파트 분류 응답 파싱 (content 포함)
      */
     private List<LecturePartDraft> parseParts(LecturePartsPayload payload) {
+        if (Boolean.TRUE.equals(payload.getUnreadable())) {
+            log.warn("AI reported file content is unreadable");
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR);
+        }
         if (payload.getParts() == null || payload.getParts().isEmpty()) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답에 파트 정보가 없습니다.");
+            log.warn("AI response returned no parts");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
         }
 
         List<LecturePartDraft> parts = new ArrayList<>();
@@ -200,7 +206,8 @@ public class LectureMaterialAiProcessor {
             // name/partName 호환 응답 처리
             String resolvedName = StringUtils.hasText(part.getName()) ? part.getName() : part.getPartName();
             if (part.getPartNumber() == null || !StringUtils.hasText(resolvedName)) {
-                throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파트 형식이 올바르지 않습니다.");
+                log.warn("AI response part format invalid. partNumber={}", part.getPartNumber());
+                throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
             }
             parts.add(LecturePartDraft.builder()
                     .partNumber(part.getPartNumber())
@@ -351,7 +358,7 @@ public class LectureMaterialAiProcessor {
 
     private int addPart(List<LecturePartDraft> parts, int partNumber, String name, String content) {
         if (!StringUtils.hasText(content)) {
-            log.warn("Groq 공백 파트 범위 무시 partNumber={}, name={}", partNumber, name);
+            log.warn("Groq part range is empty. Skipping range handling. partNumber={}, name={}", partNumber, name);
             return partNumber;
         }
         parts.add(LecturePartDraft.builder()
@@ -398,7 +405,8 @@ public class LectureMaterialAiProcessor {
      */
     private String normalizeJson(String aiResponse) {
         if (!StringUtils.hasText(aiResponse)) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답이 비어 있습니다.");
+            log.warn("AI response is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
         }
         String trimmed = aiResponse.trim();
         // 마크다운 코드블록 응답 제거
@@ -425,6 +433,8 @@ public class LectureMaterialAiProcessor {
         /** chapterName 미지정 시 AI가 강의 내용 기반으로 생성한 챕터명 */
         private String chapterName;
         private List<LecturePartPayload> parts;
+        /** Gemini가 파일의 텍스트를 전혀 판독할 수 없을 때 true 반환 */
+        private Boolean unreadable;
     }
 
     @Getter

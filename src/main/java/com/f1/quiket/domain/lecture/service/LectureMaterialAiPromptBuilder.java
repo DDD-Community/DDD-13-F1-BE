@@ -33,7 +33,15 @@ public class LectureMaterialAiPromptBuilder {
      * @param request chapterName이 null이면 챕터명 생성 지시 포함
      */
     public StudyMaterialAiPrompt buildGeminiPrompt(LectureMaterialAiProcessRequest request, String sourceText) {
-        return new StudyMaterialAiPrompt(systemMessage(needsChapterName(request)), geminiUserMessage(request, sourceText));
+        return new StudyMaterialAiPrompt(geminiSystemMessage(needsChapterName(request)), geminiUserMessage(request, sourceText));
+    }
+
+    /**
+     * Gemini 전용 시스템 메시지 - 텍스트 판독 불가 시 unreadable 응답 지시 포함
+     */
+    private String geminiSystemMessage(boolean generateChapterName) {
+        return systemMessage(generateChapterName)
+                + "파일에서 텍스트를 전혀 판독할 수 없는 경우 {\"unreadable\":true}만 반환한다.\n";
     }
 
     /**
