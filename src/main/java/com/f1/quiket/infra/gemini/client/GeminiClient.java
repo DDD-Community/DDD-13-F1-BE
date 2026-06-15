@@ -73,7 +73,8 @@ public class GeminiClient {
      */
     private void validateConfigured() {
         if (!properties.isConfigured()) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 설정값이 준비되지 않았습니다.");
+            log.warn("Gemini API key is not configured");
+            throw new CustomException(ErrorCode.LECTURE_CONFIG_ERROR);
         }
     }
 
@@ -187,7 +188,8 @@ public class GeminiClient {
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
         if (textNode.isMissingNode() || textNode.isNull() || !StringUtils.hasText(textNode.asText())) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 응답 본문이 비어 있습니다.");
+            log.warn("Gemini response content is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
         }
         return textNode.asText();
     }
