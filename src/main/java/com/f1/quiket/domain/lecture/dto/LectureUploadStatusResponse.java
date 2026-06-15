@@ -2,6 +2,7 @@ package com.f1.quiket.domain.lecture.dto;
 
 import com.f1.quiket.domain.chapter.entity.Chapter;
 import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
+import com.f1.quiket.global.response.ErrorCode;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
 import com.f1.quiket.domain.lecture.entity.LectureUploadStatus;
 import com.f1.quiket.domain.part.entity.Part;
@@ -31,7 +32,8 @@ public class LectureUploadStatusResponse {
     private final Integer estimatedSeconds;
     private final Integer progressPct;
     private final List<PartSummary> parts;
-    private final String failReason;
+    private final String failCode;
+    private final String failMessage;
 
     /**
      * 업로드 상태 응답 생성
@@ -54,8 +56,20 @@ public class LectureUploadStatusResponse {
                 .parts(parts.stream()
                         .map(part -> PartSummary.of(part, chapter))
                         .toList())
-                .failReason(processingJob == null ? null : processingJob.getFailReason())
+                .failCode(processingJob == null ? null : processingJob.getFailCode())
+                .failMessage(resolveFailMessage(processingJob))
                 .build();
+    }
+
+    private static String resolveFailMessage(LectureProcessingJob processingJob) {
+        if (processingJob == null || processingJob.getFailCode() == null) {
+            return null;
+        }
+        try {
+            return ErrorCode.valueOf(processingJob.getFailCode()).getMessage();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private static int progressPct(LectureUpload upload) {

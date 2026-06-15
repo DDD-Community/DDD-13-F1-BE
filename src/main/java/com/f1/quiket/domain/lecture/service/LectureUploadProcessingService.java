@@ -84,7 +84,8 @@ public class LectureUploadProcessingService {
             saveCompleted(event, result);
         } catch (Exception e) {
             log.warn("Lecture upload processing failed. lectureUploadId={}", event.lectureUploadId(), e);
-            markFailed(event, failMessage(e));
+            ErrorCode failCode = resolveFailCode(e);
+            markFailed(event, failCode, failReason(e));
         }
     }
 
@@ -152,7 +153,8 @@ public class LectureUploadProcessingService {
             List<LecturePartDraft> drafts
     ) {
         if (drafts == null || drafts.isEmpty()) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답에 파트 정보가 없습니다.");
+            log.warn("AI response returned empty parts. lectureUploadId={}", event.lectureUploadId());
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
         }
         // parts 저장
         return drafts.stream()
@@ -177,10 +179,12 @@ public class LectureUploadProcessingService {
                 || draft.getPartNumber() < 1
                 || !StringUtils.hasText(draft.getName())
                 || !StringUtils.hasText(draft.getContent())) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "AI 응답 파트 형식이 올바르지 않습니다.");
+            log.warn("AI response part format invalid. partNumber={}", draft != null ? draft.getPartNumber() : null);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
         }
         if (draft.getContent().length() > MAX_PART_CONTENT_LENGTH) {
-            throw new CustomException(ErrorCode.UNPROCESSABLE_ENTITY, "파트 본문은 30,000자를 초과할 수 없습니다.");
+            log.warn("Part content exceeds limit. partNumber={}, length={}", draft.getPartNumber(), draft.getContent().length());
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR);
         }
     }
 
@@ -198,17 +202,30 @@ public class LectureUploadProcessingService {
         return event.text();
     }
 
-    private void markFailed(LectureUploadProcessingRequestedEvent event, String failReason) {
+    private void markFailed(LectureUploadProcessingRequestedEvent event, ErrorCode failCode, String failReason) {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             LectureUpload upload = getUpload(event.lectureUploadId());
             // OCR 전체 실패/AI 실패 처리
             upload.markFailed();
-            getOrCreateJob(upload).markFailed("processing_failed", failReason);
+            getOrCreateJob(upload).markFailed(failCode.name(), failReason);
             if (event.uploadType() == StudyMaterialUploadType.IMAGE) {
                 lectureUploadFileRepository.findAllByLectureUploadIdAndDeletedAtIsNullOrderByDisplayOrderAsc(upload.getId())
                         .forEach(LectureUploadFile::markOcrFailed);
             }
         });
+    }
+
+    private ErrorCode resolveFailCode(Exception e) {
+        if (!(e instanceof CustomException customEx)) {
+            return ErrorCode.LECTURE_INFRA_ERROR;
+        }
+        ErrorCode code = customEx.getErrorCode();
+        if (code == ErrorCode.LECTURE_CONFIG_ERROR
+                || code == ErrorCode.LECTURE_AI_ERROR
+                || code == ErrorCode.LECTURE_CONTENT_ERROR) {
+            return code;
+        }
+        return ErrorCode.LECTURE_INFRA_ERROR;
     }
 
     private LectureUpload getUpload(Long lectureUploadId) {
@@ -223,7 +240,7 @@ public class LectureUploadProcessingService {
                 ));
     }
 
-    private String failMessage(Exception e) {
+    private String failReason(Exception e) {
         if (e instanceof CustomException customException && StringUtils.hasText(customException.getMessage())) {
             return customException.getMessage();
         }
