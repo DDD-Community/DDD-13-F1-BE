@@ -32,8 +32,9 @@ public class LectureUploadStatusResponse {
     private final Integer estimatedSeconds;
     private final Integer progressPct;
     private final List<PartSummary> parts;
-    private final String failCode;
-    private final String failMessage;
+    private final String failCode;  // ErrorCode enum name
+    private final String failMessage;   // ErrorCode에 매핑되는 사용자 노출용 메시지
+    private final String failReason;    // AI 또는 시스템에서 반환하는 상세 실패 사유 (DB저장용, 사용자 노출 X)
 
     /**
      * 업로드 상태 응답 생성
@@ -58,6 +59,7 @@ public class LectureUploadStatusResponse {
                         .toList())
                 .failCode(processingJob == null ? null : processingJob.getFailCode())
                 .failMessage(resolveFailMessage(processingJob))
+                .failReason(processingJob == null ? null : processingJob.getFailReason())
                 .build();
     }
 
@@ -68,7 +70,7 @@ public class LectureUploadStatusResponse {
         try {
             return ErrorCode.valueOf(processingJob.getFailCode()).getMessage();
         } catch (IllegalArgumentException e) {
-            return null;
+            return ErrorCode.LECTURE_INFRA_ERROR.getMessage();
         }
     }
 
