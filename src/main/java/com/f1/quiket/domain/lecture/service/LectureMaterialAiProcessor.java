@@ -207,7 +207,7 @@ public class LectureMaterialAiProcessor {
             return objectMapper.readValue(normalized, LecturePartsPayload.class);
         } catch (JsonProcessingException e) {
             log.warn("AI response JSON parsing failed. response={}", aiResponse, e);
-            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, e);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "AI가 유효한 JSON을 반환하지 않음", e);
         }
     }
 
@@ -220,11 +220,11 @@ public class LectureMaterialAiProcessor {
     private List<LecturePartDraft> parseParts(LecturePartsPayload payload) {
         if (Boolean.TRUE.equals(payload.getUnreadable())) {
             log.warn("AI reported file content is unreadable");
-            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "AI가 텍스트 판독 불가 판단 (이미지 레이어 PDF,이미지)");
         }
         if (payload.getParts() == null || payload.getParts().isEmpty()) {
             log.warn("AI response returned no parts");
-            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "AI가 parts 배열 미반환");
         }
 
         List<LecturePartDraft> parts = new ArrayList<>();
@@ -233,7 +233,7 @@ public class LectureMaterialAiProcessor {
             String resolvedName = StringUtils.hasText(part.getName()) ? part.getName() : part.getPartName();
             if (part.getPartNumber() == null || !StringUtils.hasText(resolvedName)) {
                 log.warn("AI response part format invalid. partNumber={}", part.getPartNumber());
-                throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
+                throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "parts 아이템에 필수 필드 누락");
             }
             parts.add(LecturePartDraft.builder()
                     .partNumber(part.getPartNumber())
@@ -442,7 +442,7 @@ public class LectureMaterialAiProcessor {
     private String normalizeJson(String aiResponse) {
         if (!StringUtils.hasText(aiResponse)) {
             log.warn("AI response is empty");
-            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "AI 응답 자체가 빈 문자열");
         }
         String trimmed = aiResponse.trim();
         // 마크다운 코드블록 응답 제거

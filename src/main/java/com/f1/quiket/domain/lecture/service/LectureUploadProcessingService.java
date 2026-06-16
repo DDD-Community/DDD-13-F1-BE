@@ -154,7 +154,7 @@ public class LectureUploadProcessingService {
     ) {
         if (drafts == null || drafts.isEmpty()) {
             log.warn("AI response returned empty parts. lectureUploadId={}", event.lectureUploadId());
-            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "AI가 parts 배열 미반환");
         }
         // parts 저장
         return drafts.stream()
@@ -180,11 +180,11 @@ public class LectureUploadProcessingService {
                 || !StringUtils.hasText(draft.getName())
                 || !StringUtils.hasText(draft.getContent())) {
             log.warn("AI response part format invalid. partNumber={}", draft != null ? draft.getPartNumber() : null);
-            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "parts 아이템에 필수 필드 누락");
         }
         if (draft.getContent().length() > MAX_PART_CONTENT_LENGTH) {
             log.warn("Part content exceeds limit. partNumber={}, length={}", draft.getPartNumber(), draft.getContent().length());
-            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "파일 내용이 너무 많음");
         }
     }
 
