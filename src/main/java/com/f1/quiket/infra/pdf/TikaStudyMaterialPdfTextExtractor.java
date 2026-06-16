@@ -40,7 +40,7 @@ public class TikaStudyMaterialPdfTextExtractor implements StudyMaterialPdfTextEx
                     .build();
         } catch (IOException | TikaException e) {
             log.warn("PDF text extraction failed", e);
-            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, e);
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "PDF 텍스트 추출에 실패", e);
         }
     }
 

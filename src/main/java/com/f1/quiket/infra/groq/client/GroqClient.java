@@ -75,7 +75,7 @@ public class GroqClient {
     private void validateConfigured() {
         if (!properties.isConfigured()) {
             log.warn("Groq API key is not configured");
-            throw new CustomException(ErrorCode.LECTURE_CONFIG_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_CONFIG_ERROR, "GROQ_API_KEY 미설정");
         }
     }
 
@@ -113,7 +113,7 @@ public class GroqClient {
         JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
         if (contentNode.isMissingNode() || contentNode.isNull() || !StringUtils.hasText(contentNode.asText())) {
             log.warn("Groq response content is empty");
-            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Groq content 필드 없음");
         }
         return contentNode.asText();
     }

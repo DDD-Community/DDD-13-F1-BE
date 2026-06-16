@@ -74,7 +74,7 @@ public class GeminiClient {
     private void validateConfigured() {
         if (!properties.isConfigured()) {
             log.warn("Gemini API key is not configured");
-            throw new CustomException(ErrorCode.LECTURE_CONFIG_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_CONFIG_ERROR, "GEMINI_API_KEY 미설정");
         }
     }
 
@@ -189,7 +189,7 @@ public class GeminiClient {
         JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
         if (textNode.isMissingNode() || textNode.isNull() || !StringUtils.hasText(textNode.asText())) {
             log.warn("Gemini response content is empty");
-            throw new CustomException(ErrorCode.LECTURE_AI_ERROR);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Gemini content 필드 없음");
         }
         return textNode.asText();
     }
