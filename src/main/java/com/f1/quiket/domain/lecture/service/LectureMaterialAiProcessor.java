@@ -42,6 +42,9 @@ public class LectureMaterialAiProcessor {
 
     /**
      * 업로드 타입별 강의 자료 AI 처리
+     *
+     * @param request AI 처리 요청
+     * @return AI 처리 결과
      */
     public LectureMaterialAiProcessResult process(LectureMaterialAiProcessRequest request) {
         validateRequest(request);
@@ -56,7 +59,11 @@ public class LectureMaterialAiProcessor {
 
     /**
      * 이미지 OCR 및 파트 분류 처리
-     * chapterName 미지정 시 AI 응답에서 생성된 챕터명 추출
+     *
+     * chapterName 미지정 시 AI 응답의 생성 챕터명 포함
+     *
+     * @param request AI 처리 요청
+     * @return 이미지 AI 처리 결과
      */
     private LectureMaterialAiProcessResult processImage(LectureMaterialAiProcessRequest request) {
         StudyMaterialAiPrompt prompt = promptBuilder.buildGeminiPrompt(request, null);
@@ -77,7 +84,11 @@ public class LectureMaterialAiProcessor {
 
     /**
      * PDF 텍스트 레이어 판별 후 AI 처리
-     * chapterName 미지정 시 AI 응답에서 생성된 챕터명 추출
+     *
+     * chapterName 미지정 시 AI 응답의 생성 챕터명 포함
+     *
+     * @param request AI 처리 요청
+     * @return PDF AI 처리 결과
      */
     private LectureMaterialAiProcessResult processPdf(LectureMaterialAiProcessRequest request) {
         StudyMaterialFile pdfFile = request.getFiles().get(0);
@@ -118,7 +129,11 @@ public class LectureMaterialAiProcessor {
 
     /**
      * 직접 입력 텍스트 기반 파트 분류 처리
-     * chapterName 미지정 시 AI 응답에서 생성된 챕터명 추출
+     *
+     * chapterName 미지정 시 AI 응답의 생성 챕터명 포함
+     *
+     * @param request AI 처리 요청
+     * @return 텍스트 AI 처리 결과
      */
     private LectureMaterialAiProcessResult processText(LectureMaterialAiProcessRequest request) {
         StudyMaterialAiPrompt prompt = promptBuilder.buildGroqPrompt(request, request.getText());
@@ -139,8 +154,11 @@ public class LectureMaterialAiProcessor {
     /**
      * chapterName 미지정 요청에서 AI가 생성한 챕터명 추출
      *
-     * 사용자가 이미 챕터명을 제공했거나 AI 응답에 챕터명이 없으면 null 반환
-     * 유효하지 않은 챕터명(31자 이상)도 null로 처리하여 폴백("새 챕터") 유지
+     * 사용자 입력 챕터명 또는 유효하지 않은 AI 응답이면 null 반환
+     *
+     * @param request AI 처리 요청
+     * @param payload AI 응답 페이로드
+     * @return AI 생성 챕터명 또는 null
      */
     private String resolveGeneratedChapterName(LectureMaterialAiProcessRequest request, LecturePartsPayload payload) {
         // 사용자가 챕터명을 직접 제공한 경우 AI 생성 불필요
@@ -150,7 +168,7 @@ public class LectureMaterialAiProcessor {
         String generatedName = payload.getChapterName();
         // 30자 초과 응답은 유효하지 않으므로 null 처리 (폴백 "새 챕터" 유지)
         if (!StringUtils.hasText(generatedName) || generatedName.trim().length() > 30) {
-            log.warn("AI 챕터명 생성 실패 또는 유효하지 않은 챕터명. 폴백 유지. generatedName={}", generatedName);
+            log.warn("AI generated chapter name is empty or invalid. generatedName={}", generatedName);
             return null;
         }
         return generatedName.trim();
@@ -158,6 +176,8 @@ public class LectureMaterialAiProcessor {
 
     /**
      * AI 처리 요청값 검증
+     *
+     * @param request AI 처리 요청
      */
     private void validateRequest(LectureMaterialAiProcessRequest request) {
         if (request == null || request.getUploadType() == null || request.getPartSplitMethod() == null) {
@@ -177,6 +197,9 @@ public class LectureMaterialAiProcessor {
      *
      * normalizeJson 후 LecturePartsPayload로 변환
      * 이후 parseParts 또는 parseGroqParts에서 파트 목록으로 추출
+     *
+     * @param aiResponse AI 원본 응답
+     * @return AI 응답 페이로드
      */
     private LecturePartsPayload parsePayload(String aiResponse) {
         try {
@@ -190,6 +213,9 @@ public class LectureMaterialAiProcessor {
 
     /**
      * Gemini 파트 분류 응답 파싱 (content 포함)
+     *
+     * @param payload AI 응답 페이로드
+     * @return 파트 초안 목록
      */
     private List<LecturePartDraft> parseParts(LecturePartsPayload payload) {
         if (Boolean.TRUE.equals(payload.getUnreadable())) {
@@ -222,96 +248,100 @@ public class LectureMaterialAiProcessor {
      * Groq 라인 범위 응답 파싱 및 원문 분리
      *
      * JSON 파싱은 parsePayload에서 완료된 상태로 진입
+     *
+     * @param payload AI 응답 페이로드
+     * @param sourceText 원문 텍스트
+     * @return 파트 초안 목록
      */
     private List<LecturePartDraft> parseGroqParts(LecturePartsPayload payload, String sourceText) {
         List<LineSpan> lineSpans = lineSpans(sourceText);
         if (payload.getParts() == null || payload.getParts().isEmpty()) {
-                log.warn("Groq 파트 범위 응답 없음, 전체 원문 미분류 처리 totalLineCount={}", lineSpans.size());
-                return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
-            }
+            log.warn("Groq response returned no part ranges. totalLineCount={}", lineSpans.size());
+            return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
+        }
 
-            List<LecturePartPayload> sortedParts = payload.getParts().stream()
-                    .filter(this::isValidGroqPartPayload)
-                    .sorted(Comparator.comparing(LecturePartPayload::getPartNumber))
-                    .toList();
-            if (sortedParts.size() != payload.getParts().size()) {
+        List<LecturePartPayload> sortedParts = payload.getParts().stream()
+                .filter(this::isValidGroqPartPayload)
+                .sorted(Comparator.comparing(LecturePartPayload::getPartNumber))
+                .toList();
+        if (sortedParts.size() != payload.getParts().size()) {
+            log.warn(
+                    "Some Groq part ranges are invalid. requestedParts={}, validParts={}",
+                    payload.getParts().size(),
+                    sortedParts.size()
+            );
+        }
+        if (sortedParts.isEmpty()) {
+            log.warn("Groq response returned no valid part ranges. totalLineCount={}", lineSpans.size());
+            return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
+        }
+
+        List<LecturePartDraft> parts = new ArrayList<>();
+        int nextSourceLine = 1;
+        int nextPartNumber = 1;
+        for (LecturePartPayload part : sortedParts) {
+            int startLine = Math.max(1, part.getStartLine());
+            int endLine = Math.min(lineSpans.size(), part.getEndLine());
+            if (startLine > lineSpans.size() || endLine < 1) {
                 log.warn(
-                        "Groq 파트 범위 응답 형식 일부 무시 requestedParts={}, validParts={}",
-                        payload.getParts().size(),
-                        sortedParts.size()
-                );
-            }
-            if (sortedParts.isEmpty()) {
-                log.warn("Groq 유효 파트 범위 없음, 전체 원문 미분류 처리 totalLineCount={}", lineSpans.size());
-                return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
-            }
-
-            List<LecturePartDraft> parts = new ArrayList<>();
-            int nextSourceLine = 1;
-            int nextPartNumber = 1;
-            for (LecturePartPayload part : sortedParts) {
-                int startLine = Math.max(1, part.getStartLine());
-                int endLine = Math.min(lineSpans.size(), part.getEndLine());
-                if (startLine > lineSpans.size() || endLine < 1) {
-                    log.warn(
-                            "Groq 파트 범위 원문 밖 위치 무시 partNumber={}, startLine={}, endLine={}, totalLineCount={}",
-                            part.getPartNumber(),
-                            part.getStartLine(),
-                            part.getEndLine(),
-                            lineSpans.size()
-                    );
-                    continue;
-                }
-                if (startLine > nextSourceLine) {
-                    log.warn(
-                            "Groq 파트 누락 범위 미분류 처리 missingStartLine={}, missingEndLine={}",
-                            nextSourceLine,
-                            startLine - 1
-                    );
-                    nextPartNumber = addUnclassifiedPart(
-                            parts,
-                            nextPartNumber,
-                            sourceText,
-                            lineSpans,
-                            nextSourceLine,
-                            startLine - 1
-                    );
-                }
-                if (startLine < nextSourceLine) {
-                    log.warn(
-                            "Groq 파트 중복 범위 보정 partNumber={}, originalStartLine={}, adjustedStartLine={}",
-                            part.getPartNumber(),
-                            startLine,
-                            nextSourceLine
-                    );
-                    startLine = nextSourceLine;
-                }
-                if (endLine < startLine) {
-                    log.warn(
-                            "Groq 파트 범위 중복으로 무시 partNumber={}, startLine={}, endLine={}",
-                            part.getPartNumber(),
-                            startLine,
-                            endLine
-                    );
-                    continue;
-                }
-
-                LineSpan start = lineSpans.get(startLine - 1);
-                LineSpan end = lineSpans.get(endLine - 1);
-                String content = sourceText.substring(start.startIndex(), end.endIndex());
-                nextPartNumber = addPart(parts, nextPartNumber, resolvePartName(part), content);
-                nextSourceLine = endLine + 1;
-            }
-
-            if (nextSourceLine <= lineSpans.size()) {
-                log.warn(
-                        "Groq 마지막 누락 범위 미분류 처리 missingStartLine={}, missingEndLine={}",
-                        nextSourceLine,
+                        "Groq part range is outside source text. partNumber={}, startLine={}, endLine={}, totalLineCount={}",
+                        part.getPartNumber(),
+                        part.getStartLine(),
+                        part.getEndLine(),
                         lineSpans.size()
                 );
-                addUnclassifiedPart(parts, nextPartNumber, sourceText, lineSpans, nextSourceLine, lineSpans.size());
+                continue;
             }
-            return parts;
+            if (startLine > nextSourceLine) {
+                log.warn(
+                        "Groq part range has missing source range. missingStartLine={}, missingEndLine={}",
+                        nextSourceLine,
+                        startLine - 1
+                );
+                nextPartNumber = addUnclassifiedPart(
+                        parts,
+                        nextPartNumber,
+                        sourceText,
+                        lineSpans,
+                        nextSourceLine,
+                        startLine - 1
+                );
+            }
+            if (startLine < nextSourceLine) {
+                log.warn(
+                        "Groq part range overlaps previous range. partNumber={}, originalStartLine={}, adjustedStartLine={}",
+                        part.getPartNumber(),
+                        startLine,
+                        nextSourceLine
+                );
+                startLine = nextSourceLine;
+            }
+            if (endLine < startLine) {
+                log.warn(
+                        "Groq part range was skipped because it overlaps previous range. partNumber={}, startLine={}, endLine={}",
+                        part.getPartNumber(),
+                        startLine,
+                        endLine
+                );
+                continue;
+            }
+
+            LineSpan start = lineSpans.get(startLine - 1);
+            LineSpan end = lineSpans.get(endLine - 1);
+            String content = sourceText.substring(start.startIndex(), end.endIndex());
+            nextPartNumber = addPart(parts, nextPartNumber, resolvePartName(part), content);
+            nextSourceLine = endLine + 1;
+        }
+
+        if (nextSourceLine <= lineSpans.size()) {
+            log.warn(
+                    "Groq part range has trailing missing source range. missingStartLine={}, missingEndLine={}",
+                    nextSourceLine,
+                    lineSpans.size()
+            );
+            addUnclassifiedPart(parts, nextPartNumber, sourceText, lineSpans, nextSourceLine, lineSpans.size());
+        }
+        return parts;
     }
 
     private boolean isValidGroqPartPayload(LecturePartPayload part) {
@@ -371,6 +401,9 @@ public class LectureMaterialAiProcessor {
 
     /**
      * 원문 라인별 문자 범위 계산
+     *
+     * @param sourceText 원문 텍스트
+     * @return 라인별 문자 범위 목록
      */
     private List<LineSpan> lineSpans(String sourceText) {
         if (!StringUtils.hasText(sourceText)) {
@@ -402,6 +435,9 @@ public class LectureMaterialAiProcessor {
 
     /**
      * AI JSON 응답 정규화
+     *
+     * @param aiResponse AI 원본 응답
+     * @return 정규화 JSON 문자열
      */
     private String normalizeJson(String aiResponse) {
         if (!StringUtils.hasText(aiResponse)) {
@@ -422,6 +458,10 @@ public class LectureMaterialAiProcessor {
 
     /**
      * 빈 문자열 기본값 처리
+     *
+     * @param value 원본 문자열
+     * @param defaultValue 기본값
+     * @return 원본 문자열 또는 기본값
      */
     private String valueOrDefault(String value, String defaultValue) {
         return StringUtils.hasText(value) ? value : defaultValue;

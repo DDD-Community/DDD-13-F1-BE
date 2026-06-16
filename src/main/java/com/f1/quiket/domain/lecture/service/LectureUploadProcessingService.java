@@ -123,10 +123,10 @@ public class LectureUploadProcessingService {
     /**
      * chapterName 미지정 요청에서 AI 생성 챕터명으로 chapter.name 갱신
      *
-     * 사용자가 챕터명을 제공했거나 AI가 챕터명을 생성하지 못한 경우 임시명("새 챕터") 유지
+     * 사용자 입력 챕터명 또는 AI 생성 실패 시 임시명 유지
      *
-     * @param event AI 처리 요청 이벤트 (chapterName이 null이면 AI 생성 대상)
-     * @param result AI 처리 결과 (generatedChapterName이 null이면 폴백 유지)
+     * @param event AI 처리 요청 이벤트
+     * @param result AI 처리 결과
      */
     private void updateChapterNameIfGenerated(
             LectureUploadProcessingRequestedEvent event,
@@ -138,13 +138,13 @@ public class LectureUploadProcessingService {
         }
         if (!StringUtils.hasText(result.getGeneratedChapterName())) {
             // AI 챕터명 생성 실패 시 임시명("새 챕터") 유지
-            log.warn("AI 챕터명 미생성, 임시 챕터명 유지. chapterId={}", event.chapterId());
+            log.warn("AI generated chapter name is empty. chapterId={}", event.chapterId());
             return;
         }
         Chapter chapter = chapterRepository.findById(event.chapterId())
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
         chapter.updateName(result.getGeneratedChapterName());
-        log.info("AI 챕터명 업데이트 완료. chapterId={}, generatedName={}", event.chapterId(), result.getGeneratedChapterName());
+        log.info("AI generated chapter name was applied. chapterId={}, generatedName={}", event.chapterId(), result.getGeneratedChapterName());
     }
 
     private List<Part> createParts(
