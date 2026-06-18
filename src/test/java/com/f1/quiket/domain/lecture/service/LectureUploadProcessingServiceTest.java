@@ -271,7 +271,7 @@ class LectureUploadProcessingServiceTest {
 
         assertThat(upload.getStatus()).isEqualTo("failed");
         assertThat(processingJob.getFailCode()).isEqualTo(ErrorCode.LECTURE_CONTENT_ERROR.name());
-        assertThat(processingJob.getFailReason()).isEqualTo("파트 본문은 30,000자를 초과할 수 없습니다.");
+        assertThat(processingJob.getFailReason()).isEqualTo("파일 내용이 너무 많음");
     }
 
     /**
