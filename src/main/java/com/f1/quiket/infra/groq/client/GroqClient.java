@@ -65,7 +65,7 @@ public class GroqClient {
         } catch (CustomException e) {
             throw e;
         } catch (RestClientException | JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq 서버 장애·네트워크 단절", e);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Groq 서버 장애·네트워크 단절", e);
         }
     }
 
@@ -109,6 +109,10 @@ public class GroqClient {
      * Groq 응답 텍스트 파싱
      */
     private String parseResponse(String responseBody) throws JsonProcessingException {
+        if (!StringUtils.hasText(responseBody)) {
+            log.warn("Groq response body is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Groq 응답 본문이 비어 있음");
+        }
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
         if (contentNode.isMissingNode() || contentNode.isNull() || !StringUtils.hasText(contentNode.asText())) {

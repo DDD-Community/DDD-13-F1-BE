@@ -64,7 +64,7 @@ public class GeminiClient {
         } catch (CustomException e) {
             throw e;
         } catch (RestClientException | JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 서버 장애 (재시도 소진 후)", e);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Gemini 서버 장애 (재시도 소진 후)", e);
         }
     }
 
@@ -185,6 +185,10 @@ public class GeminiClient {
      * Gemini 응답 텍스트 파싱
      */
     private String parseResponse(String responseBody) throws JsonProcessingException {
+        if (!StringUtils.hasText(responseBody)) {
+            log.warn("Gemini response body is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Gemini 응답 본문이 비어 있음");
+        }
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
         if (textNode.isMissingNode() || textNode.isNull() || !StringUtils.hasText(textNode.asText())) {
