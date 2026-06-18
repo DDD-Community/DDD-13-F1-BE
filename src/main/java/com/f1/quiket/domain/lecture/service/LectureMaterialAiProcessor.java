@@ -257,7 +257,7 @@ public class LectureMaterialAiProcessor {
         List<LineSpan> lineSpans = lineSpans(sourceText);
         if (payload.getParts() == null || payload.getParts().isEmpty()) {
             log.warn("Groq response returned no part ranges. totalLineCount={}", lineSpans.size());
-            return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "AI가 parts 배열 미반환");
         }
 
         List<LecturePartPayload> sortedParts = payload.getParts().stream()
@@ -273,7 +273,7 @@ public class LectureMaterialAiProcessor {
         }
         if (sortedParts.isEmpty()) {
             log.warn("Groq response returned no valid part ranges. totalLineCount={}", lineSpans.size());
-            return List.of(unclassifiedPart(1, sourceText, lineSpans, 1, lineSpans.size()));
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "AI가 유효한 part 범위를 반환하지 않음");
         }
 
         List<LecturePartDraft> parts = new ArrayList<>();
