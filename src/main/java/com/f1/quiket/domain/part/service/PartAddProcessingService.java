@@ -165,7 +165,9 @@ public class PartAddProcessingService {
             return ErrorCode.LECTURE_INFRA_ERROR;
         }
         ErrorCode code = customEx.getErrorCode();
-        if (code == ErrorCode.LECTURE_CONTENT_ERROR || code == ErrorCode.LECTURE_AI_ERROR) {
+        if (code == ErrorCode.LECTURE_CONFIG_ERROR
+                || code == ErrorCode.LECTURE_CONTENT_ERROR
+                || code == ErrorCode.LECTURE_AI_ERROR) {
             return code;
         }
         if (code == ErrorCode.SERVICE_UNAVAILABLE || code == ErrorCode.UNPROCESSABLE_ENTITY) {
