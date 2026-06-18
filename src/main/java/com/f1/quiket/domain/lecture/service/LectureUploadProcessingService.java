@@ -244,6 +244,6 @@ public class LectureUploadProcessingService {
         if (e instanceof CustomException customException && StringUtils.hasText(customException.getMessage())) {
             return customException.getMessage();
         }
-        return "업로드에 실패하였습니다. 다시 시도해주세요";
+        return "명시된 에러 외 예외 fallback";
     }
 }

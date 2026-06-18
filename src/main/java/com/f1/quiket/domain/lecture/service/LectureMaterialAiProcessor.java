@@ -220,7 +220,7 @@ public class LectureMaterialAiProcessor {
     private List<LecturePartDraft> parseParts(LecturePartsPayload payload) {
         if (Boolean.TRUE.equals(payload.getUnreadable())) {
             log.warn("AI reported file content is unreadable");
-            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "AI가 텍스트 판독 불가 판단 (이미지 레이어 PDF,이미지)");
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "AI가 텍스트 판독 불가 판단");
         }
         if (payload.getParts() == null || payload.getParts().isEmpty()) {
             log.warn("AI response returned no parts");
