@@ -79,7 +79,7 @@ public class PartAddProcessingService {
             saveCompleted(event, result);
         } catch (Exception e) {
             log.warn("Part add processing failed. lectureUploadId={}", event.lectureUploadId(), e);
-            markFailed(event, failMessage(e));
+            markFailed(event, resolveFailCode(e), failMessage(e));
         }
     }
 
@@ -147,17 +147,31 @@ public class PartAddProcessingService {
         return normalized;
     }
 
-    private void markFailed(PartAddProcessingRequestedEvent event, String failReason) {
+    private void markFailed(PartAddProcessingRequestedEvent event, ErrorCode failCode, String failReason) {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             LectureUpload upload = getUpload(event.lectureUploadId());
             // OCR 전체 실패/추출 실패 처리
             upload.markFailed();
-            getOrCreateJob(upload).markFailed("processing_failed", failReason);
+            getOrCreateJob(upload).markFailed(failCode.name(), failReason);
             if (event.uploadType() == StudyMaterialUploadType.IMAGE) {
                 lectureUploadFileRepository.findAllByLectureUploadIdAndDeletedAtIsNullOrderByDisplayOrderAsc(upload.getId())
                         .forEach(LectureUploadFile::markOcrFailed);
             }
         });
+    }
+
+    private ErrorCode resolveFailCode(Exception e) {
+        if (!(e instanceof CustomException customEx)) {
+            return ErrorCode.LECTURE_INFRA_ERROR;
+        }
+        ErrorCode code = customEx.getErrorCode();
+        if (code == ErrorCode.LECTURE_CONTENT_ERROR || code == ErrorCode.LECTURE_AI_ERROR) {
+            return code;
+        }
+        if (code == ErrorCode.SERVICE_UNAVAILABLE || code == ErrorCode.UNPROCESSABLE_ENTITY) {
+            return ErrorCode.LECTURE_CONTENT_ERROR;
+        }
+        return ErrorCode.LECTURE_INFRA_ERROR;
     }
 
     private LectureUpload getUpload(Long lectureUploadId) {

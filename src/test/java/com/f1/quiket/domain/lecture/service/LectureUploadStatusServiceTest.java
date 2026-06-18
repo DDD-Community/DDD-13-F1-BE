@@ -17,6 +17,7 @@ import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.part.repository.PartRepository;
 import com.f1.quiket.domain.subject.entity.Subject;
 import com.f1.quiket.domain.subject.repository.SubjectRepository;
+import com.f1.quiket.global.response.ErrorCode;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,7 +93,7 @@ class LectureUploadStatusServiceTest {
         ReflectionTestUtils.setField(upload, "publicId", "upload-public-id");
         upload.markFailed();
         LectureProcessingJob processingJob = LectureProcessingJob.create(upload.getId(), 1L, 30);
-        processingJob.markFailed("processing_failed", "AI 응답 파트 형식이 올바르지 않습니다.");
+        processingJob.markFailed(ErrorCode.LECTURE_AI_ERROR.name(), "AI 응답 파트 형식이 올바르지 않습니다.");
 
         when(lectureUploadRepository.findByPublicIdAndUserIdAndDeletedAtIsNull("upload-public-id", 1L))
                 .thenReturn(Optional.of(upload));
