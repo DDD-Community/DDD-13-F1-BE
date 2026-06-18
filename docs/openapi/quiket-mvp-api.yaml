@@ -1170,6 +1170,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LectureUploadStatusResponse'
+              examples:
+                processing:
+                  summary: 처리 중
+                  value:
+                    success: true
+                    code: S001
+                    message: 요청이 성공했습니다.
+                    data:
+                      lectureUploadId: 019ed89b-d7a4-7e4f-ab01-5c4ea81b78a0
+                      subjectId: 019ec53a-d489-7727-9320-ddfb25222efd
+                      chapterId: 019ed89b-d78d-7649-9993-acbc5aa76ddd
+                      chapterName: 새 챕터
+                      status: processing
+                      progressPct: 40
+                      estimatedSeconds: 30
+                      parts: []
+                      failCode: null
+                      failMessage: null
+                      failReason: null
+                completed:
+                  summary: 처리 완료
+                  value:
+                    success: true
+                    code: S001
+                    message: 요청이 성공했습니다.
+                    data:
+                      lectureUploadId: 019ed89b-d7a4-7e4f-ab01-5c4ea81b78a0
+                      subjectId: 019ec53a-d489-7727-9320-ddfb25222efd
+                      chapterId: 019ed89b-d78d-7649-9993-acbc5aa76ddd
+                      chapterName: 1장 데이터 모델링
+                      status: completed
+                      progressPct: 100
+                      estimatedSeconds: null
+                      parts:
+                        - id: 018f8c2e-7001-7d4e-9404-4440c3f4ad21
+                          chapterId: 019ed89b-d78d-7649-9993-acbc5aa76ddd
+                          name: 데이터 모델링 개념
+                          partNumber: 1
+                          contentPreview: 데이터 모델링은 현실 세계의 데이터를...
+                      failCode: null
+                      failMessage: null
+                      failReason: null
+                failed:
+                  summary: 처리 실패
+                  value:
+                    success: true
+                    code: S001
+                    message: 요청이 성공했습니다.
+                    data:
+                      lectureUploadId: 019ed89b-d7a4-7e4f-ab01-5c4ea81b78a0
+                      subjectId: 019ec53a-d489-7727-9320-ddfb25222efd
+                      chapterId: 019ed89b-d78d-7649-9993-acbc5aa76ddd
+                      chapterName: 새 챕터
+                      status: failed
+                      progressPct: 100
+                      estimatedSeconds: 30
+                      parts: []
+                      failCode: LECTURE_CONTENT_ERROR
+                      failMessage: "파일을 확인해 주세요. (손상·암호화 PDF, 내용이 너무 많은 파일은 처리할 수 없어요)"
+                      failReason: 파일 내용이 너무 많음
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -3472,10 +3532,56 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PartSummary'
+            failCode:
+              $ref: '#/components/schemas/LectureUploadFailCode'
+            failMessage:
+              type: string
+              nullable: true
+              description: 사용자에게 표시할 실패 안내 메시지. status가 failed일 때만 존재
+              example: "파일을 확인해 주세요. (손상·암호화 PDF, 내용이 너무 많은 파일은 처리할 수 없어요)"
             failReason:
               type: string
               nullable: true
-              example: OCR 처리 실패
+              description: |
+                시스템 내부 실패 원인. status가 failed일 때만 존재. 클라이언트에 노출하지 않음.
+
+                | failCode | failReason |
+                |---|---|
+                | LECTURE_CONTENT_ERROR | 손상·암호화 PDF |
+                | LECTURE_CONTENT_ERROR | 파일 내용이 너무 많음 |
+                | LECTURE_CONTENT_ERROR | AI가 텍스트 판독 불가 판단 |
+                | LECTURE_AI_ERROR | Groq content 필드 없음 |
+                | LECTURE_AI_ERROR | Gemini content 필드 없음 |
+                | LECTURE_AI_ERROR | AI 응답 자체가 빈 문자열 |
+                | LECTURE_AI_ERROR | AI가 유효한 JSON을 반환하지 않음 |
+                | LECTURE_AI_ERROR | AI가 parts 배열 미반환 |
+                | LECTURE_AI_ERROR | parts 아이템에 필수 필드 누락 |
+                | LECTURE_INFRA_ERROR | Groq 서버 장애·네트워크 단절 |
+                | LECTURE_INFRA_ERROR | Gemini 서버 장애 (재시도 소진 후) |
+                | LECTURE_INFRA_ERROR | 재시도 중 스레드 인터럽트 |
+                | LECTURE_INFRA_ERROR | 명시된 에러 외 예외 fallback |
+                | LECTURE_CONFIG_ERROR | GROQ_API_KEY 미설정 |
+                | LECTURE_CONFIG_ERROR | GEMINI_API_KEY 미설정 |
+              example: 파일 내용이 너무 많음
+
+    LectureUploadFailCode:
+      type: string
+      nullable: true
+      description: |
+        실패 분류 코드. status가 failed일 때만 존재.
+
+        | failCode | failMessage (클라이언트 노출용) |
+        |---|---|
+        | LECTURE_CONTENT_ERROR | 파일을 확인해 주세요. (손상·암호화 PDF, 내용이 너무 많은 파일은 처리할 수 없어요) |
+        | LECTURE_AI_ERROR | 처리에 실패했어요. 잠시 후 다시 시도해 주세요. |
+        | LECTURE_INFRA_ERROR | 일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요. |
+        | LECTURE_CONFIG_ERROR | 서비스 오류가 발생했어요. 고객센터에 문의해 주세요. |
+      enum:
+        - LECTURE_CONTENT_ERROR
+        - LECTURE_AI_ERROR
+        - LECTURE_INFRA_ERROR
+        - LECTURE_CONFIG_ERROR
+      example: LECTURE_CONTENT_ERROR
 
     LectureUploadStatus:
       type: string
