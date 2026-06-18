@@ -65,7 +65,7 @@ public class GroqClient {
         } catch (CustomException e) {
             throw e;
         } catch (RestClientException | JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq API 호출에 실패했습니다.", e);
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq 서버 장애·네트워크 단절", e);
         }
     }
 

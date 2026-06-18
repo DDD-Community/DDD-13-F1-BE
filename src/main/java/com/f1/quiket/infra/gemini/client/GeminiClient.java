@@ -64,7 +64,7 @@ public class GeminiClient {
         } catch (CustomException e) {
             throw e;
         } catch (RestClientException | JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini API 호출에 실패했습니다.", e);
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 서버 장애 (재시도 소진 후)", e);
         }
     }
 
@@ -177,7 +177,7 @@ public class GeminiClient {
             Thread.sleep(backoffMillis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini API 재시도 대기가 중단되었습니다.", e);
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "재시도 중 스레드 인터럽트", e);
         }
     }
 
