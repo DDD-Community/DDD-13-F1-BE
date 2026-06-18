@@ -184,7 +184,7 @@ public class LectureUploadProcessingService {
         }
         if (draft.getContent().length() > MAX_PART_CONTENT_LENGTH) {
             log.warn("Part content exceeds limit. partNumber={}, length={}", draft.getPartNumber(), draft.getContent().length());
-            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "파일 내용이 너무 많음");
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "파트 본문은 30,000자를 초과할 수 없습니다.");
         }
     }
 
