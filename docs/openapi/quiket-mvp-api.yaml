@@ -3533,7 +3533,9 @@ components:
               items:
                 $ref: '#/components/schemas/PartSummary'
             failCode:
-              $ref: '#/components/schemas/LectureUploadFailCode'
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/LectureUploadFailCode'
             failMessage:
               type: string
               nullable: true
