@@ -64,7 +64,7 @@ public class GeminiClient {
         } catch (CustomException e) {
             throw e;
         } catch (RestClientException | JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini API 호출에 실패했습니다.", e);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Gemini 서버 장애 (재시도 소진 후)", e);
         }
     }
 
@@ -73,7 +73,8 @@ public class GeminiClient {
      */
     private void validateConfigured() {
         if (!properties.isConfigured()) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 설정값이 준비되지 않았습니다.");
+            log.warn("Gemini API key is not configured");
+            throw new CustomException(ErrorCode.LECTURE_CONFIG_ERROR, "GEMINI_API_KEY 미설정");
         }
     }
 
@@ -176,7 +177,7 @@ public class GeminiClient {
             Thread.sleep(backoffMillis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini API 재시도 대기가 중단되었습니다.", e);
+            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "재시도 중 스레드 인터럽트", e);
         }
     }
 
@@ -184,10 +185,15 @@ public class GeminiClient {
      * Gemini 응답 텍스트 파싱
      */
     private String parseResponse(String responseBody) throws JsonProcessingException {
+        if (!StringUtils.hasText(responseBody)) {
+            log.warn("Gemini response body is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Gemini 응답 본문이 비어 있음");
+        }
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
         if (textNode.isMissingNode() || textNode.isNull() || !StringUtils.hasText(textNode.asText())) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Gemini 응답 본문이 비어 있습니다.");
+            log.warn("Gemini response content is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Gemini content 필드 없음");
         }
         return textNode.asText();
     }

@@ -1,6 +1,7 @@
 package com.f1.quiket.domain.lecture.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,8 @@ import com.f1.quiket.domain.material.dto.StudyMaterialPdfTextExtractionResult;
 import com.f1.quiket.domain.material.dto.StudyMaterialUploadType;
 import com.f1.quiket.domain.material.port.StudyMaterialAiGateway;
 import com.f1.quiket.domain.material.port.StudyMaterialPdfTextExtractor;
+import com.f1.quiket.global.error.CustomException;
+import com.f1.quiket.global.response.ErrorCode;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,6 +183,48 @@ class LectureMaterialAiProcessorTest {
                 .containsExactly("개념", "미분류");
         assertThat(result.getParts()).extracting("content")
                 .containsExactly("개념\n", "마지막");
+    }
+
+    @Test
+    void process_text_throws_LECTURE_AI_ERROR_when_groq_returns_no_parts() {
+        when(studyMaterialAiGateway.generateFromText(any(), any()))
+                .thenReturn("""
+                        {"parts":[]}
+                        """);
+
+        assertThatThrownBy(() -> lectureMaterialAiProcessor.process(
+                LectureMaterialAiProcessRequest.builder()
+                        .uploadType(StudyMaterialUploadType.TEXT)
+                        .partSplitMethod(PartSplitMethod.AUTO)
+                        .chapterName("1장")
+                        .text("원문 텍스트")
+                        .build()
+        ))
+                .isInstanceOf(CustomException.class)
+                .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.LECTURE_AI_ERROR));
+    }
+
+    @Test
+    void process_text_throws_LECTURE_AI_ERROR_when_all_groq_parts_are_invalid() {
+        when(studyMaterialAiGateway.generateFromText(any(), any()))
+                .thenReturn("""
+                        {"parts":[
+                          {"partNumber":1,"name":"개념"}
+                        ]}
+                        """);
+
+        assertThatThrownBy(() -> lectureMaterialAiProcessor.process(
+                LectureMaterialAiProcessRequest.builder()
+                        .uploadType(StudyMaterialUploadType.TEXT)
+                        .partSplitMethod(PartSplitMethod.AUTO)
+                        .chapterName("1장")
+                        .text("원문 텍스트")
+                        .build()
+        ))
+                .isInstanceOf(CustomException.class)
+                .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.LECTURE_AI_ERROR));
     }
 
     @Test

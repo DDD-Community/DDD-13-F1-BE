@@ -65,7 +65,7 @@ public class GroqClient {
         } catch (CustomException e) {
             throw e;
         } catch (RestClientException | JsonProcessingException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq API 호출에 실패했습니다.", e);
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Groq 서버 장애·네트워크 단절", e);
         }
     }
 
@@ -74,7 +74,8 @@ public class GroqClient {
      */
     private void validateConfigured() {
         if (!properties.isConfigured()) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq 설정값이 준비되지 않았습니다.");
+            log.warn("Groq API key is not configured");
+            throw new CustomException(ErrorCode.LECTURE_CONFIG_ERROR, "GROQ_API_KEY 미설정");
         }
     }
 
@@ -108,10 +109,15 @@ public class GroqClient {
      * Groq 응답 텍스트 파싱
      */
     private String parseResponse(String responseBody) throws JsonProcessingException {
+        if (!StringUtils.hasText(responseBody)) {
+            log.warn("Groq response body is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Groq 응답 본문이 비어 있음");
+        }
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
         if (contentNode.isMissingNode() || contentNode.isNull() || !StringUtils.hasText(contentNode.asText())) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "Groq 응답 본문이 비어 있습니다.");
+            log.warn("Groq response content is empty");
+            throw new CustomException(ErrorCode.LECTURE_AI_ERROR, "Groq content 필드 없음");
         }
         return contentNode.asText();
     }

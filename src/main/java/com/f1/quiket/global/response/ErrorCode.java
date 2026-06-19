@@ -52,6 +52,12 @@ public enum ErrorCode {
     // Subject Errors
     SUBJECT_NOT_FOUND(404, "SUBJECT_NOT_FOUND", "과목을 찾을 수 없습니다."),
 
+    // Lecture Processing Errors
+    LECTURE_CONFIG_ERROR(503, "LECTURE_CONFIG_ERROR", "서비스 오류가 발생했어요. 고객센터에 문의해 주세요."),
+    LECTURE_AI_ERROR(503, "LECTURE_AI_ERROR", "처리에 실패했어요. 잠시 후 다시 시도해 주세요."),
+    LECTURE_CONTENT_ERROR(422, "LECTURE_CONTENT_ERROR", "파일을 확인해 주세요. (손상·암호화 PDF, 내용이 너무 많은 파일은 처리할 수 없어요)"),
+    LECTURE_INFRA_ERROR(503, "LECTURE_INFRA_ERROR", "일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
+
     // Quiz Errors
     QUIZ_OPTION_INVALID(400, "QUIZ_OPTION_INVALID", "퀴즈 옵션이 올바르지 않습니다."),
     QUIZ_SCOPE_INVALID(400, "QUIZ_SCOPE_INVALID", "출제 범위가 올바르지 않습니다."),

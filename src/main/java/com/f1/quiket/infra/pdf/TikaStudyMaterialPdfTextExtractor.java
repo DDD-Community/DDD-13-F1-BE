@@ -7,6 +7,7 @@ import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.Tika;
 import org.apache.tika.exception.TikaException;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ import org.springframework.util.StringUtils;
  *
  * PDF 텍스트 레이어 존재 여부 판별
  */
+@Slf4j
 @Component
 public class TikaStudyMaterialPdfTextExtractor implements StudyMaterialPdfTextExtractor {
 
@@ -37,7 +39,8 @@ public class TikaStudyMaterialPdfTextExtractor implements StudyMaterialPdfTextEx
                     .extractedText(normalized)
                     .build();
         } catch (IOException | TikaException e) {
-            throw new CustomException(ErrorCode.SERVICE_UNAVAILABLE, "PDF 텍스트 추출에 실패했습니다.", e);
+            log.warn("PDF text extraction failed", e);
+            throw new CustomException(ErrorCode.LECTURE_CONTENT_ERROR, "손상·암호화 PDF", e);
         }
     }
 
