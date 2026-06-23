@@ -22,6 +22,8 @@ public class LectureMaterialAiPromptBuilder {
      * Groq 텍스트 분류 프롬프트 생성
      *
      * @param request chapterName이 null이면 챕터명 생성 지시 포함
+     * @param sourceText 원문 텍스트
+     * @return Groq 프롬프트
      */
     public StudyMaterialAiPrompt buildGroqPrompt(LectureMaterialAiProcessRequest request, String sourceText) {
         return new StudyMaterialAiPrompt(systemMessage(needsChapterName(request)), groqUserMessage(request, sourceText));
@@ -31,20 +33,39 @@ public class LectureMaterialAiPromptBuilder {
      * Gemini OCR 및 분류 프롬프트 생성
      *
      * @param request chapterName이 null이면 챕터명 생성 지시 포함
+     * @param sourceText 추가 텍스트
+     * @return Gemini 프롬프트
      */
     public StudyMaterialAiPrompt buildGeminiPrompt(LectureMaterialAiProcessRequest request, String sourceText) {
-        return new StudyMaterialAiPrompt(systemMessage(needsChapterName(request)), geminiUserMessage(request, sourceText));
+        return new StudyMaterialAiPrompt(geminiSystemMessage(needsChapterName(request)), geminiUserMessage(request, sourceText));
     }
 
     /**
-     * chapterName이 null이면 AI 챕터명 생성이 필요한 요청으로 판단
+     * Gemini 전용 시스템 메시지
+     *
+     * @param generateChapterName 챕터명 생성 여부
+     * @return Gemini 시스템 메시지
+     */
+    private String geminiSystemMessage(boolean generateChapterName) {
+        return systemMessage(generateChapterName)
+                + "파일에서 텍스트를 전혀 판독할 수 없는 경우 {\"unreadable\":true}만 반환한다.\n";
+    }
+
+    /**
+     * AI 챕터명 생성 필요 여부
+     *
+     * @param request AI 처리 요청
+     * @return 챕터명 생성 필요 여부
      */
     private boolean needsChapterName(LectureMaterialAiProcessRequest request) {
         return !StringUtils.hasText(request.getChapterName());
     }
 
     /**
-     * @param generateChapterName true이면 챕터명 생성 지시 추가
+     * 공통 시스템 메시지 생성
+     *
+     * @param generateChapterName 챕터명 생성 여부
+     * @return 공통 시스템 메시지
      */
     private String systemMessage(boolean generateChapterName) {
         String base = """

@@ -2,6 +2,7 @@ package com.f1.quiket.domain.lecture.dto;
 
 import com.f1.quiket.domain.chapter.entity.Chapter;
 import com.f1.quiket.domain.lecture.entity.LectureProcessingJob;
+import com.f1.quiket.global.response.ErrorCode;
 import com.f1.quiket.domain.lecture.entity.LectureUpload;
 import com.f1.quiket.domain.lecture.entity.LectureUploadStatus;
 import com.f1.quiket.domain.part.entity.Part;
@@ -31,7 +32,9 @@ public class LectureUploadStatusResponse {
     private final Integer estimatedSeconds;
     private final Integer progressPct;
     private final List<PartSummary> parts;
-    private final String failReason;
+    private final String failCode;  // ErrorCode enum name
+    private final String failMessage;   // ErrorCode에 매핑되는 사용자 노출용 메시지
+    private final String failReason;    // AI 또는 시스템에서 반환하는 상세 실패 사유 (DB저장용, 사용자 노출 X)
 
     /**
      * 업로드 상태 응답 생성
@@ -54,8 +57,21 @@ public class LectureUploadStatusResponse {
                 .parts(parts.stream()
                         .map(part -> PartSummary.of(part, chapter))
                         .toList())
+                .failCode(processingJob == null ? null : processingJob.getFailCode())
+                .failMessage(resolveFailMessage(processingJob))
                 .failReason(processingJob == null ? null : processingJob.getFailReason())
                 .build();
+    }
+
+    private static String resolveFailMessage(LectureProcessingJob processingJob) {
+        if (processingJob == null || processingJob.getFailCode() == null) {
+            return null;
+        }
+        try {
+            return ErrorCode.valueOf(processingJob.getFailCode()).getMessage();
+        } catch (IllegalArgumentException e) {
+            return ErrorCode.LECTURE_INFRA_ERROR.getMessage();
+        }
     }
 
     private static int progressPct(LectureUpload upload) {

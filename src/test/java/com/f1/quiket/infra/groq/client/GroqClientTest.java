@@ -72,7 +72,7 @@ class GroqClientTest {
         ))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
-                .isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
+                .isEqualTo(ErrorCode.LECTURE_CONFIG_ERROR);
     }
 
     private GroqProperties properties() {

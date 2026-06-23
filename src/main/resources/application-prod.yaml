@@ -2,7 +2,7 @@ server:
   port: 8080
 
 spring:
-  # MySQL - AWS RDS
+  # MySQL - DB 호스트 QUIKET_DB_HOST 주입
   datasource:
     url: jdbc:mysql://${QUIKET_DB_HOST}:3306/quiket?useSSL=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${QUIKET_DB_USERNAME}
