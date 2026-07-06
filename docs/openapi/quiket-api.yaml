@@ -602,12 +602,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_OAUTH_LOGIN_SUCCESS
+                    message: Kakao 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - kakao
         '201':
           description: Kakao 신규 가입 후 로그인 성공
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_OAUTH_SIGNUP_SUCCESS
+                    message: Kakao 회원가입 및 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - kakao
         '202':
           description: 최초 로그인 후 닉네임 설정 필요
           content:
@@ -672,6 +714,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_OAUTH_LINK_SUCCESS
+                    message: Kakao 계정 연동 및 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - local
+                          - kakao
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -782,18 +846,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_APPLE_LOGIN_SUCCESS
+                    message: Apple 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - apple
         '201':
           description: Apple 신규 가입 후 로그인 성공
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_APPLE_SIGNUP_SUCCESS
+                    message: Apple 회원가입 및 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - apple
         '202':
           description: 최초 로그인 후 닉네임 설정 필요
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AppleNicknameRequiredResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_NICKNAME_REQUIRED
+                    message: 닉네임 설정이 필요합니다.
+                    data:
+                      signupToken: eyJraWQiOiJhcHBsZS1zaWdudXAifQ
+                      provider: apple
+                      suggestedNickname: 하동헌
         '400':
           description: 신규 가입 약관 동의 누락
           content:
@@ -826,6 +942,25 @@ paths:
                     code: AUTH_APPLE_INVALID_TOKEN
                     message: Apple Identity Token이 올바르지 않습니다.
                     data: null
+        '503':
+          description: Apple 로그인 설정 미비 또는 Apple 공개키 조회 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                configError:
+                  value:
+                    success: false
+                    code: AUTH_APPLE_CONFIG_ERROR
+                    message: Apple 로그인 설정이 올바르지 않습니다.
+                    data: null
+                keyFetchFailed:
+                  value:
+                    success: false
+                    code: AUTH_APPLE_KEY_FETCH_FAILED
+                    message: Apple 공개키 조회에 실패했습니다.
+                    data: null
 
   /auth/oauth/apple/link:
     post:
@@ -853,6 +988,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_APPLE_LINK_SUCCESS
+                    message: Apple 계정 연동 및 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: user@example.com
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: true
+                        status: active
+                        providers:
+                          - local
+                          - apple
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2412,7 +2569,6 @@ components:
         - linkToken
         - email
         - password
-        - agreedToLink
       properties:
         linkToken:
           type: string
@@ -2426,6 +2582,7 @@ components:
           example: Password123!
         agreedToLink:
           type: boolean
+          description: 클라이언트 화면 동의 확인용 - 서버는 검증하지 않는 선택값
           example: true
 
     KakaoNicknameRequest:
