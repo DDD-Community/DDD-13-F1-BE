@@ -245,7 +245,7 @@ CREATE TABLE subject_other_details (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='과목 기타 목적 상세 정보 (purpose=other)';
 
 
--- 시험 일정 (D-Day) - MVP: 과목당 1개
+-- 시험 일정 (D-Day) - 과목당 1개
 CREATE TABLE subject_exam_schedules (
     id                  BIGINT          NOT NULL AUTO_INCREMENT          COMMENT 'PK',
     public_id           CHAR(36)        NOT NULL                         COMMENT '외부 노출용 UUID v7',
@@ -259,7 +259,7 @@ CREATE TABLE subject_exam_schedules (
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_subject_exam_schedules_public_id (public_id),
-    UNIQUE KEY uq_subject_exam_schedules_subject_id (subject_id),  -- MVP: 과목당 1개
+    UNIQUE KEY uq_subject_exam_schedules_subject_id (subject_id),  -- 과목당 1개
     KEY idx_subject_exam_schedules_user_id_exam_date (user_id, exam_date),
     KEY idx_subject_exam_schedules_exam_date (exam_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='과목별 시험 일정 (D-Day)';
@@ -269,7 +269,7 @@ CREATE TABLE subject_exam_schedules (
 CREATE TABLE certificates (
     id                  BIGINT          NOT NULL AUTO_INCREMENT          COMMENT 'PK',
     name                VARCHAR(100)    NOT NULL                         COMMENT '자격증명',
-    is_featured         TINYINT(1)      NOT NULL DEFAULT 0               COMMENT '자주 찾는 자격증 여부 (MVP: 수동 지정)',
+    is_featured         TINYINT(1)      NOT NULL DEFAULT 0               COMMENT '자주 찾는 자격증 여부 (수동 지정)',
     display_order       INT             NOT NULL DEFAULT 0               COMMENT '노출 순서',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '생성 시각',
     updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
@@ -372,7 +372,7 @@ CREATE TABLE lecture_processing_jobs (
     timeout_at          DATETIME(3)     NULL                             COMMENT '타임아웃 기준 시각 (= started_at + 600초)',
     retry_count         TINYINT UNSIGNED NOT NULL DEFAULT 0              COMMENT '재시도 누적 횟수',
     is_retryable        TINYINT(1)      NOT NULL DEFAULT 1               COMMENT '재시도 가능 여부',
-    mq_message_id       VARCHAR(100)    NULL                             COMMENT 'RabbitMQ message-id (MVP는 NULL)',
+    mq_message_id       VARCHAR(100)    NULL                             COMMENT 'RabbitMQ message-id (MQ 미도입, 현재 NULL)',
     fail_code           VARCHAR(50)     NULL                             COMMENT '실패 코드',
     fail_reason         VARCHAR(500)    NULL                             COMMENT '실패 상세 사유',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -388,7 +388,7 @@ CREATE TABLE lecture_processing_jobs (
     CONSTRAINT chk_lecture_processing_jobs_progress_pct
         CHECK (progress_pct BETWEEN 0 AND 100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='강의 업로드 OCR/파트 분류 처리 작업 이력 (추후 도입 시 MQ 도입시 사용, MVP 구현 단계에서는 미사용)';
+  COMMENT='강의 업로드 OCR/파트 분류 처리 작업 이력 (추후 MQ 도입 시 사용, 현재 미사용)';
 
 -- ============================================================
 -- PART (파트) 관련 테이블
@@ -620,7 +620,7 @@ CREATE TABLE quiz_generation_jobs (
     is_retryable        TINYINT(1)      NOT NULL DEFAULT 1,
     fail_code           VARCHAR(50)     NULL,
     fail_reason         VARCHAR(500)    NULL,
-    mq_message_id       VARCHAR(100)    NULL    COMMENT 'RabbitMQ message-id (추후 도입 시 채움, MVP는 NULL)',
+    mq_message_id       VARCHAR(100)    NULL    COMMENT 'RabbitMQ message-id (추후 MQ 도입 시 채움, 현재 NULL)',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
