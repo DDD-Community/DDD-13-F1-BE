@@ -35,6 +35,9 @@ public enum SuccessCode {
     AUTH_OAUTH_LINK_SUCCESS(200, "AUTH_OAUTH_LINK_SUCCESS", "Kakao 계정 연동 및 로그인이 완료되었습니다."),
     AUTH_OAUTH_NICKNAME_COMPLETED(200, "AUTH_OAUTH_NICKNAME_COMPLETED", "닉네임 설정 및 로그인이 완료되었습니다."),
     AUTH_NICKNAME_REQUIRED(202, "AUTH_NICKNAME_REQUIRED", "닉네임 설정이 필요합니다."),
+    AUTH_APPLE_LOGIN_SUCCESS(200, "AUTH_APPLE_LOGIN_SUCCESS", "Apple 로그인이 완료되었습니다."),
+    AUTH_APPLE_SIGNUP_SUCCESS(201, "AUTH_APPLE_SIGNUP_SUCCESS", "Apple 회원가입 및 로그인이 완료되었습니다."),
+    AUTH_APPLE_LINK_SUCCESS(200, "AUTH_APPLE_LINK_SUCCESS", "Apple 계정 연동 및 로그인이 완료되었습니다."),
     ;
 
     private final int status;

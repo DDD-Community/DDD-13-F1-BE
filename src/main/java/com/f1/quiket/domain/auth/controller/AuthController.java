@@ -1,5 +1,9 @@
 package com.f1.quiket.domain.auth.controller;
 
+import com.f1.quiket.domain.auth.dto.AppleAccountLinkRequest;
+import com.f1.quiket.domain.auth.dto.AppleAccountLinkRequiredResponse;
+import com.f1.quiket.domain.auth.dto.AppleLoginRequest;
+import com.f1.quiket.domain.auth.dto.AppleNicknameRequest;
 import com.f1.quiket.domain.auth.dto.AuthTokenResponse;
 import com.f1.quiket.domain.auth.dto.AuthUserResponse;
 import com.f1.quiket.domain.auth.dto.EmailAvailabilityResponse;
@@ -19,6 +23,8 @@ import com.f1.quiket.domain.auth.dto.PasswordResetRequestedResponse;
 import com.f1.quiket.domain.auth.dto.RefreshTokenRequest;
 import com.f1.quiket.domain.auth.dto.SignupRequest;
 import com.f1.quiket.domain.auth.dto.SignupResponse;
+import com.f1.quiket.domain.auth.service.AppleOAuthLoginResult;
+import com.f1.quiket.domain.auth.service.AppleOAuthService;
 import com.f1.quiket.domain.auth.service.AuthTokenRequestContext;
 import com.f1.quiket.domain.auth.service.AuthTokenService;
 import com.f1.quiket.domain.auth.service.KakaoOAuthLoginResult;
@@ -59,6 +65,7 @@ public class AuthController {
     private final LocalAuthService localAuthService;
     private final AuthTokenService authTokenService;
     private final KakaoOAuthService kakaoOAuthService;
+    private final AppleOAuthService appleOAuthService;
     private final PasswordResetService passwordResetService;
 
     @PostMapping("/signup")
@@ -141,6 +148,60 @@ public class AuthController {
             case NICKNAME_REQUIRED -> ResponseEntity.status(SuccessCode.AUTH_NICKNAME_REQUIRED.getStatus())
                     .body(ApiResponse.success(SuccessCode.AUTH_NICKNAME_REQUIRED, result.getNicknameRequiredResponse()));
         };
+    }
+
+    @PostMapping("/oauth/apple/login")
+    public ResponseEntity<ApiResponse<?>> appleLogin(
+            @Valid @RequestBody AppleLoginRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
+    ) {
+        AppleOAuthLoginResult result = appleOAuthService.login(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return switch (result.getStatus()) {
+            case EXISTING_LOGIN -> ResponseEntity.ok(
+                    ApiResponse.success(SuccessCode.AUTH_APPLE_LOGIN_SUCCESS, result.getTokenResponse())
+            );
+            case SIGNUP_LOGIN -> ResponseEntity.status(SuccessCode.AUTH_APPLE_SIGNUP_SUCCESS.getStatus())
+                    .body(ApiResponse.success(SuccessCode.AUTH_APPLE_SIGNUP_SUCCESS, result.getTokenResponse()));
+            case ACCOUNT_LINK_REQUIRED -> appleAccountLinkRequiredResponse(result.getAccountLinkRequiredResponse());
+            case NICKNAME_REQUIRED -> ResponseEntity.status(SuccessCode.AUTH_NICKNAME_REQUIRED.getStatus())
+                    .body(ApiResponse.success(SuccessCode.AUTH_NICKNAME_REQUIRED, result.getNicknameRequiredResponse()));
+        };
+    }
+
+    @PostMapping("/oauth/apple/link")
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> linkAppleAccount(
+            @Valid @RequestBody AppleAccountLinkRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
+    ) {
+        AuthTokenResponse response = appleOAuthService.link(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_APPLE_LINK_SUCCESS, response));
+    }
+
+    @PostMapping("/oauth/apple/nickname")
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> completeAppleNickname(
+            @Valid @RequestBody AppleNicknameRequest request,
+            @RequestHeader(value = X_DEVICE_ID, required = false) String deviceId,
+            @RequestHeader(value = X_DEVICE_NAME, required = false) String deviceName,
+            @RequestHeader(value = USER_AGENT, required = false) String userAgent,
+            HttpServletRequest httpServletRequest
+    ) {
+        AuthTokenResponse response = appleOAuthService.completeNickname(
+                request,
+                createTokenRequestContext(deviceId, deviceName, userAgent, httpServletRequest)
+        );
+        return ResponseEntity.ok(ApiResponse.success(SuccessCode.AUTH_OAUTH_NICKNAME_COMPLETED, response));
     }
 
     @PostMapping("/password-reset/requests")
@@ -251,6 +312,16 @@ public class AuthController {
     private ResponseEntity<ApiResponse<?>> accountLinkRequiredResponse(KakaoAccountLinkRequiredResponse response) {
         return ResponseEntity.status(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getStatus())
                 .body(ApiResponse.<KakaoAccountLinkRequiredResponse>builder()
+                        .success(false)
+                        .code(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getCode())
+                        .message(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getMessage())
+                        .data(response)
+                        .build());
+    }
+
+    private ResponseEntity<ApiResponse<?>> appleAccountLinkRequiredResponse(AppleAccountLinkRequiredResponse response) {
+        return ResponseEntity.status(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getStatus())
+                .body(ApiResponse.<AppleAccountLinkRequiredResponse>builder()
                         .success(false)
                         .code(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getCode())
                         .message(ErrorCode.AUTH_OAUTH_ACCOUNT_LINK_REQUIRED.getMessage())
