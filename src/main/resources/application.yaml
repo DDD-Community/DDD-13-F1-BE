@@ -55,6 +55,17 @@ kakao:
   oauth:
     user-info-uri: https://kapi.kakao.com/v2/user/me
 
+apple:
+  oauth:
+    base-url: ${APPLE_OAUTH_BASE_URL:https://appleid.apple.com}
+    jwks-path: /auth/keys
+    token-path: /auth/token
+    revoke-path: /auth/revoke
+    client-id: ${APPLE_OAUTH_CLIENT_ID:}      # iOS 앱 번들 ID
+    team-id: ${APPLE_OAUTH_TEAM_ID:}
+    key-id: ${APPLE_OAUTH_KEY_ID:}
+    private-key: ${APPLE_OAUTH_PRIVATE_KEY:}  # .p8 PEM 본문
+
 azure:
   openai:
     endpoint: ${AZURE_OPENAI_ENDPOINT:}
