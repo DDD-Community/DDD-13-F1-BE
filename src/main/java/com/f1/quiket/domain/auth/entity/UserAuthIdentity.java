@@ -65,6 +65,9 @@ public class UserAuthIdentity extends BaseEntity {
     @Column(name = "is_primary", nullable = false)
     boolean primary = false;
 
+    @Column(name = "oauth_refresh_token", length = 512)
+    String oauthRefreshToken;
+
     @Column(name = "last_login_at")
     LocalDateTime lastLoginAt;
 
@@ -93,5 +96,9 @@ public class UserAuthIdentity extends BaseEntity {
 
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public void updateOAuthRefreshToken(String oauthRefreshToken) {
+        this.oauthRefreshToken = oauthRefreshToken;
     }
 }
