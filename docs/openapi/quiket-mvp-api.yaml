@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Quiket MVP API
-  version: 1.0.3
+  version: 1.1.0
   description: |
     Quiket MVP API 명세
 
@@ -16,6 +16,7 @@ info:
     - JWT Access Token / Refresh Token 재발급, 로그아웃
     - 비밀번호 재설정
     - Kakao OAuth 로그인 및 기존 계정 연동
+    - Apple OAuth 로그인(Sign in with Apple) 및 기존 계정 연동
     - 홈 메인 데이터, 최근활동
     - 과목 추가/조회/수정/삭제, 시험 D-Day 설정
     - 챕터명 수정
@@ -724,6 +725,187 @@ paths:
                         status: active
                         providers:
                           - kakao
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: signupToken 무효
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/oauth/apple/login:
+    post:
+      tags:
+        - OAuth
+      summary: Apple OAuth 로그인
+      description: |
+        iOS 앱에서 Sign in with Apple로 획득한 identityToken을 서버로 전달합니다.
+        서버는 Apple 공개키(JWKS)로 identityToken 서명과 iss/aud/exp를 검증하고 sub 클레임을 provider_subject로 사용합니다.
+        계정 연동 또는 닉네임 설정이 필요한 경우 linkToken/signupToken을 Redis에 TTL 10분으로 저장합니다.
+        기존 Apple 사용자 로그인과 기존 계정 연동 필요 응답에는 agreedToTerms가 필요하지 않습니다.
+        Apple 정보만으로 신규 사용자를 즉시 생성하는 경우에는 agreedToTerms=true가 필요합니다.
+
+        서버 처리 흐름:
+        1. identityToken 서명·클레임 검증 (Apple JWKS)
+        2. sub 클레임을 provider_subject로 사용
+        3. 기존 apple 인증 수단 존재 시 로그인 처리
+        4. 없으면 email 기준 기존 사용자 확인
+        5. 기존 사용자 없으면 신규 사용자와 apple 인증 수단 생성
+        6. 기존 사용자 존재하지만 apple 인증 수단이 없으면 계정 연동 필요 응답 반환
+        7. 로그인 성공 시 Quiket Access Token / Refresh Token 발급
+
+        authorizationCode 전달 시 서버는 Apple /auth/token으로 refresh token을 교환해 저장하며,
+        회원 탈퇴 시 Apple /auth/revoke 호출에 사용합니다 (App Store 심사 요건).
+        이름/이메일은 Apple 최초 인가 시에만 제공되므로 fullName은 최초 로그인 시 전달을 권장합니다.
+      operationId: appleLogin
+      parameters:
+        - $ref: '#/components/parameters/XDeviceId'
+        - $ref: '#/components/parameters/XDeviceName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppleLoginRequest'
+            examples:
+              default:
+                value:
+                  identityToken: eyJraWQiOiJXNldjT0tCIn0.identity.payload
+                  authorizationCode: c1a2b3d4e5f6g7h8i9
+                  fullName: 하동헌
+                  agreedToTerms: true
+      responses:
+        '200':
+          description: Apple 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '201':
+          description: Apple 신규 가입 후 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '202':
+          description: 최초 로그인 후 닉네임 설정 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppleNicknameRequiredResponse'
+        '400':
+          description: 신규 가입 약관 동의 누락
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                termsRequired:
+                  value:
+                    success: false
+                    code: COMMON_VALIDATION_ERROR
+                    message: 신규 가입을 위해 약관 동의가 필요합니다.
+                    data: null
+        '409':
+          description: 기존 이메일 계정과 연동 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppleAccountLinkRequiredResponse'
+        '401':
+          description: Apple Identity Token 무효
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidToken:
+                  value:
+                    success: false
+                    code: AUTH_APPLE_INVALID_TOKEN
+                    message: Apple Identity Token이 올바르지 않습니다.
+                    data: null
+
+  /auth/oauth/apple/link:
+    post:
+      tags:
+        - OAuth
+      summary: Apple 기존 계정 연동
+      description: |
+        동일 이메일로 기존 Local 계정이 있는 경우, 사용자의 동의를 받은 뒤 Apple 인증 수단을 기존 사용자에 연결합니다.
+        로그인 화면에서 진행되는 연동이므로 기존 Local 계정 비밀번호를 함께 검증합니다.
+        linkToken은 Redis에 저장된 Apple 연동 임시 토큰을 검증합니다.
+      operationId: linkAppleAccount
+      parameters:
+        - $ref: '#/components/parameters/XDeviceId'
+        - $ref: '#/components/parameters/XDeviceName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppleAccountLinkRequest'
+      responses:
+        '200':
+          description: Apple 계정 연동 후 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 비밀번호 오류 또는 연동 토큰 무효
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/oauth/apple/nickname:
+    post:
+      tags:
+        - OAuth
+      summary: Apple 최초 로그인 닉네임 설정
+      description: Apple 최초 로그인 시 닉네임 설정이 필요한 경우 닉네임을 저장하고 Quiket 토큰을 발급합니다. signupToken은 Redis에 저장된 Apple 가입 임시 토큰을 검증합니다.
+      operationId: completeAppleNickname
+      parameters:
+        - $ref: '#/components/parameters/XDeviceId'
+        - $ref: '#/components/parameters/XDeviceName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppleNicknameRequest'
+      responses:
+        '200':
+          description: 닉네임 설정 및 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+              examples:
+                default:
+                  value:
+                    success: true
+                    code: AUTH_OAUTH_NICKNAME_COMPLETED
+                    message: 닉네임 설정 및 로그인이 완료되었습니다.
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.access.payload
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.payload
+                      tokenType: Bearer
+                      accessTokenExpiresIn: 1800
+                      refreshTokenExpiresIn: 2592000
+                      user:
+                        id: 018f8c2e-5f73-7b6a-b9f0-3f55e7f7c901
+                        email: null
+                        nickname: 도토리장인
+                        dotoriBalance: 0
+                        emailVerified: false
+                        status: active
+                        providers:
+                          - apple
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2262,6 +2444,66 @@ components:
           pattern: '^[가-힣A-Za-z]{2,12}$'
           example: 도토리장인
 
+    AppleLoginRequest:
+      type: object
+      required:
+        - identityToken
+      properties:
+        identityToken:
+          type: string
+          description: iOS Sign in with Apple에서 획득한 Identity Token (JWT)
+          example: eyJraWQiOiJXNldjT0tCIn0.identity.payload
+        authorizationCode:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: 탈퇴 시 revoke용 refresh token 교환에 사용, 최초 로그인 시 전달 권장
+          example: c1a2b3d4e5f6g7h8i9
+        fullName:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: Apple 최초 인가 시에만 제공되는 사용자 이름, 닉네임 제안에 사용
+          example: 하동헌
+        agreedToTerms:
+          type: boolean
+          description: 신규 Apple 가입 생성 시 true 명시 필요
+          example: true
+
+    AppleAccountLinkRequest:
+      type: object
+      required:
+        - linkToken
+        - email
+        - password
+      properties:
+        linkToken:
+          type: string
+          example: eyJraWQiOiJhcHBsZS1saW5rIn0
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          example: Password123!
+
+    AppleNicknameRequest:
+      type: object
+      required:
+        - signupToken
+        - nickname
+      properties:
+        signupToken:
+          type: string
+          example: eyJraWQiOiJhcHBsZS1zaWdudXAifQ
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 12
+          pattern: '^[가-힣A-Za-z]{2,12}$'
+          example: 도토리장인
+
     AuthUser:
       type: object
       required:
@@ -2462,6 +2704,44 @@ components:
           type: string
           nullable: true
           example: 카카오사용자
+
+    AppleAccountLinkRequiredData:
+      type: object
+      required:
+        - email
+        - provider
+        - linkToken
+        - expiresInSeconds
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        provider:
+          $ref: '#/components/schemas/AuthProvider'
+        linkToken:
+          type: string
+          example: eyJraWQiOiJhcHBsZS1saW5rIn0
+        expiresInSeconds:
+          type: integer
+          format: int64
+          example: 600
+
+    AppleNicknameRequiredData:
+      type: object
+      required:
+        - signupToken
+        - provider
+      properties:
+        signupToken:
+          type: string
+          example: eyJraWQiOiJhcHBsZS1zaWdudXAifQ
+        provider:
+          $ref: '#/components/schemas/AuthProvider'
+        suggestedNickname:
+          type: string
+          nullable: true
+          example: 하동헌
 
     FieldError:
       type: object
@@ -2677,6 +2957,46 @@ components:
           example: 닉네임 설정이 필요합니다.
         data:
           $ref: '#/components/schemas/KakaoNicknameRequiredData'
+
+    AppleAccountLinkRequiredResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: false
+        code:
+          type: string
+          example: AUTH_OAUTH_ACCOUNT_LINK_REQUIRED
+        message:
+          type: string
+          example: 동일 이메일로 가입된 계정이 있습니다. 계정 연동이 필요합니다.
+        data:
+          $ref: '#/components/schemas/AppleAccountLinkRequiredData'
+
+    AppleNicknameRequiredResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        code:
+          type: string
+          example: AUTH_NICKNAME_REQUIRED
+        message:
+          type: string
+          example: 닉네임 설정이 필요합니다.
+        data:
+          $ref: '#/components/schemas/AppleNicknameRequiredData'
 
     EmptySuccessResponse:
       type: object
