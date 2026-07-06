@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Quiket MVP API
+  title: Quiket API
   version: 1.0.3
   description: |
-    Quiket MVP API 명세
+    Quiket API 명세
 
     기준 문서:
     - 기존 Quiket Auth API 명세
@@ -11,7 +11,7 @@ info:
     - Quiket 기능명세 상세 v1.0
     - Quiket 서비스 DDL
 
-    MVP 범위:
+    제공 기능:
     - 자체 회원가입, 이메일 인증, 자체 로그인
     - JWT Access Token / Refresh Token 재발급, 로그아웃
     - 비밀번호 재설정
@@ -26,7 +26,7 @@ info:
     - 도토리/XP/캐릭터 성장 조회
     - 마이페이지 계정(닉네임/이메일 변경, 비밀번호 변경, 회원 탈퇴), 알림, 피드백
 
-    MVP 제외:
+    미제공 기능:
     - 퀴즈기록 별도 메뉴
     - 오답노트 별도 메뉴
     - PPTX/DOCX 업로드
@@ -82,7 +82,7 @@ tags:
   - name: Results
     description: 결과 제출, 결과 조회, 해설 조회
   - name: History
-    description: MVP 최근활동 기반 퀴즈 기록 조회
+    description: 최근활동 기반 퀴즈 기록 조회
   - name: Gamification
     description: 도토리, XP, 큐링 성장
   - name: My Page
@@ -761,7 +761,7 @@ paths:
       summary: 홈 메인 데이터 조회
       description: |
         홈 메인 화면에 필요한 사용자 요약, 캐릭터 바, D-Day, 과목 목록, 최근활동을 한 번에 조회합니다.
-        기록/오답 별도 메뉴는 MVP에서 제외되며 최근활동은 홈에서만 노출합니다.
+        기록/오답 별도 메뉴는 제공하지 않으며 최근활동은 홈에서만 노출합니다.
       operationId: getHome
       security:
         - bearerAuth: []
@@ -973,7 +973,7 @@ paths:
       tags:
         - Subjects
       summary: 시험 일정 등록/수정
-      description: MVP에서는 과목당 시험 일정 1개만 지원하며, 기존 일정이 있으면 덮어씁니다.
+      description: 과목당 시험 일정 1개만 지원하며, 기존 일정이 있으면 덮어씁니다.
       operationId: upsertSubjectExamSchedule
       security:
         - bearerAuth: []
@@ -1091,7 +1091,7 @@ paths:
       description: |
         PDF, 이미지, 텍스트 직접 입력을 하나의 업로드 API로 처리합니다.
         사용자가 선택한 파트 분류 방식에 따라 자동 분류 또는 직접 입력 파트명 기반 분류를 수행합니다.
-        원본 학습 파일은 서버 영구 저장 대상이 아니며, MVP에서는 추출된 텍스트와 파트 본문 저장을 기준으로 합니다.
+        원본 학습 파일은 서버 영구 저장 대상이 아니며, 추출된 텍스트와 파트 본문 저장을 기준으로 합니다.
       operationId: createLectureUpload
       security:
         - bearerAuth: []
@@ -1351,7 +1351,7 @@ paths:
       description: |
         선택한 과목, 출제 범위, 퀴즈 형식, 문제 수, 풀이 방식, 타이머, 난이도를 기반으로 퀴즈 생성 작업을 접수합니다.
         서버는 jobId를 즉시 반환하고 백그라운드에서 퀴즈를 생성합니다.
-        MVP 정책상 사용자당 생성 작업 1건만 순차 처리합니다.
+        사용자당 생성 작업 1건만 순차 처리합니다.
       operationId: createQuizSession
       security:
         - bearerAuth: []
@@ -1807,7 +1807,7 @@ paths:
       tags:
         - My Page
       summary: 회원 탈퇴 요청
-      description: MVP 정책상 탈퇴 시 사용자 학습 기록, 도토리, XP를 삭제 처리합니다. 세부 보존/유예 정책은 개인정보 처리방침 확정 후 조정합니다.
+      description: 탈퇴 시 사용자 학습 기록, 도토리, XP를 삭제 처리합니다. 세부 보존/유예 정책은 개인정보 처리방침 확정 후 조정합니다.
       operationId: deleteMyAccount
       security:
         - bearerAuth: []
@@ -2322,12 +2322,12 @@ components:
         accessTokenExpiresIn:
           type: integer
           format: int64
-          description: Access Token 만료 시간(초). MVP 기준 30분
+          description: Access Token 만료 시간(초). 기본 30분
           example: 1800
         refreshTokenExpiresIn:
           type: integer
           format: int64
-          description: Refresh Token 만료 시간(초). MVP 기준 30일
+          description: Refresh Token 만료 시간(초). 기본 30일
           example: 2592000
 
     AuthTokenData:
@@ -3412,7 +3412,7 @@ components:
           $ref: '#/components/schemas/PartSplitMethod'
         files:
           type: array
-          description: PDF는 1개, 이미지는 여러 장 선택 가능. 총 파일 크기 정책은 MVP 기준 50MB 이하입니다.
+          description: PDF는 1개, 이미지는 여러 장 선택 가능. 총 파일 크기는 50MB 이하입니다.
           items:
             type: string
             format: binary
