@@ -20,12 +20,13 @@ import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class AppleOAuthService {
 
     private static final String PROVIDER_APPLE = "apple";
@@ -40,23 +41,44 @@ public class AppleOAuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthTokenService authTokenService;
     private final AppleOAuthTemporaryTokenStore temporaryTokenStore;
+    private final PlatformTransactionManager transactionManager;
 
+    /**
+     * Apple 로그인
+     *
+     * Apple HTTP 호출(identityToken 검증, refresh token 교환)은 DB 커넥션 점유 방지 위해
+     * 트랜잭션 밖에서 완료 후 DB 작업만 트랜잭션으로 처리
+     */
     public AppleOAuthLoginResult login(AppleLoginRequest request, AuthTokenRequestContext context) {
         AppleUserInfo appleUserInfo = appleIdTokenVerifier.verify(request.getIdentityToken());
-        UserAuthIdentity appleIdentity = userAuthIdentityRepository
+
+        boolean needsRefreshToken = userAuthIdentityRepository
                 .findByProviderAndProviderSubjectAndDeletedAtIsNull(
                         PROVIDER_APPLE,
                         appleUserInfo.providerSubject()
                 )
-                .orElse(null);
+                .map(identity -> !StringUtils.hasText(identity.getOauthRefreshToken()))
+                .orElse(true);
+        String oauthRefreshToken = needsRefreshToken
+                ? exchangeRefreshToken(request.getAuthorizationCode())
+                : null;
 
-        if (appleIdentity != null) {
-            return loginWithExistingAppleIdentity(appleIdentity, request.getAuthorizationCode(), context);
-        }
+        return new TransactionTemplate(transactionManager).execute(status -> {
+            UserAuthIdentity appleIdentity = userAuthIdentityRepository
+                    .findByProviderAndProviderSubjectAndDeletedAtIsNull(
+                            PROVIDER_APPLE,
+                            appleUserInfo.providerSubject()
+                    )
+                    .orElse(null);
 
-        return loginWithNewAppleIdentity(appleUserInfo, request, context);
+            if (appleIdentity != null) {
+                return loginWithExistingAppleIdentity(appleIdentity, oauthRefreshToken, context);
+            }
+            return loginWithNewAppleIdentity(appleUserInfo, request, oauthRefreshToken, context);
+        });
     }
 
+    @Transactional
     public AuthTokenResponse link(AppleAccountLinkRequest request, AuthTokenRequestContext context) {
         AppleOAuthLinkTokenPayload payload = temporaryTokenStore.findLink(request.getLinkToken())
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_APPLE_LINK_TOKEN_INVALID));
@@ -107,6 +129,7 @@ public class AppleOAuthService {
         return authTokenService.issueTokens(user, context);
     }
 
+    @Transactional
     public AuthTokenResponse completeNickname(AppleNicknameRequest request, AuthTokenRequestContext context) {
         if (!isValidNickname(request.getNickname())) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
@@ -138,14 +161,14 @@ public class AppleOAuthService {
 
     private AppleOAuthLoginResult loginWithExistingAppleIdentity(
             UserAuthIdentity appleIdentity,
-            String authorizationCode,
+            String oauthRefreshToken,
             AuthTokenRequestContext context
     ) {
         User user = appleIdentity.getUser();
         validateAccountIsNotLocked(user);
         if (!StringUtils.hasText(appleIdentity.getOauthRefreshToken())) {
             // 탈퇴 revoke용 refresh token 미보유 시 재확보
-            applyOAuthRefreshToken(appleIdentity, exchangeRefreshToken(authorizationCode));
+            applyOAuthRefreshToken(appleIdentity, oauthRefreshToken);
         }
         recordLoginSuccess(user, appleIdentity, context);
         return AppleOAuthLoginResult.existingLogin(authTokenService.issueTokens(user, context));
@@ -154,10 +177,10 @@ public class AppleOAuthService {
     private AppleOAuthLoginResult loginWithNewAppleIdentity(
             AppleUserInfo appleUserInfo,
             AppleLoginRequest request,
+            String oauthRefreshToken,
             AuthTokenRequestContext context
     ) {
         String email = resolveUsableEmail(appleUserInfo);
-        String oauthRefreshToken = exchangeRefreshToken(request.getAuthorizationCode());
 
         if (email != null) {
             User existingUser = userRepository.findByEmailAndDeletedAtIsNull(email).orElse(null);
