@@ -119,6 +119,18 @@ class AppleIdTokenVerifierTest {
     }
 
     @Test
+    void verify_fetches_jwks_once_for_repeated_unknown_kid() throws Exception {
+        expectJwks(ExpectedCount.once());
+        String token = identityToken(CLIENT_ID, Instant.now().plusSeconds(600), "unknown-kid");
+
+        assertThatThrownBy(() -> verifier.verify(token)).isInstanceOf(CustomException.class);
+        // 최소 재조회 간격 내 미지 kid 반복 요청 - JWKS 재호출 없이 즉시 거부
+        assertThatThrownBy(() -> verifier.verify(token)).isInstanceOf(CustomException.class);
+
+        mockServer.verify();
+    }
+
+    @Test
     void verify_throws_when_client_id_not_configured() {
         AppleOAuthProperties unconfigured = new AppleOAuthProperties();
         AppleIdTokenVerifier unconfiguredVerifier =

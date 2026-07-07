@@ -15,8 +15,8 @@ import java.security.Signature;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -39,12 +39,14 @@ public class AppleIdTokenVerifier {
     private static final String APPLE_ISSUER = "https://appleid.apple.com";
     private static final String ALG_RS256 = "RS256";
     private static final long JWKS_CACHE_TTL_MILLIS = 24L * 60 * 60 * 1000;
+    private static final long JWKS_REFETCH_MIN_INTERVAL_MILLIS = 60L * 1000;
 
     private final RestClient appleRestClient;
     private final AppleOAuthProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final Map<String, PublicKey> cachedKeys = new ConcurrentHashMap<>();
+    // 불변 맵 원자 교체 방식 - clear 후 재적재 사이의 빈 캐시 노출 방지
+    private volatile Map<String, PublicKey> cachedKeys = Map.of();
     private final AtomicLong cachedAtMillis = new AtomicLong(0);
 
     public AppleIdTokenVerifier(
@@ -156,15 +158,17 @@ public class AppleIdTokenVerifier {
             if (refreshed != null) {
                 return refreshed;
             }
-            fetchJwks();
+            // 최소 재조회 간격 - 존재하지 않는 kid 반복 요청으로 인한 JWKS 호출 남발 방지
+            if (System.currentTimeMillis() - cachedAtMillis.get() >= JWKS_REFETCH_MIN_INTERVAL_MILLIS) {
+                fetchJwks();
+            }
+            PublicKey publicKey = cachedKeys.get(kid);
+            if (publicKey == null) {
+                log.warn("Apple JWKS does not contain kid={}", kid);
+                throw new CustomException(ErrorCode.AUTH_APPLE_INVALID_TOKEN);
+            }
+            return publicKey;
         }
-
-        PublicKey publicKey = cachedKeys.get(kid);
-        if (publicKey == null) {
-            log.warn("Apple JWKS does not contain kid={}", kid);
-            throw new CustomException(ErrorCode.AUTH_APPLE_INVALID_TOKEN);
-        }
-        return publicKey;
     }
 
     private PublicKey freshCachedKey(String kid) {
@@ -188,15 +192,16 @@ public class AppleIdTokenVerifier {
                 throw new CustomException(ErrorCode.AUTH_APPLE_KEY_FETCH_FAILED);
             }
 
-            cachedKeys.clear();
+            Map<String, PublicKey> refreshedKeys = new HashMap<>();
             for (JsonNode key : keys) {
                 String kid = key.path("kid").asText(null);
                 String modulus = key.path("n").asText(null);
                 String exponent = key.path("e").asText(null);
                 if (StringUtils.hasText(kid) && StringUtils.hasText(modulus) && StringUtils.hasText(exponent)) {
-                    cachedKeys.put(kid, toRsaPublicKey(modulus, exponent));
+                    refreshedKeys.put(kid, toRsaPublicKey(modulus, exponent));
                 }
             }
+            cachedKeys = Map.copyOf(refreshedKeys);
             cachedAtMillis.set(System.currentTimeMillis());
         } catch (CustomException e) {
             throw e;
