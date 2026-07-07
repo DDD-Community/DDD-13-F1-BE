@@ -393,6 +393,8 @@ class MyPageServiceTest {
         assertThat(user.getDeletedAt()).isNotNull();
         assertThat(localIdentity.getDeletedAt()).isNotNull();
         assertThat(kakaoIdentity.getDeletedAt()).isNotNull();
+        // 재가입 unique 충돌 방지 - 탈퇴 시 provider_subject 점유 해제
+        assertThat(kakaoIdentity.getProviderSubject()).startsWith("kakao-subject#withdrawn#");
         verify(authTokenService).revokeAllActiveRefreshTokens(user);
     }
 

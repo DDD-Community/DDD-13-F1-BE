@@ -114,7 +114,10 @@ public class MyPageService {
 
         authTokenService.revokeAllActiveRefreshTokens(user);
         revokeAppleTokens(identities);
-        identities.forEach(UserAuthIdentity::delete);
+        identities.forEach(identity -> {
+            identity.releaseProviderSubject();
+            identity.delete();
+        });
         user.delete();
     }
 

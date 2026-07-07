@@ -101,4 +101,14 @@ public class UserAuthIdentity extends BaseEntity {
     public void updateOAuthRefreshToken(String oauthRefreshToken) {
         this.oauthRefreshToken = oauthRefreshToken;
     }
+
+    /**
+     * 탈퇴 시 provider_subject 점유 해제
+     *
+     * soft delete 행이 (provider, provider_subject) unique 제약을 계속 점유해
+     * 동일 소셜 계정 재가입 INSERT가 실패하는 문제 방지 - id 접미사로 충돌 없는 값 보장
+     */
+    public void releaseProviderSubject() {
+        this.providerSubject = this.providerSubject + "#withdrawn#" + getId();
+    }
 }
