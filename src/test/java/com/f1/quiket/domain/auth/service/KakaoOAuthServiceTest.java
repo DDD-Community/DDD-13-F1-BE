@@ -30,6 +30,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 class KakaoOAuthServiceTest {
 
@@ -54,8 +58,26 @@ class KakaoOAuthServiceTest {
                 userAuthIdentityRepository,
                 new BCryptPasswordEncoder(),
                 authTokenService,
-                temporaryTokenStore
+                temporaryTokenStore,
+                transactionManager()
         );
+    }
+
+    private PlatformTransactionManager transactionManager() {
+        return new PlatformTransactionManager() {
+            @Override
+            public TransactionStatus getTransaction(TransactionDefinition definition) {
+                return new SimpleTransactionStatus();
+            }
+
+            @Override
+            public void commit(TransactionStatus status) {
+            }
+
+            @Override
+            public void rollback(TransactionStatus status) {
+            }
+        };
     }
 
     @Test

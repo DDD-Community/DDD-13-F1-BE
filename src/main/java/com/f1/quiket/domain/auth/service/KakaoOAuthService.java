@@ -19,12 +19,13 @@ import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class KakaoOAuthService {
 
     private static final String PROVIDER_KAKAO = "kakao";
@@ -38,23 +39,33 @@ public class KakaoOAuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthTokenService authTokenService;
     private final KakaoOAuthTemporaryTokenStore temporaryTokenStore;
+    private final PlatformTransactionManager transactionManager;
 
+    /**
+     * Kakao 로그인
+     *
+     * Kakao HTTP 호출(사용자 정보 조회)은 DB 커넥션 점유 방지 위해
+     * 트랜잭션 밖에서 완료 후 DB 작업만 트랜잭션으로 처리
+     */
     public KakaoOAuthLoginResult login(KakaoLoginRequest request, AuthTokenRequestContext context) {
         KakaoUserInfo kakaoUserInfo = kakaoApiClient.getUserInfo(request.getKakaoAccessToken());
-        UserAuthIdentity kakaoIdentity = userAuthIdentityRepository
-                .findByProviderAndProviderSubjectAndDeletedAtIsNull(
-                        PROVIDER_KAKAO,
-                        kakaoUserInfo.providerSubject()
-                )
-                .orElse(null);
 
-        if (kakaoIdentity != null) {
-            return loginWithExistingKakaoIdentity(kakaoIdentity, context);
-        }
+        return new TransactionTemplate(transactionManager).execute(status -> {
+            UserAuthIdentity kakaoIdentity = userAuthIdentityRepository
+                    .findByProviderAndProviderSubjectAndDeletedAtIsNull(
+                            PROVIDER_KAKAO,
+                            kakaoUserInfo.providerSubject()
+                    )
+                    .orElse(null);
 
-        return loginWithNewKakaoIdentity(kakaoUserInfo, request.getAgreedToTerms(), context);
+            if (kakaoIdentity != null) {
+                return loginWithExistingKakaoIdentity(kakaoIdentity, context);
+            }
+            return loginWithNewKakaoIdentity(kakaoUserInfo, request.getAgreedToTerms(), context);
+        });
     }
 
+    @Transactional
     public AuthTokenResponse link(KakaoAccountLinkRequest request, AuthTokenRequestContext context) {
         KakaoOAuthLinkTokenPayload payload = temporaryTokenStore.findLink(request.getLinkToken())
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_OAUTH_LINK_TOKEN_INVALID));
@@ -104,6 +115,7 @@ public class KakaoOAuthService {
         return authTokenService.issueTokens(user, context);
     }
 
+    @Transactional
     public AuthTokenResponse completeNickname(KakaoNicknameRequest request, AuthTokenRequestContext context) {
         if (!isValidNickname(request.getNickname())) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
