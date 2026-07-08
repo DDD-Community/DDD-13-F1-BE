@@ -41,6 +41,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/password-reset/**",
                                 "/api/v1/auth/token/refresh",
                                 "/api/v1/auth/oauth/kakao/**",
+                                "/api/v1/auth/oauth/apple/**",
                                 "/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",

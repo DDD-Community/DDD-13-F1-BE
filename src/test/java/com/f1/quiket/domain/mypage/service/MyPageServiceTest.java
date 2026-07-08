@@ -26,6 +26,7 @@ import com.f1.quiket.domain.user.entity.User;
 import com.f1.quiket.domain.user.repository.UserRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
+import com.f1.quiket.infra.apple.client.AppleAuthApiClient;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,7 @@ class MyPageServiceTest {
     private ApplicationEventPublisher eventPublisher;
     private PasswordEncoder passwordEncoder;
     private AuthTokenService authTokenService;
+    private AppleAuthApiClient appleAuthApiClient;
     private MyPageService myPageService;
 
     @BeforeEach
@@ -56,6 +58,7 @@ class MyPageServiceTest {
         eventPublisher = mock(ApplicationEventPublisher.class);
         passwordEncoder = new BCryptPasswordEncoder();
         authTokenService = mock(AuthTokenService.class);
+        appleAuthApiClient = mock(AppleAuthApiClient.class);
         myPageService = new MyPageService(
                 userRepository,
                 userAuthIdentityRepository,
@@ -63,7 +66,8 @@ class MyPageServiceTest {
                 emailChangeVerificationStore,
                 eventPublisher,
                 passwordEncoder,
-                authTokenService
+                authTokenService,
+                appleAuthApiClient
         );
     }
 
@@ -389,6 +393,8 @@ class MyPageServiceTest {
         assertThat(user.getDeletedAt()).isNotNull();
         assertThat(localIdentity.getDeletedAt()).isNotNull();
         assertThat(kakaoIdentity.getDeletedAt()).isNotNull();
+        // 재가입 unique 충돌 방지 - 탈퇴 시 provider_subject 점유 해제
+        assertThat(kakaoIdentity.getProviderSubject()).startsWith("kakao-subject#withdrawn#");
         verify(authTokenService).revokeAllActiveRefreshTokens(user);
     }
 

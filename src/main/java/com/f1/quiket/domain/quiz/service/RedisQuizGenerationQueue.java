@@ -15,7 +15,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Redis Stream 기반 퀴즈 생성 큐 — MVP 단일 워커 가정.
+ * Redis Stream 기반 퀴즈 생성 큐 — 단일 워커 가정.
  *
  * <h3>제약</h3>
  * <ul>

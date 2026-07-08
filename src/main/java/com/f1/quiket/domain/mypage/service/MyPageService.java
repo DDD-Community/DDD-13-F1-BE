@@ -16,6 +16,7 @@ import com.f1.quiket.domain.user.entity.User;
 import com.f1.quiket.domain.user.repository.UserRepository;
 import com.f1.quiket.global.error.CustomException;
 import com.f1.quiket.global.response.ErrorCode;
+import com.f1.quiket.infra.apple.client.AppleAuthApiClient;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import org.springframework.util.StringUtils;
 public class MyPageService {
 
     private static final String PROVIDER_LOCAL = "local";
+    private static final String PROVIDER_APPLE = "apple";
     private static final long EMAIL_CHANGE_TTL_SECONDS = 600L;
     private static final long EMAIL_CHANGE_COOLDOWN_SECONDS = 86_400L;
 
@@ -41,6 +43,7 @@ public class MyPageService {
     private final ApplicationEventPublisher eventPublisher;
     private final PasswordEncoder passwordEncoder;
     private final AuthTokenService authTokenService;
+    private final AppleAuthApiClient appleAuthApiClient;
 
     @Transactional(readOnly = true)
     public MyProfileResponse getMyProfile(String userPublicId) {
@@ -110,8 +113,24 @@ public class MyPageService {
                 validateAccountDeletePassword(localIdentity, request.getPassword()));
 
         authTokenService.revokeAllActiveRefreshTokens(user);
-        identities.forEach(UserAuthIdentity::delete);
+        revokeAppleTokens(identities);
+        identities.forEach(identity -> {
+            identity.releaseProviderSubject();
+            identity.delete();
+        });
         user.delete();
+    }
+
+    /**
+     * Apple 연동 계정 탈퇴 시 Apple 토큰 revoke - App Store 심사 요건
+     *
+     * best-effort 처리, revoke 실패가 탈퇴 흐름을 막지 않음
+     */
+    private void revokeAppleTokens(List<UserAuthIdentity> identities) {
+        identities.stream()
+                .filter(identity -> PROVIDER_APPLE.equals(identity.getProvider()))
+                .filter(identity -> StringUtils.hasText(identity.getOauthRefreshToken()))
+                .forEach(identity -> appleAuthApiClient.revoke(identity.getOauthRefreshToken()));
     }
 
     private User findActiveUser(String userPublicId) {

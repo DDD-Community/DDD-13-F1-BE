@@ -44,6 +44,7 @@ CREATE TABLE user_auth_identities (
     provider_subject VARCHAR(255) NOT NULL DEFAULT '' COMMENT '로그인 수단별 사용자 고유 식별값, local은 users.public_id',
     password_hash VARCHAR(255) NULL COMMENT '자체 로그인 비밀번호 해시값',
     is_primary TINYINT(1) NOT NULL DEFAULT 0 COMMENT '대표 로그인 수단 여부',
+    oauth_refresh_token VARCHAR(512) NULL COMMENT 'OAuth 제공자 refresh token (Apple 탈퇴 revoke용)',
     last_login_at DATETIME(3) NULL COMMENT '해당 인증 수단 마지막 로그인 시각',
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '생성 시각',
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
@@ -55,8 +56,8 @@ CREATE TABLE user_auth_identities (
     KEY idx_user_auth_identities_user_id_created_at (user_id, created_at),
     KEY idx_user_auth_identities_provider_created_at (provider, created_at),
 
-    -- CONSTRAINT fk_user_auth_identities_user_id
-    --     FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_user_auth_identities_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_auth_identities_provider
         CHECK (provider IN ('local', 'kakao', 'apple')),
     CONSTRAINT chk_user_auth_identities_is_primary
@@ -84,8 +85,8 @@ CREATE TABLE user_email_verifications (
     KEY idx_user_email_verifications_email_status (email, status),
     KEY idx_user_email_verifications_expires_at (expires_at),
 
-    -- CONSTRAINT fk_user_email_verifications_user_id
-    --     FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_user_email_verifications_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_email_verifications_status
         CHECK (status IN ('pending', 'verified', 'expired', 'cancelled'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='이메일 인증 요청 및 처리 이력';
@@ -95,6 +96,7 @@ CREATE TABLE user_password_reset_tokens (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '비밀번호 재설정 토큰 ID',
     user_id BIGINT NOT NULL COMMENT '사용자 ID',
     reset_token VARCHAR(255) NOT NULL COMMENT '재설정 토큰',
+    verification_code VARCHAR(20) NULL COMMENT '사용자 입력용 인증 코드',
     status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '토큰 상태',
     requested_ip VARCHAR(45) NULL COMMENT '요청 IP',
     requested_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '요청 시각',
@@ -107,10 +109,11 @@ CREATE TABLE user_password_reset_tokens (
     PRIMARY KEY (id),
     UNIQUE KEY uq_user_password_reset_tokens_reset_token (reset_token),
     KEY idx_user_password_reset_tokens_user_id_status (user_id, status),
+    KEY idx_user_password_reset_tokens_user_id_code_status (user_id, verification_code, status),
     KEY idx_user_password_reset_tokens_expires_at (expires_at),
 
-    -- CONSTRAINT fk_user_password_reset_tokens_user_id
-    --     FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_user_password_reset_tokens_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_password_reset_tokens_status
         CHECK (status IN ('pending', 'used', 'expired', 'cancelled'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='비밀번호 재설정 토큰 관리';
@@ -136,7 +139,10 @@ CREATE TABLE user_refresh_tokens (
     UNIQUE KEY uq_user_refresh_tokens_token_hash (token_hash),
     KEY idx_user_refresh_tokens_user_id_expires_at (user_id, expires_at),
     KEY idx_user_refresh_tokens_user_id_revoked_at (user_id, revoked_at),
-    KEY idx_user_refresh_tokens_expires_at (expires_at)
+    KEY idx_user_refresh_tokens_expires_at (expires_at),
+
+    CONSTRAINT fk_user_refresh_tokens_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 리프레시 토큰 관리';
 
 -- ============================================================
@@ -244,7 +250,7 @@ CREATE TABLE subject_other_details (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='과목 기타 목적 상세 정보 (purpose=other)';
 
 
--- 시험 일정 (D-Day) - MVP: 과목당 1개
+-- 시험 일정 (D-Day) - 과목당 1개
 CREATE TABLE subject_exam_schedules (
     id                  BIGINT          NOT NULL AUTO_INCREMENT          COMMENT 'PK',
     public_id           CHAR(36)        NOT NULL                         COMMENT '외부 노출용 UUID v7',
@@ -258,7 +264,7 @@ CREATE TABLE subject_exam_schedules (
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_subject_exam_schedules_public_id (public_id),
-    UNIQUE KEY uq_subject_exam_schedules_subject_id (subject_id),  -- MVP: 과목당 1개
+    UNIQUE KEY uq_subject_exam_schedules_subject_id (subject_id),  -- 과목당 1개
     KEY idx_subject_exam_schedules_user_id_exam_date (user_id, exam_date),
     KEY idx_subject_exam_schedules_exam_date (exam_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='과목별 시험 일정 (D-Day)';
@@ -268,7 +274,7 @@ CREATE TABLE subject_exam_schedules (
 CREATE TABLE certificates (
     id                  BIGINT          NOT NULL AUTO_INCREMENT          COMMENT 'PK',
     name                VARCHAR(100)    NOT NULL                         COMMENT '자격증명',
-    is_featured         TINYINT(1)      NOT NULL DEFAULT 0               COMMENT '자주 찾는 자격증 여부 (MVP: 수동 지정)',
+    is_featured         TINYINT(1)      NOT NULL DEFAULT 0               COMMENT '자주 찾는 자격증 여부 (수동 지정)',
     display_order       INT             NOT NULL DEFAULT 0               COMMENT '노출 순서',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)                          COMMENT '생성 시각',
     updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
@@ -371,7 +377,7 @@ CREATE TABLE lecture_processing_jobs (
     timeout_at          DATETIME(3)     NULL                             COMMENT '타임아웃 기준 시각 (= started_at + 600초)',
     retry_count         TINYINT UNSIGNED NOT NULL DEFAULT 0              COMMENT '재시도 누적 횟수',
     is_retryable        TINYINT(1)      NOT NULL DEFAULT 1               COMMENT '재시도 가능 여부',
-    mq_message_id       VARCHAR(100)    NULL                             COMMENT 'RabbitMQ message-id (MVP는 NULL)',
+    mq_message_id       VARCHAR(100)    NULL                             COMMENT 'RabbitMQ message-id (MQ 미도입, 현재 NULL)',
     fail_code           VARCHAR(50)     NULL                             COMMENT '실패 코드',
     fail_reason         VARCHAR(500)    NULL                             COMMENT '실패 상세 사유',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -387,7 +393,7 @@ CREATE TABLE lecture_processing_jobs (
     CONSTRAINT chk_lecture_processing_jobs_progress_pct
         CHECK (progress_pct BETWEEN 0 AND 100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='강의 업로드 OCR/파트 분류 처리 작업 이력 (추후 도입 시 MQ 도입시 사용, MVP 구현 단계에서는 미사용)';
+  COMMENT='강의 업로드 OCR/파트 분류 처리 작업 이력 (추후 MQ 도입 시 사용, 현재 미사용)';
 
 -- ============================================================
 -- PART (파트) 관련 테이블
@@ -619,7 +625,7 @@ CREATE TABLE quiz_generation_jobs (
     is_retryable        TINYINT(1)      NOT NULL DEFAULT 1,
     fail_code           VARCHAR(50)     NULL,
     fail_reason         VARCHAR(500)    NULL,
-    mq_message_id       VARCHAR(100)    NULL    COMMENT 'RabbitMQ message-id (추후 도입 시 채움, MVP는 NULL)',
+    mq_message_id       VARCHAR(100)    NULL    COMMENT 'RabbitMQ message-id (추후 MQ 도입 시 채움, 현재 NULL)',
     created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
@@ -628,10 +634,14 @@ CREATE TABLE quiz_generation_jobs (
     KEY idx_quiz_generation_jobs_user_id_status (user_id, status),
     KEY idx_quiz_generation_jobs_timeout_at (timeout_at),
 
+    CONSTRAINT fk_quiz_generation_jobs_session_id
+        FOREIGN KEY (quiz_session_id) REFERENCES quiz_sessions(id),
     CONSTRAINT chk_quiz_generation_jobs_status
         CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'timeout')),
     CONSTRAINT chk_quiz_generation_jobs_progress_pct
-        CHECK (progress_pct BETWEEN 0 AND 100)
+        CHECK (progress_pct BETWEEN 0 AND 100),
+    CONSTRAINT chk_quiz_generation_jobs_retryable
+        CHECK (is_retryable IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='퀴즈 AI 생성 작업 이력';
 
@@ -682,10 +692,16 @@ CREATE TABLE quiz_play_sessions (
     KEY idx_quiz_play_sessions_parent_play_session_id (parent_play_session_id),
     KEY idx_quiz_play_sessions_subject_id_created_at (subject_id, created_at),
 
+    CONSTRAINT fk_quiz_play_sessions_quiz_session_id
+        FOREIGN KEY (quiz_session_id) REFERENCES quiz_sessions(id),
     CONSTRAINT chk_quiz_play_sessions_play_type
         CHECK (play_type IN ('first', 'retry_all', 'retry_wrong')),
     CONSTRAINT chk_quiz_play_sessions_status
-        CHECK (status IN ('in_progress', 'submitted', 'abandoned'))
+        CHECK (status IN ('in_progress', 'submitted', 'abandoned')),
+    CONSTRAINT chk_quiz_play_sessions_option_shuffled
+        CHECK (is_option_shuffled IN (0, 1)),
+    CONSTRAINT chk_quiz_play_sessions_question_shuffled
+        CHECK (is_question_shuffled IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='퀴즈 풀이 세션';
 
 
@@ -859,7 +875,16 @@ CREATE TABLE user_notification_settings (
     updated_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
 
     PRIMARY KEY (id),
-    UNIQUE KEY uq_user_notification_settings_user_id (user_id)
+    UNIQUE KEY uq_user_notification_settings_user_id (user_id),
+
+    CONSTRAINT fk_user_notification_settings_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT chk_user_notification_settings_activity_enabled
+        CHECK (is_activity_enabled IN (0, 1)),
+    CONSTRAINT chk_user_notification_settings_review_enabled
+        CHECK (is_review_enabled IN (0, 1)),
+    CONSTRAINT chk_user_notification_settings_update_enabled
+        CHECK (is_update_enabled IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 알림 설정';
 
 
@@ -880,6 +905,8 @@ CREATE TABLE user_feedbacks (
     KEY idx_user_feedbacks_user_id (user_id),
     KEY idx_user_feedbacks_category_created_at (category, created_at),
 
+    CONSTRAINT fk_user_feedbacks_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_feedbacks_category
         CHECK (category IN ('feature', 'bug', 'inquiry', 'other')),
     CONSTRAINT chk_user_feedbacks_body_length
