@@ -56,8 +56,8 @@ CREATE TABLE user_auth_identities (
     KEY idx_user_auth_identities_user_id_created_at (user_id, created_at),
     KEY idx_user_auth_identities_provider_created_at (provider, created_at),
 
-    -- CONSTRAINT fk_user_auth_identities_user_id
-    --     FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_user_auth_identities_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_auth_identities_provider
         CHECK (provider IN ('local', 'kakao', 'apple')),
     CONSTRAINT chk_user_auth_identities_is_primary
@@ -85,8 +85,8 @@ CREATE TABLE user_email_verifications (
     KEY idx_user_email_verifications_email_status (email, status),
     KEY idx_user_email_verifications_expires_at (expires_at),
 
-    -- CONSTRAINT fk_user_email_verifications_user_id
-    --     FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_user_email_verifications_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_email_verifications_status
         CHECK (status IN ('pending', 'verified', 'expired', 'cancelled'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='이메일 인증 요청 및 처리 이력';
@@ -96,6 +96,7 @@ CREATE TABLE user_password_reset_tokens (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '비밀번호 재설정 토큰 ID',
     user_id BIGINT NOT NULL COMMENT '사용자 ID',
     reset_token VARCHAR(255) NOT NULL COMMENT '재설정 토큰',
+    verification_code VARCHAR(20) NULL COMMENT '사용자 입력용 인증 코드',
     status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '토큰 상태',
     requested_ip VARCHAR(45) NULL COMMENT '요청 IP',
     requested_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '요청 시각',
@@ -108,10 +109,11 @@ CREATE TABLE user_password_reset_tokens (
     PRIMARY KEY (id),
     UNIQUE KEY uq_user_password_reset_tokens_reset_token (reset_token),
     KEY idx_user_password_reset_tokens_user_id_status (user_id, status),
+    KEY idx_user_password_reset_tokens_user_id_code_status (user_id, verification_code, status),
     KEY idx_user_password_reset_tokens_expires_at (expires_at),
 
-    -- CONSTRAINT fk_user_password_reset_tokens_user_id
-    --     FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_user_password_reset_tokens_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_password_reset_tokens_status
         CHECK (status IN ('pending', 'used', 'expired', 'cancelled'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='비밀번호 재설정 토큰 관리';
@@ -137,7 +139,10 @@ CREATE TABLE user_refresh_tokens (
     UNIQUE KEY uq_user_refresh_tokens_token_hash (token_hash),
     KEY idx_user_refresh_tokens_user_id_expires_at (user_id, expires_at),
     KEY idx_user_refresh_tokens_user_id_revoked_at (user_id, revoked_at),
-    KEY idx_user_refresh_tokens_expires_at (expires_at)
+    KEY idx_user_refresh_tokens_expires_at (expires_at),
+
+    CONSTRAINT fk_user_refresh_tokens_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 리프레시 토큰 관리';
 
 -- ============================================================
@@ -629,10 +634,14 @@ CREATE TABLE quiz_generation_jobs (
     KEY idx_quiz_generation_jobs_user_id_status (user_id, status),
     KEY idx_quiz_generation_jobs_timeout_at (timeout_at),
 
+    CONSTRAINT fk_quiz_generation_jobs_session_id
+        FOREIGN KEY (quiz_session_id) REFERENCES quiz_sessions(id),
     CONSTRAINT chk_quiz_generation_jobs_status
         CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'timeout')),
     CONSTRAINT chk_quiz_generation_jobs_progress_pct
-        CHECK (progress_pct BETWEEN 0 AND 100)
+        CHECK (progress_pct BETWEEN 0 AND 100),
+    CONSTRAINT chk_quiz_generation_jobs_retryable
+        CHECK (is_retryable IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='퀴즈 AI 생성 작업 이력';
 
@@ -683,10 +692,16 @@ CREATE TABLE quiz_play_sessions (
     KEY idx_quiz_play_sessions_parent_play_session_id (parent_play_session_id),
     KEY idx_quiz_play_sessions_subject_id_created_at (subject_id, created_at),
 
+    CONSTRAINT fk_quiz_play_sessions_quiz_session_id
+        FOREIGN KEY (quiz_session_id) REFERENCES quiz_sessions(id),
     CONSTRAINT chk_quiz_play_sessions_play_type
         CHECK (play_type IN ('first', 'retry_all', 'retry_wrong')),
     CONSTRAINT chk_quiz_play_sessions_status
-        CHECK (status IN ('in_progress', 'submitted', 'abandoned'))
+        CHECK (status IN ('in_progress', 'submitted', 'abandoned')),
+    CONSTRAINT chk_quiz_play_sessions_option_shuffled
+        CHECK (is_option_shuffled IN (0, 1)),
+    CONSTRAINT chk_quiz_play_sessions_question_shuffled
+        CHECK (is_question_shuffled IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='퀴즈 풀이 세션';
 
 
@@ -860,7 +875,16 @@ CREATE TABLE user_notification_settings (
     updated_at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
 
     PRIMARY KEY (id),
-    UNIQUE KEY uq_user_notification_settings_user_id (user_id)
+    UNIQUE KEY uq_user_notification_settings_user_id (user_id),
+
+    CONSTRAINT fk_user_notification_settings_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT chk_user_notification_settings_activity_enabled
+        CHECK (is_activity_enabled IN (0, 1)),
+    CONSTRAINT chk_user_notification_settings_review_enabled
+        CHECK (is_review_enabled IN (0, 1)),
+    CONSTRAINT chk_user_notification_settings_update_enabled
+        CHECK (is_update_enabled IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 알림 설정';
 
 
@@ -881,6 +905,8 @@ CREATE TABLE user_feedbacks (
     KEY idx_user_feedbacks_user_id (user_id),
     KEY idx_user_feedbacks_category_created_at (category, created_at),
 
+    CONSTRAINT fk_user_feedbacks_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_user_feedbacks_category
         CHECK (category IN ('feature', 'bug', 'inquiry', 'other')),
     CONSTRAINT chk_user_feedbacks_body_length
