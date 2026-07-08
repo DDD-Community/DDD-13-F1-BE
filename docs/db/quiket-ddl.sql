@@ -44,6 +44,7 @@ CREATE TABLE user_auth_identities (
     provider_subject VARCHAR(255) NOT NULL DEFAULT '' COMMENT '로그인 수단별 사용자 고유 식별값, local은 users.public_id',
     password_hash VARCHAR(255) NULL COMMENT '자체 로그인 비밀번호 해시값',
     is_primary TINYINT(1) NOT NULL DEFAULT 0 COMMENT '대표 로그인 수단 여부',
+    oauth_refresh_token VARCHAR(512) NULL COMMENT 'OAuth 제공자 refresh token (Apple 탈퇴 revoke용)',
     last_login_at DATETIME(3) NULL COMMENT '해당 인증 수단 마지막 로그인 시각',
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '생성 시각',
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '수정 시각',
