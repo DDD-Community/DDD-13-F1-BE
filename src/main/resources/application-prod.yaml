@@ -39,6 +39,7 @@ logging:
   level:
     root: WARN
     com.f1.quiket: INFO
+    org.flywaydb: INFO      # DB 마이그레이션 실행 로그 노출
 
 # Swagger (SpringDoc OpenAPI)
 springdoc:
