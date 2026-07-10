@@ -45,7 +45,7 @@ public class QuizGenerationLockStore {
         try {
             stringRedisTemplate.delete(buildKey(userId));
         } catch (DataAccessException e) {
-            log.warn("퀴즈 생성 분산락 해제 실패. userId={}", userId, e);
+            log.warn("Failed to release quiz generation lock. userId={}", userId, e);
         }
     }
 

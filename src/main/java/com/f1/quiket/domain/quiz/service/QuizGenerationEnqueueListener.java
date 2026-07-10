@@ -37,7 +37,7 @@ public class QuizGenerationEnqueueListener {
             quizGenerationJobRepository.findById(generationJobId)
                     .ifPresent(job -> job.assignMqMessageId(messageId));
         } catch (CustomException e) {
-            log.error("퀴즈 생성 큐 발행 실패 — generation_job을 failed로 마킹. generationJobId={}", generationJobId, e);
+            log.error("Quiz generation enqueue failed. Marking generation job as failed. generationJobId={}", generationJobId, e);
             quizGenerationJobRepository.findById(generationJobId)
                     .ifPresent(this::markEnqueueFailed);
         }
