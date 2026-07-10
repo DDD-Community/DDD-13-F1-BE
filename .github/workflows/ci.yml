@@ -21,6 +21,11 @@ jobs:
       !github.event.pull_request.draft &&
       (
         startsWith(github.head_ref, 'feat/') ||
+        startsWith(github.head_ref, 'fix/') ||
+        startsWith(github.head_ref, 'refactor/') ||
+        startsWith(github.head_ref, 'docs/') ||
+        startsWith(github.head_ref, 'chore/') ||
+        startsWith(github.head_ref, 'test/') ||
         github.head_ref == 'develop' ||
         github.head_ref == 'main'
       )
