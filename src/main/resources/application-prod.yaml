@@ -67,8 +67,6 @@ azure:
     read-timeout-seconds: ${AZURE_OPENAI_READ_TIMEOUT_SECONDS:120}
 
 quiket:
-  jwt:
-    secret: ${QUIKET_JWT_SECRET}
   quiz:
     generation:
       worker:
