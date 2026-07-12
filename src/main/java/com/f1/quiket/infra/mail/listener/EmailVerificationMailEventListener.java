@@ -64,7 +64,7 @@ public class EmailVerificationMailEventListener {
         try {
             sesMailSender.sendMail(mailRequest);
         } catch (Exception e) {
-            log.error("메일 발송 실패 — 요청 처리는 계속됩니다. mailType={}, toEmail={}", mailType, toEmail, e);
+            log.error("Mail delivery failed. Request processing will continue. mailType={}, toEmail={}", mailType, toEmail, e);
         }
     }
 }

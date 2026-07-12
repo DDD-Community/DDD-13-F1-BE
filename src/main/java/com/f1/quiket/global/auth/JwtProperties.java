@@ -2,6 +2,7 @@ package com.f1.quiket.global.auth;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -19,6 +20,7 @@ public class JwtProperties {
     private String issuer;
 
     @NotBlank
+    @Size(min = 32)
     private String secret;
 
     @Positive

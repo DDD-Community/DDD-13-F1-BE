@@ -32,6 +32,6 @@ public class SwaggerConfig {
         return new Info()
                 .title("F1 Quiket API")
                 .description("F1 Quiket 서비스 API 문서")
-                .version("1.0.0");
+                .version("1.1.0");
     }
 }
