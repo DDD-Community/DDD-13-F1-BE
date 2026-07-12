@@ -71,6 +71,24 @@ jobs:
           GHCR_IMAGE=${{ needs.build-and-push.outputs.image }}
           EOF
 
+      - name: Validate deploy env
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          JWT_SECRET_LINE="$(grep -m1 '^QUIKET_JWT_SECRET=' .deploy/.env || true)"
+          JWT_SECRET_VALUE="${JWT_SECRET_LINE#*=}"
+
+          if [ -z "${JWT_SECRET_VALUE//[[:space:]]/}" ]; then
+            echo "::error::PROD_ENV_FILE must contain QUIKET_JWT_SECRET"
+            exit 1
+          fi
+
+          if [ "${#JWT_SECRET_VALUE}" -lt 32 ]; then
+            echo "::error::QUIKET_JWT_SECRET must be at least 32 characters"
+            exit 1
+          fi
+
       - name: Copy deploy files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
