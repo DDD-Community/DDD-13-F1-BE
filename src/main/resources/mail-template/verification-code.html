@@ -67,8 +67,16 @@
       .character {
         width: 168px !important;
         height: auto !important;
-        right: 25px !important;
-        bottom: 0 !important;
+      }
+
+      .header-table,
+      .header-left-cell {
+        height: 186px !important;
+      }
+
+      .character-cell {
+        width: 168px !important;
+        height: 186px !important;
       }
 
       .content-cell {
@@ -110,8 +118,16 @@
 
       .character {
         width: 148px !important;
-        right: 18px !important;
-        bottom: 0 !important;
+      }
+
+      .header-table,
+      .header-left-cell {
+        height: 180px !important;
+      }
+
+      .character-cell {
+        width: 148px !important;
+        height: 180px !important;
       }
 
       .content-cell {
@@ -132,12 +148,20 @@
         <td align="center" style="padding:0;">
           <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; margin:0 auto; background:#ffffff;">
             <tr>
-              <td class="header-cell" style="position:relative; height:240px; padding:70px 40px 0 40px; background:#fdf9ee; border-bottom:8px solid #ff7f32; overflow:hidden;">
-                <img class="logo" src="https://quiket.co.kr/images/mail/logo.png" width="65" height="20" alt="Quiket" style="width:65px; height:20px; display:block; margin:0 0 20px 0;">
-                <div class="header-title" style="font-family:-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif; font-size:26px; line-height:1.3; letter-spacing:-0.8px; font-weight:800; color:#2d1f1d; white-space:nowrap; mso-line-height-rule:exactly;">
-                  {{title}}
-                </div>
-                <img class="character" src="https://quiket.co.kr/images/mail/character.png" width="215" height="148" alt="Quiket character" style="position:absolute; right:47px; bottom:0; width:215px; height:148px; display:block;">
+              <td class="header-cell" style="height:240px; padding:70px 40px 0 40px; background:#fdf9ee; border-bottom:8px solid #ff7f32; overflow:hidden;">
+                <table role="presentation" class="header-table" width="100%" height="170" cellpadding="0" cellspacing="0" border="0" style="width:100%; height:170px;">
+                  <tr>
+                    <td class="header-left-cell" valign="top" height="170" style="height:170px; padding:0;">
+                      <img class="logo" src="https://quiket.co.kr/images/mail/logo.png" width="65" height="20" alt="Quiket" style="width:65px; height:20px; display:block; margin:0 0 20px 0;">
+                      <div class="header-title" style="font-family:-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif; font-size:26px; line-height:1.3; letter-spacing:-0.8px; font-weight:800; color:#2d1f1d; white-space:nowrap; mso-line-height-rule:exactly;">
+                        {{title}}
+                      </div>
+                    </td>
+                    <td class="character-cell" width="215" height="170" valign="bottom" align="right" style="width:215px; height:170px; padding:0;">
+                      <img class="character" src="https://quiket.co.kr/images/mail/character.png" width="215" height="148" alt="Quiket character" style="width:215px; height:148px; display:block;">
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
 
