@@ -197,13 +197,16 @@ return ResponseEntity.status(errorCode.getStatus())
 - 커밋 메시지: `type: 한국어 핵심`
 - PR 제목: `[Type] 한국어 핵심`
 - 작업 브랜치 → `develop` Merge commit 메시지: `[Type] 한국어 핵심 (#PR번호)` (GitHub 기본 형식)
-- `develop` → `main` Squash merge 커밋 메시지: `[Release] 버전/날짜 배포`
+- 운영 배포 이슈 및 PR 제목: `[Release] v{major}.{minor}.{patch} 운영 배포`
+- `develop` → `main` Squash merge 커밋 메시지: `[Release] v{major}.{minor}.{patch} 운영 배포`
 
 ### 이슈 및 PR 제목
 
 - 형식: `[Type] 제목`
 - 예시: `[Docs] AGENTS.md 지침 추가`
-- `Type`은 `Feat`, `Fix`, `Refactor`, `Docs`, `Chore`, `Test` 중 하나 사용
+- `Type`은 `Feat`, `Fix`, `Refactor`, `Docs`, `Chore`, `Test`, `Release` 중 하나 사용
+- `Release`는 `develop` → `main` 운영 배포 이슈 및 PR에만 사용
+- 릴리즈 제목은 `[Release] v{major}.{minor}.{patch} 운영 배포` 형식 사용
 - 제목은 한국어로 핵심만 작성
 - 커밋 메시지 형식과 구분
 
