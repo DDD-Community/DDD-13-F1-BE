@@ -15,16 +15,28 @@ public class QuizGenerationPromptBuilder {
         return new QuizAiGenerationPrompt(systemMessage(), userMessage(request));
     }
 
-    public QuizAiGenerationPrompt buildRetry(QuizAiGenerationRequest request, String rejectionReason) {
+    public QuizAiGenerationPrompt buildRetry(
+            QuizAiGenerationRequest request,
+            String rejectionReason,
+            int generationAttempt
+    ) {
         QuizAiGenerationPrompt originalPrompt = build(request);
         String retryMessage = """
                 %s
 
                 [재생성 요청]
                 - 이전 응답 거절 사유: %s
+                - 재생성 차수: %d
+                - 재생성 변주값: %s-%d
                 - 거절된 문항 일부를 수정하지 말고 전체 문항을 새로 생성한다.
                 - 같은 품질 위반이 반복되지 않도록 응답 전 다시 검수한다.
-                """.formatted(originalPrompt.userMessage(), rejectionReason);
+                """.formatted(
+                originalPrompt.userMessage(),
+                rejectionReason,
+                generationAttempt,
+                request.variationSeed(),
+                generationAttempt
+        );
         return new QuizAiGenerationPrompt(originalPrompt.systemMessage(), retryMessage);
     }
 

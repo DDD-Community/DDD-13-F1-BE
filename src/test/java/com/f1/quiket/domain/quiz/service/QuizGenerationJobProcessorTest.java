@@ -171,13 +171,14 @@ class QuizGenerationJobProcessorTest {
         assertThat(processed).isTrue();
         assertThat(job.getStatus()).isEqualTo("completed");
         assertThat(quizSession.getStatus()).isEqualTo("completed");
-        verify(quizAiClient, times(2)).generate(any());
 
         ArgumentCaptor<QuizAiGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizAiGenerationPrompt.class);
         verify(quizAiClient, times(2)).generate(promptCaptor.capture());
         assertThat(promptCaptor.getAllValues().get(1).userMessage())
                 .contains("[재생성 요청]")
-                .contains("동일한 객관식 선택지가 중복되었습니다.");
+                .contains("동일한 객관식 선택지가 중복되었습니다.")
+                .contains("재생성 차수: 2")
+                .contains("재생성 변주값: quiz-session-public-id-2");
     }
 
     @Test
@@ -196,7 +197,12 @@ class QuizGenerationJobProcessorTest {
         assertThat(job.getRetryCount()).isEqualTo(1);
         assertThat(job.getFailReason()).isEqualTo("동일한 객관식 선택지가 중복되었습니다.");
         assertThat(quizSession.getStatus()).isEqualTo("failed");
-        verify(quizAiClient, times(3)).generate(any());
+        ArgumentCaptor<QuizAiGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizAiGenerationPrompt.class);
+        verify(quizAiClient, times(3)).generate(promptCaptor.capture());
+        assertThat(promptCaptor.getAllValues().get(1).userMessage())
+                .contains("재생성 변주값: quiz-session-public-id-2");
+        assertThat(promptCaptor.getAllValues().get(2).userMessage())
+                .contains("재생성 변주값: quiz-session-public-id-3");
         verify(questionRepository, never()).save(any());
         verifyNoInteractions(questionOptionRepository, questionAnswerRepository);
     }

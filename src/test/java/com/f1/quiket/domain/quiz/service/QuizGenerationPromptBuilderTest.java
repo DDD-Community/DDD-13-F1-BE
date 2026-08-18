@@ -76,12 +76,15 @@ class QuizGenerationPromptBuilderTest {
 
         QuizAiGenerationPrompt prompt = promptBuilder.buildRetry(
                 request,
-                "질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다."
+                "질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다.",
+                2
         );
 
         assertThat(prompt.userMessage())
                 .contains("[재생성 요청]")
                 .contains("이전 응답 거절 사유: 질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다.")
+                .contains("재생성 차수: 2")
+                .contains("재생성 변주값: quiz-session-public-id-2")
                 .contains("전체 문항을 새로 생성한다")
                 .contains("같은 품질 위반이 반복되지 않도록 응답 전 다시 검수한다");
     }

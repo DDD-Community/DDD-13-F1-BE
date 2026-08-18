@@ -97,7 +97,7 @@ public class QuizGenerationJobProcessor {
                 if (attempt >= MAX_AI_GENERATION_ATTEMPTS) {
                     throw e;
                 }
-                prompt = promptBuilder.buildRetry(request, e.getMessage());
+                prompt = promptBuilder.buildRetry(request, e.getMessage(), attempt + 1);
             }
         }
     }

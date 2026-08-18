@@ -19,6 +19,8 @@ public class QuizAiResponseValidator {
 
     private static final String QUIZ_TYPE_MULTIPLE_CHOICE = "multiple_choice";
     private static final String QUIZ_TYPE_OX = "ox";
+    private static final int MIN_SIMILARITY_WORD_COUNT = 3;
+    private static final double HISTORICAL_SIMILARITY_THRESHOLD = 0.8;
     private static final Set<String> DIFFICULTIES = Set.of("easy", "medium", "hard");
     private static final Set<String> GENERIC_OPTION_CONTENTS = Set.of(
             "모두맞다",
@@ -113,7 +115,40 @@ public class QuizAiResponseValidator {
             if (!questionBodies.add(normalizeForComparison(question.getBody()))) {
                 throw invalidResponse("동일한 문항 본문이 중복되었습니다.");
             }
+            validateHistoricalDuplication(request, question.getBody());
         }
+    }
+
+    private void validateHistoricalDuplication(QuizAiGenerationRequest request, String questionBody) {
+        if (request.excludedQuestionBodies() == null || request.excludedQuestionBodies().isEmpty()) {
+            return;
+        }
+
+        String normalizedQuestion = normalizeForComparison(questionBody);
+        Set<String> questionWords = contentWords(questionBody);
+        for (String excludedQuestion : request.excludedQuestionBodies()) {
+            if (!StringUtils.hasText(excludedQuestion)) {
+                continue;
+            }
+            if (normalizedQuestion.equals(normalizeForComparison(excludedQuestion))) {
+                throw invalidResponse("과거에 출제된 문항과 중복됩니다.");
+            }
+            if (isHighlySimilar(questionWords, contentWords(excludedQuestion))) {
+                throw invalidResponse("과거에 출제된 문항과 지나치게 유사합니다.");
+            }
+        }
+    }
+
+    private boolean isHighlySimilar(Set<String> firstWords, Set<String> secondWords) {
+        if (firstWords.size() < MIN_SIMILARITY_WORD_COUNT || secondWords.size() < MIN_SIMILARITY_WORD_COUNT) {
+            return false;
+        }
+
+        Set<String> intersection = new HashSet<>(firstWords);
+        intersection.retainAll(secondWords);
+        Set<String> union = new HashSet<>(firstWords);
+        union.addAll(secondWords);
+        return (double) intersection.size() / union.size() >= HISTORICAL_SIMILARITY_THRESHOLD;
     }
 
     private void validateQuestion(
