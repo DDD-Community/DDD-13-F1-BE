@@ -13,6 +13,7 @@ import com.f1.quiket.domain.quiz.entity.QuestionOption;
 import com.f1.quiket.domain.quiz.entity.QuizGenerationJob;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
 import com.f1.quiket.domain.quiz.entity.QuizSessionScope;
+import com.f1.quiket.domain.quiz.exception.QuizAiResponseValidationException;
 import com.f1.quiket.domain.quiz.repository.QuestionAnswerRepository;
 import com.f1.quiket.domain.quiz.repository.QuestionOptionRepository;
 import com.f1.quiket.domain.quiz.repository.QuestionRepository;
@@ -40,6 +41,7 @@ public class QuizGenerationJobProcessor {
     private static final String STATUS_IN_PROGRESS = "in_progress";
     private static final String FAIL_CODE_GENERATION_FAILED = "quiz_generation_failed";
     private static final String TIMEOUT_FAIL_REASON = "퀴즈 생성 작업이 제한 시간을 초과했습니다.";
+    private static final int MAX_AI_GENERATION_ATTEMPTS = 3;
     private static final int MAX_RETRY_COUNT = 3;
     private static final int FAIL_REASON_MAX_LENGTH = 500;
 
@@ -72,15 +74,29 @@ public class QuizGenerationJobProcessor {
                 return true;
             }
 
-            QuizAiGenerationPrompt prompt = promptBuilder.build(context.request());
-            QuizAiGenerationResponse response = quizAiClient.generate(prompt);
-            responseValidator.validate(context.request(), response);
+            QuizAiGenerationResponse response = generateValidatedResponse(context.request());
 
             transactionTemplate.executeWithoutResult(status -> completeGeneration(context, response));
             return true;
         } catch (Exception e) {
             transactionTemplate.executeWithoutResult(status -> failGeneration(message, e));
             return true;
+        }
+    }
+
+    private QuizAiGenerationResponse generateValidatedResponse(QuizAiGenerationRequest request) {
+        QuizAiGenerationPrompt prompt = promptBuilder.build(request);
+        for (int attempt = 1; ; attempt++) {
+            QuizAiGenerationResponse response = quizAiClient.generate(prompt);
+            try {
+                responseValidator.validate(request, response);
+                return response;
+            } catch (QuizAiResponseValidationException e) {
+                if (attempt >= MAX_AI_GENERATION_ATTEMPTS) {
+                    throw e;
+                }
+                prompt = promptBuilder.buildRetry(request, e.getMessage());
+            }
         }
     }
 

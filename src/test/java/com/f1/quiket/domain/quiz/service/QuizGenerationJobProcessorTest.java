@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.part.repository.PartRepository;
+import com.f1.quiket.domain.quiz.dto.QuizAiGenerationPrompt;
 import com.f1.quiket.domain.quiz.dto.QuizAiGenerationResponse;
 import com.f1.quiket.domain.quiz.entity.Question;
 import com.f1.quiket.domain.quiz.entity.QuestionAnswer;
@@ -139,6 +141,51 @@ class QuizGenerationJobProcessorTest {
         verify(questionAnswerRepository).save(answerCaptor.capture());
         assertThat(answerCaptor.getValue().getQuestionId()).isEqualTo(1000L);
         assertThat(answerCaptor.getValue().getAnswerValue()).isEqualTo("1");
+        verify(quizAiClient).generate(any());
+    }
+
+    @Test
+    void process_regenerates_after_quality_validation_failure() {
+        QuizGenerationJob job = job(900L, 500L, 1L);
+        QuizSession quizSession = quizSession(500L, 1L, 10L, "pending");
+        Subject subject = subject(10L, 1L);
+        Part part = part(100L, "part-public-id", 200L, 10L, 1L);
+        stubGenerationContext(job, quizSession, subject, part);
+        when(quizAiClient.generate(any())).thenReturn(invalidAiResponse(), aiResponse());
+        stubQuestionSave();
+
+        boolean processed = processor.process(message());
+
+        assertThat(processed).isTrue();
+        assertThat(job.getStatus()).isEqualTo("completed");
+        assertThat(quizSession.getStatus()).isEqualTo("completed");
+        verify(quizAiClient, times(2)).generate(any());
+
+        ArgumentCaptor<QuizAiGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizAiGenerationPrompt.class);
+        verify(quizAiClient, times(2)).generate(promptCaptor.capture());
+        assertThat(promptCaptor.getAllValues().get(1).userMessage())
+                .contains("[재생성 요청]")
+                .contains("동일한 객관식 선택지가 중복되었습니다.");
+    }
+
+    @Test
+    void process_marks_failed_after_quality_validation_attempts_are_exhausted() {
+        QuizGenerationJob job = job(900L, 500L, 1L);
+        QuizSession quizSession = quizSession(500L, 1L, 10L, "pending");
+        Subject subject = subject(10L, 1L);
+        Part part = part(100L, "part-public-id", 200L, 10L, 1L);
+        stubGenerationContext(job, quizSession, subject, part);
+        when(quizAiClient.generate(any())).thenReturn(invalidAiResponse());
+
+        boolean processed = processor.process(message());
+
+        assertThat(processed).isTrue();
+        assertThat(job.getStatus()).isEqualTo("failed");
+        assertThat(job.getRetryCount()).isEqualTo(1);
+        assertThat(job.getFailReason()).isEqualTo("동일한 객관식 선택지가 중복되었습니다.");
+        assertThat(quizSession.getStatus()).isEqualTo("failed");
+        verify(quizAiClient, times(3)).generate(any());
+        verifyNoInteractions(questionRepository, questionOptionRepository, questionAnswerRepository);
     }
 
     @Test
@@ -161,6 +208,7 @@ class QuizGenerationJobProcessorTest {
         assertThat(job.isRetryable()).isTrue();
         assertThat(quizSession.getStatus()).isEqualTo("failed");
         assertThat(quizSession.getFailReason()).isEqualTo("AOAI 호출 실패");
+        verify(quizAiClient).generate(any());
         verifyNoInteractions(questionRepository, questionOptionRepository, questionAnswerRepository);
     }
 
@@ -270,6 +318,35 @@ class QuizGenerationJobProcessorTest {
                           "options": [
                             {"optionNumber": 1, "content": "현실 세계의 데이터를 추상화한다"},
                             {"optionNumber": 2, "content": "서버 배포만 자동화한다"},
+                            {"optionNumber": 3, "content": "UI 색상만 정리한다"},
+                            {"optionNumber": 4, "content": "로그 파일만 삭제한다"}
+                          ],
+                          "answerValue": "1",
+                          "correctExplanation": "데이터 모델링은 현실 데이터를 추상화합니다.",
+                          "incorrectExplanation": "다른 선택지는 데이터 모델링의 핵심과 맞지 않습니다."
+                        }
+                      ]
+                    }
+                    """, QuizAiGenerationResponse.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private QuizAiGenerationResponse invalidAiResponse() {
+        try {
+            return new ObjectMapper().readValue("""
+                    {
+                      "questions": [
+                        {
+                          "partId": "part-public-id",
+                          "questionType": "multiple_choice",
+                          "difficulty": "medium",
+                          "summary": "데이터모델링핵심",
+                          "body": "다음 중 데이터 모델링의 설명으로 올바른 것은?",
+                          "options": [
+                            {"optionNumber": 1, "content": "현실 세계의 데이터를 추상화한다"},
+                            {"optionNumber": 2, "content": "현실 세계의 데이터를 추상화한다!"},
                             {"optionNumber": 3, "content": "UI 색상만 정리한다"},
                             {"optionNumber": 4, "content": "로그 파일만 삭제한다"}
                           ],

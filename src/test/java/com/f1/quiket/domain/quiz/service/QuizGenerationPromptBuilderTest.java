@@ -35,7 +35,10 @@ class QuizGenerationPromptBuilderTest {
                 .contains("per_question")
                 .contains("018f8c2e-aaaa-7b6a-b9f0-111111111111")
                 .contains("정규화는 중복을 줄이는 과정입니다.")
-                .contains("questions 배열 길이는 요청 문제 수와 정확히 같아야 한다");
+                .contains("questions 배열 길이는 요청 문제 수와 정확히 같아야 한다")
+                .contains("질문의 핵심 표현을 어미만 바꾸어 반복하지 않고")
+                .contains("선택지끼리 의미가 중복되지 않으며")
+                .contains("응답 전 모든 문항과 선택지가 위 품질 규칙을 충족하는지 자체 검수한다");
     }
 
     @Test
@@ -60,6 +63,24 @@ class QuizGenerationPromptBuilderTest {
                 .contains("지엽 사실 30% / 개념 응용 50% / 복합 사고 20%")
                 .contains("실제 추론 단계와 적용 깊이를 높인다")
                 .contains("모든 문항의 difficulty 필드값: hard");
+    }
+
+    @Test
+    void buildRetry_includes_rejection_reason_and_full_regeneration_rule() {
+        Subject subject = subject(10L, "통계학", "exam");
+        Part part = part(100L, "part-public-id", 20L, "추정", "통계적 추정은 표본으로 모집단을 판단합니다.");
+        QuizAiGenerationRequest request = request(subject, part, "medium");
+
+        QuizAiGenerationPrompt prompt = promptBuilder.buildRetry(
+                request,
+                "질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다."
+        );
+
+        assertThat(prompt.userMessage())
+                .contains("[재생성 요청]")
+                .contains("이전 응답 거절 사유: 질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다.")
+                .contains("전체 문항을 새로 생성한다")
+                .contains("같은 품질 위반이 반복되지 않도록 응답 전 다시 검수한다");
     }
 
     private QuizAiGenerationRequest request(Subject subject, Part part, String difficulty) {
