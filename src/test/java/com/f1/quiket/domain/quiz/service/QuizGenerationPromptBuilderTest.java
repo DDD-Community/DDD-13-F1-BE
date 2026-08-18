@@ -7,6 +7,7 @@ import com.f1.quiket.domain.quiz.dto.QuizAiGenerationPrompt;
 import com.f1.quiket.domain.quiz.dto.QuizAiGenerationRequest;
 import com.f1.quiket.domain.subject.entity.Subject;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -20,6 +21,7 @@ class QuizGenerationPromptBuilderTest {
         Part part = part(100L, "018f8c2e-aaaa-7b6a-b9f0-111111111111", 20L, "정규화", "정규화는 중복을 줄이는 과정입니다.");
         QuizAiGenerationRequest request = new QuizAiGenerationRequest(
                 subject,
+                Map.of("시험 유형", "university", "전공명", "통계학"),
                 List.of(part),
                 "multiple_choice",
                 4,
@@ -37,6 +39,8 @@ class QuizGenerationPromptBuilderTest {
         assertThat(prompt.userMessage())
                 .contains("데이터베이스")
                 .contains("exam")
+                .contains("시험 유형: university")
+                .contains("전공명: 통계학")
                 .contains("multiple_choice")
                 .contains("문제 수: 3")
                 .contains("객관식 보기 수: 4")

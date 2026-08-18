@@ -10,6 +10,7 @@ import com.f1.quiket.domain.quiz.dto.QuizAiGenerationResponse;
 import com.f1.quiket.domain.subject.entity.Subject;
 import com.f1.quiket.global.error.CustomException;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -119,6 +120,7 @@ class QuizAiResponseValidatorTest {
     private QuizAiGenerationRequest request(String quizType, Integer choiceCount, Integer questionCount) {
         return new QuizAiGenerationRequest(
                 subject(),
+                Map.of(),
                 List.of(part()),
                 quizType,
                 choiceCount,

@@ -29,6 +29,9 @@ public class QuizGenerationPromptBuilder {
                 - 과목명: %s
                 - 학습 목적: %s
 
+                [과목 상세 정보]
+                %s
+
                 [퀴즈 설정]
                 - 문제 유형: %s
                 - 객관식 보기 수: %s
@@ -54,6 +57,7 @@ public class QuizGenerationPromptBuilder {
                 """.formatted(
                 request.subject().getName(),
                 request.subject().getPurpose(),
+                subjectMetadata(request),
                 request.quizType(),
                 valueOrNone(request.choiceCount()),
                 request.questionCount(),
@@ -64,6 +68,15 @@ public class QuizGenerationPromptBuilder {
                 request.difficulty(),
                 partContext(request)
         );
+    }
+
+    private String subjectMetadata(QuizAiGenerationRequest request) {
+        if (request.subjectMetadata() == null || request.subjectMetadata().isEmpty()) {
+            return "- 없음";
+        }
+        return request.subjectMetadata().entrySet().stream()
+                .map(entry -> "- %s: %s".formatted(entry.getKey(), entry.getValue()))
+                .collect(Collectors.joining("\n"));
     }
 
     private String partContext(QuizAiGenerationRequest request) {
