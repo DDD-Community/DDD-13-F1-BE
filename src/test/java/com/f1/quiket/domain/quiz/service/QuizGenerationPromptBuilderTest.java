@@ -65,6 +65,24 @@ class QuizGenerationPromptBuilderTest {
                 .contains("모든 문항의 difficulty 필드값: hard");
     }
 
+    @Test
+    void buildRetry_includes_rejection_reason_and_full_regeneration_rule() {
+        Subject subject = subject(10L, "통계학", "exam");
+        Part part = part(100L, "part-public-id", 20L, "추정", "통계적 추정은 표본으로 모집단을 판단합니다.");
+        QuizAiGenerationRequest request = request(subject, part, "medium");
+
+        QuizAiGenerationPrompt prompt = promptBuilder.buildRetry(
+                request,
+                "질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다."
+        );
+
+        assertThat(prompt.userMessage())
+                .contains("[재생성 요청]")
+                .contains("이전 응답 거절 사유: 질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다.")
+                .contains("전체 문항을 새로 생성한다")
+                .contains("같은 품질 위반이 반복되지 않도록 응답 전 다시 검수한다");
+    }
+
     private QuizAiGenerationRequest request(Subject subject, Part part, String difficulty) {
         return new QuizAiGenerationRequest(
                 subject,

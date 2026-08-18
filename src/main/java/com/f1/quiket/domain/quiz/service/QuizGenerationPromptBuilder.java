@@ -14,6 +14,19 @@ public class QuizGenerationPromptBuilder {
         return new QuizAiGenerationPrompt(systemMessage(), userMessage(request));
     }
 
+    public QuizAiGenerationPrompt buildRetry(QuizAiGenerationRequest request, String rejectionReason) {
+        QuizAiGenerationPrompt originalPrompt = build(request);
+        String retryMessage = """
+                %s
+
+                [재생성 요청]
+                - 이전 응답 거절 사유: %s
+                - 거절된 문항 일부를 수정하지 말고 전체 문항을 새로 생성한다.
+                - 같은 품질 위반이 반복되지 않도록 응답 전 다시 검수한다.
+                """.formatted(originalPrompt.userMessage(), rejectionReason);
+        return new QuizAiGenerationPrompt(originalPrompt.systemMessage(), retryMessage);
+    }
+
     private String systemMessage() {
         return """
                 너는 Quiket의 학습 퀴즈 생성 엔진이다.
