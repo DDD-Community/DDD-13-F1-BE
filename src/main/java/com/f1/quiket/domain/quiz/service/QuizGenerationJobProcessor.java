@@ -46,6 +46,7 @@ public class QuizGenerationJobProcessor {
     private final QuizAiClient quizAiClient;
     private final QuizGenerationPromptBuilder promptBuilder;
     private final QuizAiResponseValidator responseValidator;
+    private final QuizSubjectMetadataResolver subjectMetadataResolver;
     private final QuizGenerationJobRepository quizGenerationJobRepository;
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionScopeRepository quizSessionScopeRepository;
@@ -113,6 +114,7 @@ public class QuizGenerationJobProcessor {
 
         QuizAiGenerationRequest request = new QuizAiGenerationRequest(
                 subject,
+                subjectMetadataResolver.resolve(subject),
                 parts,
                 quizSession.getQuizType(),
                 quizSession.getChoiceCount(),
@@ -187,7 +189,7 @@ public class QuizGenerationJobProcessor {
                 part.getChapterId(),
                 part.getId(),
                 generatedQuestion.getQuestionType(),
-                generatedQuestion.getDifficulty(),
+                quizSession.getDifficulty(),
                 generatedQuestion.getBody(),
                 generatedQuestion.getSummary(),
                 generatedQuestion.getCorrectExplanation(),

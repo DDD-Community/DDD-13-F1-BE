@@ -32,6 +32,7 @@ import com.f1.quiket.global.response.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +57,7 @@ class QuizGenerationJobProcessorTest {
     private QuestionRepository questionRepository;
     private QuestionOptionRepository questionOptionRepository;
     private QuestionAnswerRepository questionAnswerRepository;
+    private QuizSubjectMetadataResolver subjectMetadataResolver;
     private QuizGenerationJobProcessor processor;
 
     @BeforeEach
@@ -69,6 +71,7 @@ class QuizGenerationJobProcessorTest {
         questionRepository = mock(QuestionRepository.class);
         questionOptionRepository = mock(QuestionOptionRepository.class);
         questionAnswerRepository = mock(QuestionAnswerRepository.class);
+        subjectMetadataResolver = mock(QuizSubjectMetadataResolver.class);
 
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
@@ -79,6 +82,7 @@ class QuizGenerationJobProcessorTest {
                 quizAiClient,
                 new QuizGenerationPromptBuilder(),
                 new QuizAiResponseValidator(),
+                subjectMetadataResolver,
                 quizGenerationJobRepository,
                 quizSessionRepository,
                 quizSessionScopeRepository,
@@ -186,6 +190,7 @@ class QuizGenerationJobProcessorTest {
         when(quizGenerationJobRepository.findById(900L)).thenReturn(Optional.of(job));
         when(quizSessionRepository.findByIdAndUserIdAndDeletedAtIsNull(500L, 1L)).thenReturn(Optional.of(quizSession));
         when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).thenReturn(Optional.of(subject));
+        when(subjectMetadataResolver.resolve(subject)).thenReturn(Map.of("시험 유형", "university"));
         when(quizSessionScopeRepository.findAllByQuizSessionId(500L))
                 .thenReturn(List.of(QuizSessionScope.create(500L, 100L, 200L)));
         when(partRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(List.of(100L), 1L))

@@ -63,6 +63,9 @@ public class QuizAiResponseValidator {
         if (!DIFFICULTIES.contains(question.getDifficulty())) {
             throw invalidResponse("허용되지 않은 난이도가 포함되었습니다.");
         }
+        if (!request.difficulty().equals(question.getDifficulty())) {
+            throw invalidResponse("요청과 다른 난이도의 문항이 포함되었습니다.");
+        }
         if (question.getSummary().length() < 8 || question.getSummary().length() > 20) {
             throw invalidResponse("문항 요약 길이가 올바르지 않습니다.");
         }
