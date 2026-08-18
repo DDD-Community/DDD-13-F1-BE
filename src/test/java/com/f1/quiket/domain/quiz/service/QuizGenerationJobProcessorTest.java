@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -141,7 +143,17 @@ class QuizGenerationJobProcessorTest {
         verify(questionAnswerRepository).save(answerCaptor.capture());
         assertThat(answerCaptor.getValue().getQuestionId()).isEqualTo(1000L);
         assertThat(answerCaptor.getValue().getAnswerValue()).isEqualTo("1");
-        verify(quizAiClient).generate(any());
+        ArgumentCaptor<QuizAiGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizAiGenerationPrompt.class);
+        verify(quizAiClient).generate(promptCaptor.capture());
+        assertThat(promptCaptor.getValue().userMessage())
+                .contains("변주값: quiz-session-public-id")
+                .contains("관계형 데이터베이스의 기본키 역할은 무엇인가?");
+        verify(questionRepository).findRecentBodiesByScope(
+                1L,
+                10L,
+                List.of(100L),
+                PageRequest.of(0, 100)
+        );
     }
 
     @Test
@@ -185,7 +197,8 @@ class QuizGenerationJobProcessorTest {
         assertThat(job.getFailReason()).isEqualTo("동일한 객관식 선택지가 중복되었습니다.");
         assertThat(quizSession.getStatus()).isEqualTo("failed");
         verify(quizAiClient, times(3)).generate(any());
-        verifyNoInteractions(questionRepository, questionOptionRepository, questionAnswerRepository);
+        verify(questionRepository, never()).save(any());
+        verifyNoInteractions(questionOptionRepository, questionAnswerRepository);
     }
 
     @Test
@@ -209,7 +222,8 @@ class QuizGenerationJobProcessorTest {
         assertThat(quizSession.getStatus()).isEqualTo("failed");
         assertThat(quizSession.getFailReason()).isEqualTo("AOAI 호출 실패");
         verify(quizAiClient).generate(any());
-        verifyNoInteractions(questionRepository, questionOptionRepository, questionAnswerRepository);
+        verify(questionRepository, never()).save(any());
+        verifyNoInteractions(questionOptionRepository, questionAnswerRepository);
     }
 
     @Test
@@ -243,6 +257,8 @@ class QuizGenerationJobProcessorTest {
                 .thenReturn(List.of(QuizSessionScope.create(500L, 100L, 200L)));
         when(partRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(List.of(100L), 1L))
                 .thenReturn(List.of(part));
+        when(questionRepository.findRecentBodiesByScope(1L, 10L, List.of(100L), PageRequest.of(0, 100)))
+                .thenReturn(List.of("관계형 데이터베이스의 기본키 역할은 무엇인가?"));
     }
 
     private void stubQuestionSave() {

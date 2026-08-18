@@ -9,6 +9,8 @@ public record QuizAiGenerationRequest(
         Subject subject,
         Map<String, String> subjectMetadata,
         List<Part> parts,
+        String variationSeed,
+        List<String> excludedQuestionBodies,
         String quizType,
         Integer choiceCount,
         Integer questionCount,

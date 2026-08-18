@@ -33,6 +33,9 @@ class QuizGenerationPromptBuilderTest {
                 .contains("문제 수: 3")
                 .contains("객관식 보기 수: 4")
                 .contains("per_question")
+                .contains("변주값: quiz-session-public-id")
+                .contains("[이전 출제 문항 - 재출제 금지]")
+                .contains("정규화가 데이터 중복을 줄이는 이유는 무엇인가?")
                 .contains("018f8c2e-aaaa-7b6a-b9f0-111111111111")
                 .contains("정규화는 중복을 줄이는 과정입니다.")
                 .contains("questions 배열 길이는 요청 문제 수와 정확히 같아야 한다")
@@ -88,6 +91,8 @@ class QuizGenerationPromptBuilderTest {
                 subject,
                 Map.of("시험 유형", "university", "전공명", "통계학"),
                 List.of(part),
+                "quiz-session-public-id",
+                List.of("정규화가 데이터 중복을 줄이는 이유는 무엇인가?"),
                 "multiple_choice",
                 4,
                 3,

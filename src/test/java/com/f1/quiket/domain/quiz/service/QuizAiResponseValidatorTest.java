@@ -293,6 +293,8 @@ class QuizAiResponseValidatorTest {
                 subject(),
                 Map.of(),
                 List.of(part()),
+                "quiz-session-public-id",
+                List.of(),
                 quizType,
                 choiceCount,
                 questionCount,

@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -42,6 +43,7 @@ public class QuizGenerationJobProcessor {
     private static final String FAIL_CODE_GENERATION_FAILED = "quiz_generation_failed";
     private static final String TIMEOUT_FAIL_REASON = "퀴즈 생성 작업이 제한 시간을 초과했습니다.";
     private static final int MAX_AI_GENERATION_ATTEMPTS = 3;
+    private static final int RECENT_QUESTION_LIMIT = 100;
     private static final int MAX_RETRY_COUNT = 3;
     private static final int FAIL_REASON_MAX_LENGTH = 500;
 
@@ -124,6 +126,7 @@ public class QuizGenerationJobProcessor {
                 .findByIdAndUserIdAndDeletedAtIsNull(quizSession.getSubjectId(), quizSession.getUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.SUBJECT_NOT_FOUND));
         List<Part> parts = findScopeParts(quizSession);
+        List<String> excludedQuestionBodies = findRecentQuestionBodies(quizSession, parts);
 
         job.markInProgress();
         quizSession.markGenerationInProgress();
@@ -132,6 +135,8 @@ public class QuizGenerationJobProcessor {
                 subject,
                 subjectMetadataResolver.resolve(subject),
                 parts,
+                quizSession.getPublicId(),
+                excludedQuestionBodies,
                 quizSession.getQuizType(),
                 quizSession.getChoiceCount(),
                 quizSession.getQuestionCount(),
@@ -164,6 +169,18 @@ public class QuizGenerationJobProcessor {
             throw new CustomException(ErrorCode.QUIZ_SCOPE_INVALID);
         }
         return parts;
+    }
+
+    private List<String> findRecentQuestionBodies(QuizSession quizSession, List<Part> parts) {
+        List<Long> partIds = parts.stream()
+                .map(Part::getId)
+                .toList();
+        return questionRepository.findRecentBodiesByScope(
+                quizSession.getUserId(),
+                quizSession.getSubjectId(),
+                partIds,
+                PageRequest.of(0, RECENT_QUESTION_LIMIT)
+        );
     }
 
     private void completeGeneration(GenerationContext context, QuizAiGenerationResponse response) {

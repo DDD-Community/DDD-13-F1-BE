@@ -5,6 +5,7 @@ import com.f1.quiket.domain.quiz.dto.QuizAiGenerationPrompt;
 import com.f1.quiket.domain.quiz.dto.QuizAiGenerationRequest;
 import java.util.Comparator;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -58,6 +59,14 @@ public class QuizGenerationPromptBuilder {
                 [난이도 출제 기준]
                 %s
 
+                [생성 다양성]
+                - 변주값: %s
+                - 변주값은 문항에 노출하지 않고 질문 관점, 사례, 표현, 개념 조합을 바꾸는 내부 기준으로만 사용한다.
+                - 동일한 학습 자료라도 이전 출제와 다른 세부 개념과 사고 방식을 우선한다.
+
+                [이전 출제 문항 - 재출제 금지]
+                %s
+
                 [출제 범위]
                 %s
 
@@ -90,6 +99,8 @@ public class QuizGenerationPromptBuilder {
                 valueOrNone(request.timerSeconds()),
                 request.difficulty(),
                 difficultyGuideline(request.difficulty()),
+                request.variationSeed(),
+                excludedQuestionContext(request),
                 partContext(request)
         );
     }
@@ -149,6 +160,18 @@ public class QuizGenerationPromptBuilder {
                         part.getChapterId(),
                         part.getName(),
                         valueOrNone(part.getContent())
+                ))
+                .collect(Collectors.joining("\n"));
+    }
+
+    private String excludedQuestionContext(QuizAiGenerationRequest request) {
+        if (request.excludedQuestionBodies() == null || request.excludedQuestionBodies().isEmpty()) {
+            return "- 없음";
+        }
+        return IntStream.range(0, request.excludedQuestionBodies().size())
+                .mapToObj(index -> "- %d. %s".formatted(
+                        index + 1,
+                        request.excludedQuestionBodies().get(index).replaceAll("\\s+", " ").strip()
                 ))
                 .collect(Collectors.joining("\n"));
     }
