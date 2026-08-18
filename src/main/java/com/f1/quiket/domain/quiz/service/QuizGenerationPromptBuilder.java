@@ -57,6 +57,13 @@ public class QuizGenerationPromptBuilder {
                 - correctExplanation과 incorrectExplanation은 각각 5자 이상 작성한다.
                 - multiple_choice는 options를 요청 보기 수만큼 만들고 answerValue는 정답 optionNumber 문자열이다.
                 - ox는 options를 빈 배열로 두고 answerValue는 O 또는 X만 사용한다.
+                - 문제 본문에 정답을 직접 노출하지 않는다.
+                - 정답 선택지는 질문의 핵심 표현을 어미만 바꾸어 반복하지 않고 구체적인 개념, 원인 또는 결과를 제시한다.
+                - 오답 선택지도 학습 자료의 맥락에서 혼동할 수 있는 내용으로 구성하고 명백히 무관한 표현은 사용하지 않는다.
+                - 선택지끼리 의미가 중복되지 않으며 동일한 범주와 문법 형태로 구성한다.
+                - '위의 모든 것', '정답 없음', '알 수 없음'과 같은 포괄적 선택지는 사용하지 않는다.
+                - 동일하거나 문장 부호와 공백만 다른 문항 및 선택지를 생성하지 않는다.
+                - 응답 전 모든 문항과 선택지가 위 품질 규칙을 충족하는지 자체 검수한다.
                 """.formatted(
                 request.subject().getName(),
                 request.subject().getPurpose(),

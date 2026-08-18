@@ -4,10 +4,11 @@ import com.f1.quiket.domain.quiz.dto.QuizAiGeneratedOption;
 import com.f1.quiket.domain.quiz.dto.QuizAiGeneratedQuestion;
 import com.f1.quiket.domain.quiz.dto.QuizAiGenerationRequest;
 import com.f1.quiket.domain.quiz.dto.QuizAiGenerationResponse;
-import com.f1.quiket.global.error.CustomException;
-import com.f1.quiket.global.response.ErrorCode;
+import com.f1.quiket.domain.quiz.exception.QuizAiResponseValidationException;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,80 @@ public class QuizAiResponseValidator {
     private static final String QUIZ_TYPE_MULTIPLE_CHOICE = "multiple_choice";
     private static final String QUIZ_TYPE_OX = "ox";
     private static final Set<String> DIFFICULTIES = Set.of("easy", "medium", "hard");
+    private static final Set<String> GENERIC_OPTION_CONTENTS = Set.of(
+            "모두맞다",
+            "모두옳다",
+            "모두정답이다",
+            "위의모든것",
+            "정답없음",
+            "해당없음",
+            "알수없음"
+    );
+    private static final Set<String> QUESTION_STOP_WORDS = Set.of(
+            "다음",
+            "보기",
+            "중",
+            "가장",
+            "옳은",
+            "옳지",
+            "않은",
+            "것",
+            "것은",
+            "무엇",
+            "무엇인가",
+            "어느",
+            "해당",
+            "설명",
+            "대한",
+            "이유",
+            "이유는",
+            "목적",
+            "목적은",
+            "경우",
+            "맞는",
+            "틀린",
+            "위해"
+    );
+    private static final List<String> WORD_SUFFIXES = List.of(
+            "에서는",
+            "으로는",
+            "이라는",
+            "에서",
+            "으로",
+            "에게",
+            "부터",
+            "까지",
+            "처럼",
+            "보다",
+            "하기",
+            "하는",
+            "된다",
+            "되다",
+            "하다",
+            "이며",
+            "이다",
+            "해서",
+            "하고",
+            "하며",
+            "거나",
+            "라도",
+            "지만",
+            "는데",
+            "은",
+            "는",
+            "이",
+            "가",
+            "을",
+            "를",
+            "의",
+            "에",
+            "도",
+            "와",
+            "과",
+            "로",
+            "기",
+            "다"
+    );
 
     public void validate(QuizAiGenerationRequest request, QuizAiGenerationResponse response) {
         if (response == null || response.getQuestions() == null) {
@@ -32,8 +107,12 @@ public class QuizAiResponseValidator {
                 .map(part -> part.getPublicId())
                 .collect(Collectors.toSet());
 
+        Set<String> questionBodies = new HashSet<>();
         for (QuizAiGeneratedQuestion question : response.getQuestions()) {
             validateQuestion(request, question, allowedPartIds);
+            if (!questionBodies.add(normalizeForComparison(question.getBody()))) {
+                throw invalidResponse("동일한 문항 본문이 중복되었습니다.");
+            }
         }
     }
 
@@ -91,6 +170,7 @@ public class QuizAiResponseValidator {
         }
 
         Set<Integer> optionNumbers = new HashSet<>();
+        Set<String> optionContents = new HashSet<>();
         for (QuizAiGeneratedOption option : options) {
             if (option == null || option.getOptionNumber() == null || !StringUtils.hasText(option.getContent())) {
                 throw invalidResponse("객관식 선택지가 올바르지 않습니다.");
@@ -100,6 +180,17 @@ public class QuizAiResponseValidator {
             }
             if (!optionNumbers.add(option.getOptionNumber())) {
                 throw invalidResponse("객관식 선택지 번호가 중복되었습니다.");
+            }
+
+            String normalizedContent = normalizeForComparison(option.getContent());
+            if (!optionContents.add(normalizedContent)) {
+                throw invalidResponse("동일한 객관식 선택지가 중복되었습니다.");
+            }
+            if (GENERIC_OPTION_CONTENTS.contains(normalizedContent)) {
+                throw invalidResponse("포괄적이거나 무의미한 객관식 선택지가 포함되었습니다.");
+            }
+            if (isCircularOption(question.getBody(), option.getContent())) {
+                throw invalidResponse("질문 표현을 반복하는 순환형 객관식 선택지가 포함되었습니다.");
             }
         }
 
@@ -128,7 +219,37 @@ public class QuizAiResponseValidator {
         }
     }
 
-    private CustomException invalidResponse(String message) {
-        return new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, message);
+    private boolean isCircularOption(String questionBody, String optionContent) {
+        Set<String> questionWords = contentWords(questionBody);
+        Set<String> optionWords = contentWords(optionContent);
+        return optionWords.size() >= 2 && questionWords.containsAll(optionWords);
+    }
+
+    private Set<String> contentWords(String value) {
+        return Arrays.stream(value.toLowerCase(Locale.ROOT).split("[^가-힣a-z0-9]+"))
+                .map(this::canonicalizeWord)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toSet());
+    }
+
+    private String canonicalizeWord(String word) {
+        if (QUESTION_STOP_WORDS.contains(word)) {
+            return "";
+        }
+        for (String suffix : WORD_SUFFIXES) {
+            if (word.endsWith(suffix) && word.length() - suffix.length() >= 2) {
+                String stem = word.substring(0, word.length() - suffix.length());
+                return QUESTION_STOP_WORDS.contains(stem) ? "" : stem;
+            }
+        }
+        return word.length() >= 2 ? word : "";
+    }
+
+    private String normalizeForComparison(String value) {
+        return value.toLowerCase(Locale.ROOT).replaceAll("[^가-힣a-z0-9]", "");
+    }
+
+    private QuizAiResponseValidationException invalidResponse(String message) {
+        return new QuizAiResponseValidationException(message);
     }
 }

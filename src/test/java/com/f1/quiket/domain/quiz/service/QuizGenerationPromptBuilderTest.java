@@ -35,7 +35,10 @@ class QuizGenerationPromptBuilderTest {
                 .contains("per_question")
                 .contains("018f8c2e-aaaa-7b6a-b9f0-111111111111")
                 .contains("정규화는 중복을 줄이는 과정입니다.")
-                .contains("questions 배열 길이는 요청 문제 수와 정확히 같아야 한다");
+                .contains("questions 배열 길이는 요청 문제 수와 정확히 같아야 한다")
+                .contains("질문의 핵심 표현을 어미만 바꾸어 반복하지 않고")
+                .contains("선택지끼리 의미가 중복되지 않으며")
+                .contains("응답 전 모든 문항과 선택지가 위 품질 규칙을 충족하는지 자체 검수한다");
     }
 
     @Test
