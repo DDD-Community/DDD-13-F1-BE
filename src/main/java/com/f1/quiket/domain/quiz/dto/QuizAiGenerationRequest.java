@@ -3,10 +3,14 @@ package com.f1.quiket.domain.quiz.dto;
 import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.subject.entity.Subject;
 import java.util.List;
+import java.util.Map;
 
 public record QuizAiGenerationRequest(
         Subject subject,
+        Map<String, String> subjectMetadata,
         List<Part> parts,
+        String variationSeed,
+        List<String> excludedQuestionBodies,
         String quizType,
         Integer choiceCount,
         Integer questionCount,

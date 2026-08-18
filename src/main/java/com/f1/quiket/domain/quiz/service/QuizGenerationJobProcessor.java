@@ -13,6 +13,7 @@ import com.f1.quiket.domain.quiz.entity.QuestionOption;
 import com.f1.quiket.domain.quiz.entity.QuizGenerationJob;
 import com.f1.quiket.domain.quiz.entity.QuizSession;
 import com.f1.quiket.domain.quiz.entity.QuizSessionScope;
+import com.f1.quiket.domain.quiz.exception.QuizAiResponseValidationException;
 import com.f1.quiket.domain.quiz.repository.QuestionAnswerRepository;
 import com.f1.quiket.domain.quiz.repository.QuestionOptionRepository;
 import com.f1.quiket.domain.quiz.repository.QuestionRepository;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -40,12 +42,15 @@ public class QuizGenerationJobProcessor {
     private static final String STATUS_IN_PROGRESS = "in_progress";
     private static final String FAIL_CODE_GENERATION_FAILED = "quiz_generation_failed";
     private static final String TIMEOUT_FAIL_REASON = "퀴즈 생성 작업이 제한 시간을 초과했습니다.";
+    private static final int MAX_AI_GENERATION_ATTEMPTS = 3;
+    private static final int RECENT_QUESTION_LIMIT = 100;
     private static final int MAX_RETRY_COUNT = 3;
     private static final int FAIL_REASON_MAX_LENGTH = 500;
 
     private final QuizAiClient quizAiClient;
     private final QuizGenerationPromptBuilder promptBuilder;
     private final QuizAiResponseValidator responseValidator;
+    private final QuizSubjectMetadataResolver subjectMetadataResolver;
     private final QuizGenerationJobRepository quizGenerationJobRepository;
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionScopeRepository quizSessionScopeRepository;
@@ -71,15 +76,29 @@ public class QuizGenerationJobProcessor {
                 return true;
             }
 
-            QuizAiGenerationPrompt prompt = promptBuilder.build(context.request());
-            QuizAiGenerationResponse response = quizAiClient.generate(prompt);
-            responseValidator.validate(context.request(), response);
+            QuizAiGenerationResponse response = generateValidatedResponse(context.request());
 
             transactionTemplate.executeWithoutResult(status -> completeGeneration(context, response));
             return true;
         } catch (Exception e) {
             transactionTemplate.executeWithoutResult(status -> failGeneration(message, e));
             return true;
+        }
+    }
+
+    private QuizAiGenerationResponse generateValidatedResponse(QuizAiGenerationRequest request) {
+        QuizAiGenerationPrompt prompt = promptBuilder.build(request);
+        for (int attempt = 1; ; attempt++) {
+            QuizAiGenerationResponse response = quizAiClient.generate(prompt);
+            try {
+                responseValidator.validate(request, response);
+                return response;
+            } catch (QuizAiResponseValidationException e) {
+                if (attempt >= MAX_AI_GENERATION_ATTEMPTS) {
+                    throw e;
+                }
+                prompt = promptBuilder.buildRetry(request, e.getMessage(), attempt + 1);
+            }
         }
     }
 
@@ -107,13 +126,17 @@ public class QuizGenerationJobProcessor {
                 .findByIdAndUserIdAndDeletedAtIsNull(quizSession.getSubjectId(), quizSession.getUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.SUBJECT_NOT_FOUND));
         List<Part> parts = findScopeParts(quizSession);
+        List<String> excludedQuestionBodies = findRecentQuestionBodies(quizSession, parts);
 
         job.markInProgress();
         quizSession.markGenerationInProgress();
 
         QuizAiGenerationRequest request = new QuizAiGenerationRequest(
                 subject,
+                subjectMetadataResolver.resolve(subject),
                 parts,
+                quizSession.getPublicId(),
+                excludedQuestionBodies,
                 quizSession.getQuizType(),
                 quizSession.getChoiceCount(),
                 quizSession.getQuestionCount(),
@@ -146,6 +169,18 @@ public class QuizGenerationJobProcessor {
             throw new CustomException(ErrorCode.QUIZ_SCOPE_INVALID);
         }
         return parts;
+    }
+
+    private List<String> findRecentQuestionBodies(QuizSession quizSession, List<Part> parts) {
+        List<Long> partIds = parts.stream()
+                .map(Part::getId)
+                .toList();
+        return questionRepository.findRecentBodiesByScope(
+                quizSession.getUserId(),
+                quizSession.getSubjectId(),
+                partIds,
+                PageRequest.of(0, RECENT_QUESTION_LIMIT)
+        );
     }
 
     private void completeGeneration(GenerationContext context, QuizAiGenerationResponse response) {
@@ -187,7 +222,7 @@ public class QuizGenerationJobProcessor {
                 part.getChapterId(),
                 part.getId(),
                 generatedQuestion.getQuestionType(),
-                generatedQuestion.getDifficulty(),
+                quizSession.getDifficulty(),
                 generatedQuestion.getBody(),
                 generatedQuestion.getSummary(),
                 generatedQuestion.getCorrectExplanation(),

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -12,6 +14,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.f1.quiket.domain.part.entity.Part;
 import com.f1.quiket.domain.part.repository.PartRepository;
+import com.f1.quiket.domain.quiz.dto.QuizAiGenerationPrompt;
 import com.f1.quiket.domain.quiz.dto.QuizAiGenerationResponse;
 import com.f1.quiket.domain.quiz.entity.Question;
 import com.f1.quiket.domain.quiz.entity.QuestionAnswer;
@@ -32,12 +35,14 @@ import com.f1.quiket.global.response.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -56,6 +61,7 @@ class QuizGenerationJobProcessorTest {
     private QuestionRepository questionRepository;
     private QuestionOptionRepository questionOptionRepository;
     private QuestionAnswerRepository questionAnswerRepository;
+    private QuizSubjectMetadataResolver subjectMetadataResolver;
     private QuizGenerationJobProcessor processor;
 
     @BeforeEach
@@ -69,6 +75,7 @@ class QuizGenerationJobProcessorTest {
         questionRepository = mock(QuestionRepository.class);
         questionOptionRepository = mock(QuestionOptionRepository.class);
         questionAnswerRepository = mock(QuestionAnswerRepository.class);
+        subjectMetadataResolver = mock(QuizSubjectMetadataResolver.class);
 
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
@@ -79,6 +86,7 @@ class QuizGenerationJobProcessorTest {
                 quizAiClient,
                 new QuizGenerationPromptBuilder(),
                 new QuizAiResponseValidator(),
+                subjectMetadataResolver,
                 quizGenerationJobRepository,
                 quizSessionRepository,
                 quizSessionScopeRepository,
@@ -135,6 +143,68 @@ class QuizGenerationJobProcessorTest {
         verify(questionAnswerRepository).save(answerCaptor.capture());
         assertThat(answerCaptor.getValue().getQuestionId()).isEqualTo(1000L);
         assertThat(answerCaptor.getValue().getAnswerValue()).isEqualTo("1");
+        ArgumentCaptor<QuizAiGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizAiGenerationPrompt.class);
+        verify(quizAiClient).generate(promptCaptor.capture());
+        assertThat(promptCaptor.getValue().userMessage())
+                .contains("변주값: quiz-session-public-id")
+                .contains("관계형 데이터베이스의 기본키 역할은 무엇인가?");
+        verify(questionRepository).findRecentBodiesByScope(
+                1L,
+                10L,
+                List.of(100L),
+                PageRequest.of(0, 100)
+        );
+    }
+
+    @Test
+    void process_regenerates_after_quality_validation_failure() {
+        QuizGenerationJob job = job(900L, 500L, 1L);
+        QuizSession quizSession = quizSession(500L, 1L, 10L, "pending");
+        Subject subject = subject(10L, 1L);
+        Part part = part(100L, "part-public-id", 200L, 10L, 1L);
+        stubGenerationContext(job, quizSession, subject, part);
+        when(quizAiClient.generate(any())).thenReturn(invalidAiResponse(), aiResponse());
+        stubQuestionSave();
+
+        boolean processed = processor.process(message());
+
+        assertThat(processed).isTrue();
+        assertThat(job.getStatus()).isEqualTo("completed");
+        assertThat(quizSession.getStatus()).isEqualTo("completed");
+
+        ArgumentCaptor<QuizAiGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizAiGenerationPrompt.class);
+        verify(quizAiClient, times(2)).generate(promptCaptor.capture());
+        assertThat(promptCaptor.getAllValues().get(1).userMessage())
+                .contains("[재생성 요청]")
+                .contains("동일한 객관식 선택지가 중복되었습니다.")
+                .contains("재생성 차수: 2")
+                .contains("재생성 변주값: quiz-session-public-id-2");
+    }
+
+    @Test
+    void process_marks_failed_after_quality_validation_attempts_are_exhausted() {
+        QuizGenerationJob job = job(900L, 500L, 1L);
+        QuizSession quizSession = quizSession(500L, 1L, 10L, "pending");
+        Subject subject = subject(10L, 1L);
+        Part part = part(100L, "part-public-id", 200L, 10L, 1L);
+        stubGenerationContext(job, quizSession, subject, part);
+        when(quizAiClient.generate(any())).thenReturn(invalidAiResponse());
+
+        boolean processed = processor.process(message());
+
+        assertThat(processed).isTrue();
+        assertThat(job.getStatus()).isEqualTo("failed");
+        assertThat(job.getRetryCount()).isEqualTo(1);
+        assertThat(job.getFailReason()).isEqualTo("동일한 객관식 선택지가 중복되었습니다.");
+        assertThat(quizSession.getStatus()).isEqualTo("failed");
+        ArgumentCaptor<QuizAiGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizAiGenerationPrompt.class);
+        verify(quizAiClient, times(3)).generate(promptCaptor.capture());
+        assertThat(promptCaptor.getAllValues().get(1).userMessage())
+                .contains("재생성 변주값: quiz-session-public-id-2");
+        assertThat(promptCaptor.getAllValues().get(2).userMessage())
+                .contains("재생성 변주값: quiz-session-public-id-3");
+        verify(questionRepository, never()).save(any());
+        verifyNoInteractions(questionOptionRepository, questionAnswerRepository);
     }
 
     @Test
@@ -157,7 +227,9 @@ class QuizGenerationJobProcessorTest {
         assertThat(job.isRetryable()).isTrue();
         assertThat(quizSession.getStatus()).isEqualTo("failed");
         assertThat(quizSession.getFailReason()).isEqualTo("AOAI 호출 실패");
-        verifyNoInteractions(questionRepository, questionOptionRepository, questionAnswerRepository);
+        verify(quizAiClient).generate(any());
+        verify(questionRepository, never()).save(any());
+        verifyNoInteractions(questionOptionRepository, questionAnswerRepository);
     }
 
     @Test
@@ -186,10 +258,13 @@ class QuizGenerationJobProcessorTest {
         when(quizGenerationJobRepository.findById(900L)).thenReturn(Optional.of(job));
         when(quizSessionRepository.findByIdAndUserIdAndDeletedAtIsNull(500L, 1L)).thenReturn(Optional.of(quizSession));
         when(subjectRepository.findByIdAndUserIdAndDeletedAtIsNull(10L, 1L)).thenReturn(Optional.of(subject));
+        when(subjectMetadataResolver.resolve(subject)).thenReturn(Map.of("시험 유형", "university"));
         when(quizSessionScopeRepository.findAllByQuizSessionId(500L))
                 .thenReturn(List.of(QuizSessionScope.create(500L, 100L, 200L)));
         when(partRepository.findAllByIdInAndUserIdAndDeletedAtIsNull(List.of(100L), 1L))
                 .thenReturn(List.of(part));
+        when(questionRepository.findRecentBodiesByScope(1L, 10L, List.of(100L), PageRequest.of(0, 100)))
+                .thenReturn(List.of("관계형 데이터베이스의 기본키 역할은 무엇인가?"));
     }
 
     private void stubQuestionSave() {
@@ -265,6 +340,35 @@ class QuizGenerationJobProcessorTest {
                           "options": [
                             {"optionNumber": 1, "content": "현실 세계의 데이터를 추상화한다"},
                             {"optionNumber": 2, "content": "서버 배포만 자동화한다"},
+                            {"optionNumber": 3, "content": "UI 색상만 정리한다"},
+                            {"optionNumber": 4, "content": "로그 파일만 삭제한다"}
+                          ],
+                          "answerValue": "1",
+                          "correctExplanation": "데이터 모델링은 현실 데이터를 추상화합니다.",
+                          "incorrectExplanation": "다른 선택지는 데이터 모델링의 핵심과 맞지 않습니다."
+                        }
+                      ]
+                    }
+                    """, QuizAiGenerationResponse.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private QuizAiGenerationResponse invalidAiResponse() {
+        try {
+            return new ObjectMapper().readValue("""
+                    {
+                      "questions": [
+                        {
+                          "partId": "part-public-id",
+                          "questionType": "multiple_choice",
+                          "difficulty": "medium",
+                          "summary": "데이터모델링핵심",
+                          "body": "다음 중 데이터 모델링의 설명으로 올바른 것은?",
+                          "options": [
+                            {"optionNumber": 1, "content": "현실 세계의 데이터를 추상화한다"},
+                            {"optionNumber": 2, "content": "현실 세계의 데이터를 추상화한다!"},
                             {"optionNumber": 3, "content": "UI 색상만 정리한다"},
                             {"optionNumber": 4, "content": "로그 파일만 삭제한다"}
                           ],
