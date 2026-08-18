@@ -189,7 +189,7 @@ public class QuizGenerationJobProcessor {
                 part.getChapterId(),
                 part.getId(),
                 generatedQuestion.getQuestionType(),
-                generatedQuestion.getDifficulty(),
+                quizSession.getDifficulty(),
                 generatedQuestion.getBody(),
                 generatedQuestion.getSummary(),
                 generatedQuestion.getCorrectExplanation(),

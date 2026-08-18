@@ -42,6 +42,9 @@ public class QuizGenerationPromptBuilder {
                 - 타이머 초: %s
                 - 난이도: %s
 
+                [난이도 출제 기준]
+                %s
+
                 [출제 범위]
                 %s
 
@@ -66,8 +69,42 @@ public class QuizGenerationPromptBuilder {
                 valueOrNone(request.timerScope()),
                 valueOrNone(request.timerSeconds()),
                 request.difficulty(),
+                difficultyGuideline(request.difficulty()),
                 partContext(request)
         );
+    }
+
+    private String difficultyGuideline(String difficulty) {
+        String profile = switch (difficulty) {
+            case "easy" -> """
+                    - 표시 난이도: 쉬움
+                    - 문항 구성: 핵심 개념 80% / 기본 응용 20%
+                    - 핵심 개념: 자료에 명시된 정의, 원리, 핵심 용어를 직접 확인한다.
+                    - 기본 응용: 한 단계 추론으로 배운 개념을 익숙한 상황에 적용한다.
+                    - 복합 추론이나 지엽적인 함정보다 핵심 이해 확인을 우선한다.
+                    """;
+            case "medium" -> """
+                    - 표시 난이도: 보통
+                    - 문항 구성: 핵심 개념 40% / 지엽 사실 40% / 기본 응용 20%
+                    - 핵심 개념: 자료의 주요 정의와 원리를 확인한다.
+                    - 지엽 사실: 자료에 명시된 세부 조건, 특징, 비교 요소를 확인한다.
+                    - 기본 응용: 한 단계 추론으로 배운 개념을 상황에 적용한다.
+                    """;
+            case "hard" -> """
+                    - 표시 난이도: 어려움
+                    - 문항 구성: 지엽 사실 30% / 개념 응용 50% / 복합 사고 20%
+                    - 지엽 사실: 자료의 세부 조건과 예외를 구분한다.
+                    - 개념 응용: 학습한 개념을 새로운 사례나 조건에 적용한다.
+                    - 복합 사고: 둘 이상의 개념과 근거를 연결해 결론을 도출한다.
+                    - 문장만 어렵게 바꾸지 말고 실제 추론 단계와 적용 깊이를 높인다.
+                    """;
+            default -> throw new IllegalArgumentException("지원하지 않는 퀴즈 난이도입니다.");
+        };
+        return """
+                %s
+                - 문제 수가 적어 정확한 비율 분배가 불가능하면 비중이 큰 출제 유형을 우선한다.
+                - 모든 문항의 difficulty 필드값: %s
+                """.formatted(profile.strip(), difficulty).strip();
     }
 
     private String subjectMetadata(QuizAiGenerationRequest request) {

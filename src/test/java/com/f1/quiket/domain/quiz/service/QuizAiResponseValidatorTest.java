@@ -117,7 +117,47 @@ class QuizAiResponseValidatorTest {
                 .hasMessage("AI 퀴즈 문항 수가 요청과 다릅니다.");
     }
 
+    @Test
+    void validate_throws_when_question_difficulty_differs_from_request() throws Exception {
+        QuizAiGenerationRequest request = request("multiple_choice", 4, 1, "easy");
+        QuizAiGenerationResponse response = response("""
+                {
+                  "questions": [
+                    {
+                      "partId": "part-public-id",
+                      "questionType": "multiple_choice",
+                      "difficulty": "hard",
+                      "summary": "정규화 핵심 개념",
+                      "body": "정규화의 목적은 무엇인가요?",
+                      "options": [
+                        {"optionNumber": 1, "content": "중복 최소화"},
+                        {"optionNumber": 2, "content": "중복 최대화"},
+                        {"optionNumber": 3, "content": "테이블 삭제"},
+                        {"optionNumber": 4, "content": "인덱스 제거"}
+                      ],
+                      "answerValue": "1",
+                      "correctExplanation": "정규화는 데이터 중복을 줄입니다.",
+                      "incorrectExplanation": "다른 선택지는 정규화 목적과 다릅니다."
+                    }
+                  ]
+                }
+                """);
+
+        assertThatThrownBy(() -> validator.validate(request, response))
+                .isInstanceOf(CustomException.class)
+                .hasMessage("요청과 다른 난이도의 문항이 포함되었습니다.");
+    }
+
     private QuizAiGenerationRequest request(String quizType, Integer choiceCount, Integer questionCount) {
+        return request(quizType, choiceCount, questionCount, "medium");
+    }
+
+    private QuizAiGenerationRequest request(
+            String quizType,
+            Integer choiceCount,
+            Integer questionCount,
+            String difficulty
+    ) {
         return new QuizAiGenerationRequest(
                 subject(),
                 Map.of(),
@@ -129,7 +169,7 @@ class QuizAiResponseValidatorTest {
                 false,
                 null,
                 null,
-                "medium"
+                difficulty
         );
     }
 

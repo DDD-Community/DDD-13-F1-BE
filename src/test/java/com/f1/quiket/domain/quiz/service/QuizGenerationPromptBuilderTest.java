@@ -19,19 +19,7 @@ class QuizGenerationPromptBuilderTest {
     void build_includes_subject_parts_and_quiz_options() {
         Subject subject = subject(10L, "데이터베이스", "exam");
         Part part = part(100L, "018f8c2e-aaaa-7b6a-b9f0-111111111111", 20L, "정규화", "정규화는 중복을 줄이는 과정입니다.");
-        QuizAiGenerationRequest request = new QuizAiGenerationRequest(
-                subject,
-                Map.of("시험 유형", "university", "전공명", "통계학"),
-                List.of(part),
-                "multiple_choice",
-                4,
-                3,
-                "one_by_one",
-                true,
-                "per_question",
-                60,
-                "medium"
-        );
+        QuizAiGenerationRequest request = request(subject, part, "medium");
 
         QuizAiGenerationPrompt prompt = promptBuilder.build(request);
 
@@ -48,6 +36,46 @@ class QuizGenerationPromptBuilderTest {
                 .contains("018f8c2e-aaaa-7b6a-b9f0-111111111111")
                 .contains("정규화는 중복을 줄이는 과정입니다.")
                 .contains("questions 배열 길이는 요청 문제 수와 정확히 같아야 한다");
+    }
+
+    @Test
+    void build_includes_difficulty_specific_guidelines() {
+        Subject subject = subject(10L, "통계학", "exam");
+        Part part = part(100L, "part-public-id", 20L, "추정", "통계적 추정은 표본으로 모집단을 판단합니다.");
+
+        String easyPrompt = promptBuilder.build(request(subject, part, "easy")).userMessage();
+        String mediumPrompt = promptBuilder.build(request(subject, part, "medium")).userMessage();
+        String hardPrompt = promptBuilder.build(request(subject, part, "hard")).userMessage();
+
+        assertThat(easyPrompt)
+                .contains("표시 난이도: 쉬움")
+                .contains("핵심 개념 80% / 기본 응용 20%")
+                .contains("모든 문항의 difficulty 필드값: easy");
+        assertThat(mediumPrompt)
+                .contains("표시 난이도: 보통")
+                .contains("핵심 개념 40% / 지엽 사실 40% / 기본 응용 20%")
+                .contains("모든 문항의 difficulty 필드값: medium");
+        assertThat(hardPrompt)
+                .contains("표시 난이도: 어려움")
+                .contains("지엽 사실 30% / 개념 응용 50% / 복합 사고 20%")
+                .contains("실제 추론 단계와 적용 깊이를 높인다")
+                .contains("모든 문항의 difficulty 필드값: hard");
+    }
+
+    private QuizAiGenerationRequest request(Subject subject, Part part, String difficulty) {
+        return new QuizAiGenerationRequest(
+                subject,
+                Map.of("시험 유형", "university", "전공명", "통계학"),
+                List.of(part),
+                "multiple_choice",
+                4,
+                3,
+                "one_by_one",
+                true,
+                "per_question",
+                60,
+                difficulty
+        );
     }
 
     private Subject subject(Long id, String name, String purpose) {
